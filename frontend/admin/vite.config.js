@@ -38,7 +38,12 @@ const proxy = {
     rewrite: (path) => path.replace(/^\/api/, ''),
   },
 };
-const allowedHosts = ['app.example.com', 'localhost', '.example.com'];
+// Extra hosts (e.g. a cloudflared tunnel domain) come from the environment so
+// deployment-specific domains never live in the repo: VITE_EXTRA_ALLOWED_HOSTS=a.example.com,.example.com
+const allowedHosts = [
+  'localhost',
+  ...(process.env.VITE_EXTRA_ALLOWED_HOSTS?.split(',').map((h) => h.trim()).filter(Boolean) ?? []),
+];
 
 export default defineConfig({
   plugins: [react(), noCacheWebApp()],
