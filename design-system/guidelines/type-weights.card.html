@@ -1,0 +1,26 @@
+<!-- @dsCard group="Type" viewport="700x170" name="Weights" subtitle="Heebo weights used across the UI" -->
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  html, body { margin: 0; background: var(--bg); }
+  body { font-family: var(--font-sans); color: var(--text); padding: 20px; }
+  .row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .w { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+  .big { font-size: 1.6rem; }
+  .tag { font-size: var(--fs-xs); color: var(--text-dim); font-family: ui-monospace, monospace; margin-top: 6px; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="w"><div class="big" style="font-weight:400">אילוצים</div><div class="tag">400 · regular — body</div></div>
+    <div class="w"><div class="big" style="font-weight:500">אילוצים</div><div class="tag">500 / 550 — controls</div></div>
+    <div class="w"><div class="big" style="font-weight:600">אילוצים</div><div class="tag">600 — labels, badges</div></div>
+    <div class="w"><div class="big" style="font-weight:650">אילוצים</div><div class="tag">650 — page H2</div></div>
+    <div class="w"><div class="big" style="font-weight:700">אילוצים</div><div class="tag">700 — brand, day names</div></div>
+    <div class="w"><div class="big" style="font-weight:800">אילוצים</div><div class="tag">800 — reserved / emphasis</div></div>
+  </div>
+</body>
+</html>

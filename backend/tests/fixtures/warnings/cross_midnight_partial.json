@@ -1,0 +1,116 @@
+{
+  "input": {
+    "board": {
+      "rows": [
+        {
+          "position_id": "pos1",
+          "name": "ארנונה",
+          "band": "night",
+          "required_attributes": [],
+          "is_event": false,
+          "event_required_count": null,
+          "cells": [
+            {
+              "day_index": 0,
+              "active": true,
+              "window": {
+                "start": "23:00",
+                "end": "07:00"
+              },
+              "is_override": false
+            },
+            {
+              "day_index": 1,
+              "active": false,
+              "window": null,
+              "is_override": false
+            },
+            {
+              "day_index": 2,
+              "active": false,
+              "window": null,
+              "is_override": false
+            },
+            {
+              "day_index": 3,
+              "active": false,
+              "window": null,
+              "is_override": false
+            },
+            {
+              "day_index": 4,
+              "active": false,
+              "window": null,
+              "is_override": false
+            },
+            {
+              "day_index": 5,
+              "active": false,
+              "window": null,
+              "is_override": false
+            },
+            {
+              "day_index": 6,
+              "active": false,
+              "window": null,
+              "is_override": false
+            }
+          ]
+        }
+      ]
+    },
+    "assignments_by_cell": {
+      "pos1:0": [
+        {
+          "user_id": "u1",
+          "user_full_name": "נתן",
+          "user_roles": [],
+          "segment_start": null,
+          "segment_end": null
+        }
+      ]
+    },
+    "pool": [
+      {
+        "id": "u1",
+        "full_name": "נתן",
+        "roles": [],
+        "availability": {
+          "0": [
+            {
+              "start": "23:00",
+              "end": "03:00"
+            }
+          ]
+        }
+      }
+    ],
+    "policy": {
+      "rest_minutes": 480,
+      "max_consecutive_days": 6,
+      "max_continuous_minutes": 720
+    }
+  },
+  "expected": {
+    "by_cell": {
+      "pos1:0": [
+        {
+          "type": "partial_coverage",
+          "guard_id": "u1",
+          "guard_name": "נתן",
+          "gaps": [
+            {
+              "start": "03:00",
+              "end": "07:00"
+            }
+          ]
+        }
+      ]
+    },
+    "by_guard": {},
+    "summary": {
+      "total": 1,
+      "partial_coverage": 1
+    }
+  }
+}

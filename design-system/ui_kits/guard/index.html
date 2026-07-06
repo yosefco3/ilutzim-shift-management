@@ -1,0 +1,114 @@
+<!-- @dsCard group="Guard Mini-App" viewport="480x720" name="Guard Submission" subtitle="Telegram mini-app — weekly availability form" -->
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>אילוצים — הגשת זמינות</title>
+<link rel="stylesheet" href="../../styles.css" />
+<link rel="stylesheet" href="guard-kit.css" />
+<style>
+  html, body { margin: 0; background: var(--tg-secondary); min-height: 100%; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel">
+  const DAY_NAMES = ['יום ראשון', 'יום שני', 'יום שלישי', 'יום רביעי', 'יום חמישי', 'יום שישי', 'שבת'];
+  const SHIFTS = [
+    { key: 'morning',   label: 'בוקר', from: '07:00', to: '16:30' },
+    { key: 'afternoon', label: 'ערב',  from: '15:00', to: '23:00' },
+    { key: 'night',     label: 'לילה', from: '23:00', to: '07:00' },
+  ];
+
+  function emptyDay() {
+    return { morning: { active: false }, afternoon: { active: false }, night: { active: false } };
+  }
+  // seed a couple of selections so the specimen is not empty
+  function seed() {
+    const days = DAY_NAMES.map(emptyDay);
+    days[0].morning = { active: true, from: '07:00', to: '16:30' };
+    days[3].night = { active: true, from: '23:00', to: '07:00' };
+    days[4].afternoon = { active: true, from: '15:00', to: '23:00' };
+    return days;
+  }
+
+  function ShiftRow({ shift, state, onToggle, onHours }) {
+    return (
+      <div className="shift-row">
+        <button type="button" className={`shift-toggle-btn ${state.active ? 'on' : 'off'}`} onClick={onToggle}>
+          {shift.label}
+        </button>
+        {state.active && (
+          <div className="shift-hours">
+            <label className="hour-label">משעה
+              <input className="hour-input" inputMode="numeric" value={state.from ?? shift.from}
+                onChange={(e) => onHours('from', e.target.value)} />
+            </label>
+            <label className="hour-label">עד שעה
+              <input className="hour-input" inputMode="numeric" value={state.to ?? shift.to}
+                onChange={(e) => onHours('to', e.target.value)} />
+            </label>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function App() {
+    const [days, setDays] = React.useState(seed);
+    const [notes, setNotes] = React.useState('');
+    const [submitted, setSubmitted] = React.useState(false);
+
+    const toggle = (di, sk) => setDays((ds) => ds.map((d, i) => i !== di ? d : {
+      ...d, [sk]: d[sk].active
+        ? { active: false }
+        : { active: true, from: SHIFTS.find((s) => s.key === sk).from, to: SHIFTS.find((s) => s.key === sk).to },
+    }));
+    const setHours = (di, sk, field, val) => setDays((ds) => ds.map((d, i) => i !== di ? d : { ...d, [sk]: { ...d[sk], [field]: val } }));
+
+    if (submitted) {
+      return (
+        <div className="guard-layout">
+          <div className="success-card">
+            <div className="success-icon">✅</div>
+            <div className="success-title">האילוצים נשלחו בהצלחה!</div>
+            <button className="submit-btn" style={{ maxWidth: 220, margin: '0 auto' }} onClick={() => setSubmitted(false)}>עריכת ההגשה</button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="guard-layout">
+        <div className="week-info"><span className="week-label">שבוע 25 · 15.06–21.06</span></div>
+        <div className="days-list">
+          {days.map((day, di) => (
+            <div className="day-row" key={di}>
+              <div className="day-header"><span className="day-name">{DAY_NAMES[di]}</span></div>
+              <div className="day-shifts">
+                {SHIFTS.map((s) => (
+                  <ShiftRow key={s.key} shift={s} state={day[s.key]}
+                    onToggle={() => toggle(di, s.key)}
+                    onHours={(field, val) => setHours(di, s.key, field, val)} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="notes-section">
+          <label className="notes-label">הערות כלליות</label>
+          <textarea className="notes-input" placeholder="הערות נוספות (אופציונלי)..." value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </div>
+        <button type="button" className="submit-btn" onClick={() => setSubmitted(true)}>שלח אילוצים</button>
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

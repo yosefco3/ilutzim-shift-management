@@ -1,0 +1,284 @@
+/* ──────────────────────────────────────────────────────────
+   Guard Submission Area — RTL styles for Telegram Mini App
+   All selectors scoped under .guard-layout to avoid admin conflicts
+   ────────────────────────────────────────────────────────── */
+
+/* ── Variables & Base ────────────────────────────────────── */
+.guard-layout {
+  --tg-bg: var(--tg-theme-bg-color, #ffffff);
+  --tg-text: var(--tg-theme-text-color, #222222);
+  --tg-hint: var(--tg-theme-hint-color, #999999);
+  --tg-btn: var(--tg-theme-button-color, #3390ec);
+  --tg-btn-text: var(--tg-theme-button-text-color, #ffffff);
+  --tg-secondary: var(--tg-theme-secondary-bg-color, #f0f0f0);
+  --tg-danger: #e53935;
+  --tg-success: #43a047;
+  --radius: 10px;
+
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  background: var(--tg-bg);
+  color: var(--tg-text);
+  direction: rtl;
+  line-height: 1.5;
+  padding: 12px;
+  max-width: 480px;
+  margin: 0 auto;
+  font-size: 15px;
+}
+
+/* ── Lock Banner ─────────────────────────────────────────── */
+.guard-layout .lock-banner {
+  background: var(--tg-danger);
+  color: #fff;
+  text-align: center;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+/* ── Error / Success Banners ─────────────────────────────── */
+.guard-layout .error-banner {
+  background: #fce4ec;
+  color: var(--tg-danger);
+  text-align: center;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+}
+
+.guard-layout .success-banner {
+  background: #e8f5e9;
+  color: var(--tg-success);
+  text-align: center;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+}
+
+.guard-layout .warning-banner {
+  background: #fff3e0;
+  color: #8a5300;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  margin: 12px 0;
+  font-size: 0.95rem;
+}
+
+.guard-layout .warning-banner ul {
+  margin: 6px 0 0;
+  padding-inline-start: 20px;
+}
+
+/* ── Loading ─────────────────────────────────────────────── */
+.guard-layout .loading {
+  text-align: center;
+  padding: 40px 0;
+  color: var(--tg-hint);
+  font-size: 1.1rem;
+}
+
+/* ── Week Info ───────────────────────────────────────────── */
+.guard-layout .week-info {
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.guard-layout .week-label {
+  font-weight: 700;
+  font-size: 1.15rem;
+}
+
+/* ── Day Row ─────────────────────────────────────────────── */
+.guard-layout .day-row {
+  background: var(--tg-secondary);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+
+.guard-layout .day-row.blocked {
+  opacity: 0.55;
+}
+
+.guard-layout .day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.guard-layout .day-name {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.guard-layout .blocked-badge {
+  background: var(--tg-danger);
+  color: #fff;
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+/* ── Shift Rows ──────────────────────────────────────────── */
+.guard-layout .day-shifts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Single shift row — toggle + hours */
+.guard-layout .shift-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Shift toggle button — full-width, mobile-friendly */
+.guard-layout .shift-toggle-btn {
+  border: 2px solid var(--tg-btn);
+  background: transparent;
+  color: var(--tg-btn);
+  border-radius: 8px;
+  padding: 8px 0;
+  width: 100%;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+
+.guard-layout .shift-toggle-btn.on {
+  background: var(--tg-btn);
+  color: var(--tg-btn-text);
+}
+
+.guard-layout .shift-toggle-btn.off {
+  border-color: var(--tg-hint);
+  color: var(--tg-hint);
+}
+
+.guard-layout .shift-toggle-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Shift hours — shown when toggle is on */
+.guard-layout .shift-hours {
+  display: flex;
+  gap: 10px;
+  padding: 2px 4px 0 4px;
+}
+
+.guard-layout .hour-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--tg-hint);
+}
+
+.guard-layout .hour-input {
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 0.85rem;
+  background: var(--tg-bg);
+  color: var(--tg-text);
+  max-width: 100px;
+}
+
+/* Time dropdowns reuse .hour-input but need a pointer + room for the arrow. */
+select.hour-input {
+  cursor: pointer;
+}
+
+/* ── Notes ───────────────────────────────────────────────── */
+.guard-layout .notes-section {
+  margin-top: 14px;
+}
+
+.guard-layout .notes-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.guard-layout .notes-input {
+  width: 100%;
+  min-height: 70px;
+  border: 1px solid #ccc;
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  font-size: 0.95rem;
+  resize: vertical;
+  background: var(--tg-bg);
+  color: var(--tg-text);
+  font-family: inherit;
+}
+
+.guard-layout .notes-input:disabled {
+  opacity: 0.5;
+}
+
+/* ── Submit Button ───────────────────────────────────────── */
+.guard-layout .submit-btn {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px;
+  background: var(--tg-btn);
+  color: var(--tg-btn-text);
+  border: none;
+  border-radius: var(--radius);
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.guard-layout .submit-btn:active {
+  opacity: 0.8;
+}
+
+/* ── Success Page ─────────────────────────────────────────── */
+.guard-layout .success-card {
+  text-align: center;
+  padding: 32px 16px;
+  background: var(--tg-secondary);
+  border-radius: var(--radius);
+  margin-top: 40px;
+}
+
+.guard-layout .success-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+}
+
+.guard-layout .success-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 24px;
+  color: var(--tg-text);
+}
+
+.guard-layout .success-edit-btn {
+  display: inline-block;
+  background: var(--tg-btn);
+  color: var(--tg-btn-text);
+  text-decoration: none;
+  padding: 10px 24px;
+  border-radius: var(--radius);
+  font-weight: 700;
+  font-size: 1rem;
+  transition: opacity 0.15s;
+}
+
+.guard-layout .success-edit-btn:active {
+  opacity: 0.8;
+}

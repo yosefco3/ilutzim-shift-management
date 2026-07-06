@@ -1,0 +1,58 @@
+/* ===========================================================================
+   Guard submission area — Telegram Mini App styles, ported from the live app's
+   guard.css. Light, theme-driven; uses the --tg-* tokens from ../../styles.css
+   (which fall back to Telegram's runtime theme variables in production).
+   =========================================================================== */
+
+.guard-layout {
+  font-family: var(--font-tg);
+  background: var(--tg-bg);
+  color: var(--tg-text);
+  direction: rtl;
+  line-height: var(--lh-base);
+  padding: 12px;
+  max-width: var(--guard-max);
+  margin: 0 auto;
+  font-size: 15px;
+}
+
+.guard-layout .lock-banner { background: var(--tg-danger); color: #fff; text-align: center; padding: 10px 14px; border-radius: var(--radius); font-weight: var(--fw-semibold); margin-bottom: 12px; }
+.guard-layout .warning-banner { background: #fff3e0; color: #8a5300; padding: 10px 14px; border-radius: var(--radius); margin: 12px 0; font-size: 0.95rem; }
+.guard-layout .warning-banner ul { margin: 6px 0 0; padding-inline-start: 20px; }
+
+.guard-layout .week-info { text-align: center; margin-bottom: 14px; }
+.guard-layout .week-label { font-weight: var(--fw-bold); font-size: 1.15rem; }
+
+.guard-layout .day-row { background: var(--tg-secondary); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 10px; }
+.guard-layout .day-row.blocked { opacity: 0.55; }
+.guard-layout .day-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.guard-layout .day-name { font-weight: var(--fw-bold); font-size: 1rem; }
+
+.guard-layout .day-shifts { display: flex; flex-direction: column; gap: 8px; }
+.guard-layout .shift-row { display: flex; flex-direction: column; gap: 4px; }
+.guard-layout .shift-toggle-btn {
+  border: 2px solid var(--tg-btn); background: transparent; color: var(--tg-btn);
+  border-radius: 8px; padding: 8px 0; width: 100%; font-size: 0.95rem; font-weight: var(--fw-semibold);
+  cursor: pointer; transition: all .15s; text-align: center; font-family: inherit;
+}
+.guard-layout .shift-toggle-btn.on { background: var(--tg-btn); color: var(--tg-btn-text); }
+.guard-layout .shift-toggle-btn.off { border-color: var(--tg-hint); color: var(--tg-hint); }
+
+.guard-layout .shift-hours { display: flex; gap: 10px; padding: 2px 4px 0; }
+.guard-layout .hour-label { display: flex; align-items: center; gap: 4px; font-size: 0.8rem; color: var(--tg-hint); }
+.guard-layout .hour-input { border: 1px solid #ccc; border-radius: 6px; padding: 4px 6px; font-size: 0.85rem; background: var(--tg-bg); color: var(--tg-text); max-width: 100px; font-family: inherit; }
+
+.guard-layout .notes-section { margin-top: 14px; }
+.guard-layout .notes-label { display: block; font-weight: var(--fw-semibold); margin-bottom: 4px; }
+.guard-layout .notes-input { width: 100%; min-height: 70px; border: 1px solid #ccc; border-radius: var(--radius); padding: 8px 10px; font-size: 0.95rem; resize: vertical; background: var(--tg-bg); color: var(--tg-text); font-family: inherit; box-sizing: border-box; }
+
+.guard-layout .submit-btn {
+  display: block; width: 100%; margin-top: 16px; padding: 12px;
+  background: var(--tg-btn); color: var(--tg-btn-text); border: none; border-radius: var(--radius);
+  font-size: 1.05rem; font-weight: var(--fw-bold); cursor: pointer; transition: opacity .15s; font-family: inherit;
+}
+.guard-layout .submit-btn:active { opacity: 0.8; }
+
+.guard-layout .success-card { text-align: center; padding: 32px 16px; background: var(--tg-secondary); border-radius: var(--radius); margin-top: 40px; }
+.guard-layout .success-icon { font-size: 3rem; margin-bottom: 16px; }
+.guard-layout .success-title { font-size: 1.2rem; font-weight: var(--fw-bold); margin-bottom: 24px; color: var(--tg-text); }

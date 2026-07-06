@@ -1,0 +1,41 @@
+# ── Docker Compose — Ilutzim App ──────────────────────────────────────────
+# Usage:
+#   docker compose up -d              # Start production stack
+#   docker compose -f docker-compose.yml -f docker-compose.test.yml up --abort-on-container-exit
+#                                     # Run E2E tests
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ilutzim
+      POSTGRES_PASSWORD: ilutzim
+      POSTGRES_DB: ilutzim
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ilutzim"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.docker
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend/alembic:/app/alembic
+
+volumes:
+  pgdata:

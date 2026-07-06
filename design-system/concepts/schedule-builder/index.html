@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>בניית סידור — קונספט</title>
+<link rel="stylesheet" href="../../styles.css" />
+<style>
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-sans); }
+  * { box-sizing: border-box; }
+  ::selection { background: var(--primary-soft); }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; border: 2px solid var(--bg); }
+  button { font-family: inherit; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="data.js"></script>
+<script src="logic.js"></script>
+<script type="text/babel">
+const { useState, useMemo, useRef, useEffect } = React;
+const { POSITIONS, GUARDS, DAYS, SHIFTS, ATTRS } = window.SB;
+const L = window.SBLogic;
+
+const ATTR_ICON = { armed: '🔫', roni: '🎯', vehicle: '🚗', walking: '🚶' };
+
+function keyOf(posId, day) { return posId + '@' + day; }
+
+// ── Guard chip in the right rail ─────────────────────────────────
+function GuardChip({ guard, remaining, budget, selected, depleted, onClick, onDragStart, onDragEnd }) {
+  const pct = budget > 0 ? Math.max(0, Math.min(1, (budget - remaining) / budget)) : 0;
+  const meterColor = remaining <= 0 ? 'var(--danger)' : remaining <= 6 ? 'var(--warning)' : 'var(--primary)';
+  return (
+    <div
+      draggable
+      onDragStart={(e) => { e.dataTransfer.setData('text/plain', guard.id); onDragStart(guard.id); }}
+      onDragEnd={onDragEnd}
+      onClick={() => onClick(guard.id)}
+      style={{
+        border: `1px solid ${selected ? 'var(--primary)' : 'var(--border)'}`,
+        background: selected ? 'var(--primary-soft)' : 'var(--surface)',
+        borderRadius: 'var(--radius)', padding: '8px 10px', cursor: 'grab',
+        opacity: depleted ? 0.5 : 1,
+        boxShadow: selected ? '0 0 0 3px var(--primary-soft)' : 'none',
+        transition: 'border-color .15s, background .15s, box-shadow .15s, opacity .2s',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+        <span style={{ fontWeight: 'var(--fw-semibold)', fontSize: 'var(--fs-base)' }}>{guard.name}</span>
+        <span style={{ fontSize: 'var(--fs-xs)', color: remaining <= 0 ? 'var(--on-danger)' : 'var(--text-dim)', fontWeight: 'var(--fw-semibold)', whiteSpace: 'nowrap' }}>
+          {remaining <= 0 ? 'מנוצל' : `נותרו ${remaining % 1 === 0 ? remaining : remaining.toFixed(1)} ש'`}
+        </span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5 }}>
+        <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)' }}>{guard.role}</span>
+        <span style={{ display: 'flex', gap: 3, marginInlineStart: 'auto' }}>
+          {guard.attrs.map((a) => (
+            <span key={a} title={ATTRS[a]} style={{ fontSize: '0.72rem' }}>{ATTR_ICON[a]}</span>
+          ))}
+        </span>
+      </div>
+      <div style={{ height: 4, borderRadius: 999, background: 'var(--surface-2)', marginTop: 7, overflow: 'hidden' }}>
+        <div style={{ width: `${pct * 100}%`, height: '100%', background: meterColor, transition: 'width .25s, background .25s' }} />
+      </div>
+    </div>
+  );
+}
+
+// ── Candidate popover (cell-first flow) ──────────────────────────
+function CandidatePopover({ cell, positions, guards, derived, assignments, onPick, onClose }) {
+  const pos = positions.find((p) => p.id === cell.posId);
+  const cands = guards
+    .map((g) => ({ g, cov: L.coverage(g.avail[cell.day], pos.hours), rem: derived[g.id].remaining }))
+    .filter((c) => c.cov !== 'none')
+    .sort((a, b) => b.rem - a.rem);
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(5,7,12,.4)' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        position: 'absolute', top: '50%', right: '50%', transform: 'translate(50%,-50%)',
+        width: 320, maxHeight: '70vh', overflow: 'auto',
+        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)',
+        boxShadow: 'var(--shadow-lg)', padding: 14,
+      }}>
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: 'var(--ls-caps)' }}>מי זמין למשבצת</div>
+          <div style={{ fontWeight: 'var(--fw-heading)', fontSize: 'var(--fs-lg)' }}>{pos.name} · {DAYS[cell.day].name}</div>
+          <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-muted)' }}>{pos.hours.replace('-', '–')}{pos.requires.length ? ' · דורש: ' + pos.requires.map((r) => ATTRS[r]).join(', ') : ''}</div>
+        </div>
+        {cands.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-base)', padding: '12px 0' }}>אין מאבטח זמין שדיווח לשעות אלה.</div>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {cands.map(({ g, cov, rem }) => {
+            const miss = pos.requires.filter((r) => !g.attrs.includes(r));
+            return (
+              <div key={g.id} onClick={() => onPick(g.id)} style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', cursor: 'pointer',
+                border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--surface-2)',
+              }}>
+                <span style={{ fontWeight: 'var(--fw-semibold)', fontSize: 'var(--fs-base)' }}>{g.name}</span>
+                {cov === 'partial' && <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--on-warning)' }}>חלקי</span>}
+                {miss.length > 0 && <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--on-danger)' }}>חסר {miss.map((r) => ATTRS[r]).join(', ')}</span>}
+                <span style={{ marginInlineStart: 'auto', fontSize: 'var(--fs-xs)', color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>{rem <= 0 ? 'מנוצל' : `${rem % 1 === 0 ? rem : rem.toFixed(1)} ש'`}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── A single board cell ──────────────────────────────────────────
+function Cell({ pos, day, guard, warns, paint, selectedActive, onClick, onDrop, onRemove }) {
+  const [over, setOver] = useState(false);
+  const [hov, setHov] = useState(false);
+  const inactive = !L.posActive(pos, day);
+
+  let bg = 'transparent', border = '1px solid var(--border)', content = null, accent = null;
+
+  if (inactive) {
+    return <td style={{ ...cellTd, background: 'repeating-linear-gradient(135deg, transparent, transparent 5px, rgba(255,255,255,.025) 5px, rgba(255,255,255,.025) 10px)', color: 'var(--text-dim)' }}>
+      <span style={{ fontSize: 'var(--fs-xs)' }}>—</span>
+    </td>;
+  }
+
+  if (guard) {
+    const hasWarn = warns.length > 0;
+    accent = hasWarn ? (warns.some((w) => w.type === 'avail' || w.type === 'double') ? 'var(--danger)' : 'var(--warning)') : 'var(--success)';
+    bg = hasWarn ? (accent === 'var(--danger)' ? 'rgba(239,68,68,0.16)' : 'rgba(245,158,11,0.16)') : '#242938';
+    content = (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, width: '100%' }}>
+        <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 'var(--fw-semibold)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{guard.name}</span>
+        {hasWarn && <span title={warns.map((w) => w.text).join(' · ')} style={{ marginInlineStart: 'auto', color: accent, fontWeight: 'var(--fw-bold)', cursor: 'help' }}>!</span>}
+        <button onClick={(e) => { e.stopPropagation(); onRemove(); }} title="הסר שיבוץ"
+          style={{ marginInlineStart: hasWarn ? 0 : 'auto', background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontSize: '0.95rem', lineHeight: 1, padding: 0 }}>×</button>
+      </div>
+    );
+  } else if (paint === 'full') {
+    bg = 'rgba(99,102,241,0.30)'; border = '1px solid rgba(99,102,241,0.85)';
+  } else if (paint === 'partial') {
+    bg = 'rgba(245,158,11,0.16)'; border = '1px dashed rgba(245,158,11,0.65)';
+  }
+
+  // empty + no active selection: a quiet ׹+׹ hint on hover (cell-first discovery)
+  if (!guard && !selectedActive && hov) {
+    content = <span style={{ color: 'var(--text-dim)', fontSize: '1rem', display: 'block', textAlign: 'center', width: '100%' }}>+</span>;
+  }
+
+  const dimmed = selectedActive && !guard && (paint === 'none');
+
+  return (
+    <td
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      onDragOver={(e) => { e.preventDefault(); setOver(true); }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => { e.preventDefault(); setOver(false); onDrop(e.dataTransfer.getData('text/plain')); }}
+      style={{
+        ...cellTd,
+        background: over ? 'rgba(99,102,241,0.45)' : bg,
+        border: over ? '1px solid #6366f1' : border,
+        borderInlineStart: accent ? `3px solid ${accent}` : (over ? '1px solid #6366f1' : border),
+        opacity: dimmed ? 0.35 : 1,
+        cursor: inactive ? 'default' : 'pointer',
+      }}
+    >
+      {content}
+    </td>
+  );
+}
+
+const cellTd = {
+  minWidth: 116, width: 116, height: 38, padding: '0 8px',
+  textAlign: 'right', verticalAlign: 'middle', borderRadius: 0,
+  transition: 'border-color .12s, opacity .15s',
+};
+
+// ── Main app ─────────────────────────────────────────────────────
+function App() {
+  const [shift, setShift] = useState('morning');
+  const [assignments, setAssignments] = useState({});
+  const [selected, setSelected] = useState(null); // guardId being placed
+  const [candCell, setCandCell] = useState(null);
+  const [search, setSearch] = useState('');
+
+  // ESC clears the current selection / popover.
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') { setSelected(null); setCandCell(null); } };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const positions = POSITIONS[shift];
+  const allPositions = useMemo(() => [].concat(POSITIONS.morning, POSITIONS.evening, POSITIONS.night), []);
+
+  // derived per-guard remaining hours
+  const derived = useMemo(() => {
+    const d = {};
+    for (const g of GUARDS) {
+      const budget = L.weeklyBudget(g);
+      const used = L.assignedHours(g.id, assignments, allPositions);
+      d[g.id] = { budget, used, remaining: budget - used };
+    }
+    return d;
+  }, [assignments, allPositions]);
+
+  const sortedGuards = useMemo(
+    () => [...GUARDS].sort((a, b) => derived[b.id].remaining - derived[a.id].remaining),
+    [derived]
+  );
+
+  // search filter + active/done split (depleted guards drop to a quiet group)
+  const term = search.trim();
+  const filtered = term ? sortedGuards.filter((g) => g.name.includes(term)) : sortedGuards;
+  const activeGuards = filtered.filter((g) => derived[g.id].remaining > 0);
+  const doneGuards = filtered.filter((g) => derived[g.id].remaining <= 0);
+
+  const selectedGuard = selected ? GUARDS.find((g) => g.id === selected) : null;
+
+  function assign(posId, day, guardId) {
+    setAssignments((a) => ({ ...a, [keyOf(posId, day)]: guardId }));
+  }
+  function remove(posId, day) {
+    setAssignments((a) => { const n = { ...a }; delete n[keyOf(posId, day)]; return n; });
+  }
+
+  function onCellClick(pos, day) {
+    if (!L.posActive(pos, day)) return;
+    const k = keyOf(pos.id, day);
+    if (selected) {
+      assign(pos.id, day, selected);        // guard-first: place selected guard
+      return;
+    }
+    if (assignments[k]) return;             // filled + no selection: use × to remove
+    setCandCell({ posId: pos.id, day });    // cell-first: open candidate list
+  }
+
+  // counts
+  const cells = [];
+  positions.forEach((p) => DAYS.forEach((_, d) => { if (L.posActive(p, d)) cells.push(keyOf(p.id, d)); }));
+  const filled = cells.filter((k) => assignments[k]).length;
+  const empty = cells.length - filled;
+
+  return (
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* Top bar */}
+      <div style={{ background: 'var(--navbar-bg)', borderBottom: '1px solid var(--border)', padding: '10px 18px', display: 'flex', alignItems: 'center', gap: 18, flexShrink: 0 }}>
+        <div style={{ fontWeight: 'var(--fw-bold)', fontSize: 'var(--fs-lg)', letterSpacing: 'var(--ls-tight)' }}>בניית סידור</div>
+        <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-dim)' }}>שבוע 25 · 14–20.06 · פרופיל: שגרה</div>
+        {/* shift tabs */}
+        <div style={{ display: 'flex', gap: 4, marginInlineStart: 12 }}>
+          {SHIFTS.map((s) => (
+            <button key={s.id} onClick={() => { setShift(s.id); setSelected(null); }}
+              style={{
+                padding: '6px 16px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: 'var(--fs-base)', fontWeight: 'var(--fw-control)',
+                border: '1px solid ' + (shift === s.id ? 'var(--primary-ring)' : 'transparent'),
+                background: shift === s.id ? 'var(--primary-soft)' : 'transparent',
+                color: shift === s.id ? '#fff' : 'var(--text-muted)',
+              }}>{s.label}</button>
+          ))}
+        </div>
+        <div style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 14, fontSize: 'var(--fs-sm)' }}>
+          <span style={{ color: 'var(--on-success)' }}>● {filled} שובצו</span>
+          <span style={{ color: empty ? 'var(--on-danger)' : 'var(--text-dim)' }}>● {empty} ריקות</span>
+          <button onClick={() => { setAssignments({}); setSelected(null); }}
+            style={{ padding: '5px 12px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: 'var(--fs-sm)', border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-muted)' }}>אפס</button>
+        </div>
+      </div>
+
+      <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+        {/* Right rail — guards */}
+        <div style={{ width: 286, flexShrink: 0, borderInlineEnd: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '12px 14px 8px' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+              <div style={{ fontWeight: 'var(--fw-heading)', fontSize: 'var(--fs-base)' }}>מאבטחים</div>
+              <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-dim)' }}>ממוין לפי פנוי</div>
+            </div>
+            <input
+              value={search} onChange={(e) => setSearch(e.target.value)} placeholder="חיפוש מאבטח…"
+              style={{ width: '100%', marginTop: 8, padding: '6px 10px', background: 'var(--surface-2)', color: 'var(--text)',
+                border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--fs-sm)', fontFamily: 'inherit', direction: 'rtl', outline: 'none' }} />
+            <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-dim)', marginTop: 8, lineHeight: 1.5 }}>
+              {selectedGuard
+                ? <span style={{ color: 'var(--on-info)' }}>זמינות של {selectedGuard.name} צבועה — לחץ על משבצת לשיבוץ · ESC לביטול</span>
+                : 'לחץ מאבטח לצביעת זמינותו, ואז לחץ/גרור לתא. או לחץ תא ריק לרשימת זמינים.'}
+            </div>
+          </div>
+          <div style={{ flex: 1, overflow: 'auto', padding: '4px 14px 14px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+            {activeGuards.map((g) => (
+              <GuardChip key={g.id} guard={g}
+                remaining={derived[g.id].remaining} budget={derived[g.id].budget}
+                selected={selected === g.id} depleted={false}
+                onClick={(id) => setSelected((s) => (s === id ? null : id))}
+                onDragStart={(id) => setSelected(id)}
+                onDragEnd={() => {}} />
+            ))}
+            {activeGuards.length === 0 && (
+              <div style={{ color: 'var(--text-dim)', fontSize: 'var(--fs-sm)', padding: '10px 2px' }}>
+                {term ? 'אין תוצאות לחיפוש.' : 'כל המאבטחים נוצלו 🎉'}
+              </div>
+            )}
+            {doneGuards.length > 0 && (
+              <div style={{ marginTop: 6, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: 'var(--ls-caps)', marginBottom: 7 }}>הושלמו · {doneGuards.length}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  {doneGuards.map((g) => (
+                    <GuardChip key={g.id} guard={g}
+                      remaining={derived[g.id].remaining} budget={derived[g.id].budget}
+                      selected={selected === g.id} depleted={true}
+                      onClick={(id) => setSelected((s) => (s === id ? null : id))}
+                      onDragStart={(id) => setSelected(id)}
+                      onDragEnd={() => {}} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Board */}
+        <div style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
+          <table style={{ borderCollapse: 'separate', borderSpacing: 0, width: '100%' }}>
+            <thead>
+              <tr>
+                <th style={{ ...headTh, right: 0, zIndex: 3, minWidth: 132, width: 132, background: 'var(--surface-2)' }}>עמדה</th>
+                {DAYS.map((d, i) => (
+                  <th key={i} style={{ ...headTh, zIndex: 2 }}>
+                    <div style={{ fontWeight: 'var(--fw-semibold)', color: 'var(--text)' }}>{d.name}</div>
+                    <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-dim)', fontWeight: 400 }}>{d.date}</div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {positions.map((pos) => (
+                <tr key={pos.id}>
+                  <td style={{ ...posTd }}>
+                    <div style={{ fontWeight: 'var(--fw-semibold)', fontSize: 'var(--fs-sm)' }}>{pos.name}</div>
+                    <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-dim)' }}>
+                      {pos.hours.replace('-', '–')}
+                      {pos.requires.map((r) => <span key={r} title={ATTRS[r]} style={{ marginInlineStart: 3 }}>{ATTR_ICON[r]}</span>)}
+                    </div>
+                  </td>
+                  {DAYS.map((_, day) => {
+                    const k = keyOf(pos.id, day);
+                    const gId = assignments[k];
+                    const guard = gId ? GUARDS.find((g) => g.id === gId) : null;
+                    const warns = guard ? L.warnings(guard, pos, day, assignments, allPositions) : [];
+                    const paint = selectedGuard && !guard ? L.coverage(selectedGuard.avail[day], pos.hours) : null;
+                    return (
+                      <Cell key={day} pos={pos} day={day} guard={guard} warns={warns}
+                        paint={paint} selectedActive={!!selectedGuard}
+                        onClick={() => onCellClick(pos, day)}
+                        onDrop={(id) => L.posActive(pos, day) && assign(pos.id, day, id)}
+                        onRemove={() => remove(pos.id, day)} />
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Legend */}
+          <div style={{ display: 'flex', gap: 16, padding: '14px 16px', flexWrap: 'wrap', fontSize: 'var(--fs-xs)', color: 'var(--text-muted)' }}>
+            <Lg sw={{ background: 'rgba(99,102,241,0.30)', border: '1px solid rgba(99,102,241,0.85)' }}>זמין (מלא)</Lg>
+            <Lg sw={{ background: 'rgba(245,158,11,0.16)', border: '1px dashed rgba(245,158,11,0.65)' }}>זמין חלקית</Lg>
+            <Lg sw={{ background: '#242938', borderInlineStart: '3px solid var(--success)' }}>שובץ תקין</Lg>
+            <Lg sw={{ background: 'rgba(245,158,11,0.16)', borderInlineStart: '3px solid var(--warning)' }}>אזהרה רכה</Lg>
+            <Lg sw={{ background: 'rgba(239,68,68,0.16)', borderInlineStart: '3px solid var(--danger)' }}>חריגה (לא חוסם)</Lg>
+            <Lg sw={{ background: 'repeating-linear-gradient(135deg, transparent, transparent 4px, rgba(255,255,255,.05) 4px, rgba(255,255,255,.05) 8px)' }}>עמדה לא פעילה</Lg>
+          </div>
+        </div>
+      </div>
+
+      {candCell && (
+        <CandidatePopover cell={candCell} positions={positions} guards={GUARDS} derived={derived} assignments={assignments}
+          onPick={(gId) => { assign(candCell.posId, candCell.day, gId); setCandCell(null); }}
+          onClose={() => setCandCell(null)} />
+      )}
+    </div>
+  );
+}
+
+function Lg({ sw, children }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <span style={{ width: 22, height: 16, borderRadius: 4, ...sw }} />
+      {children}
+    </span>
+  );
+}
+
+const headTh = {
+  position: 'sticky', top: 0, background: 'var(--navbar-bg)', color: 'var(--text-dim)',
+  padding: '8px 8px', textAlign: 'center', fontSize: 'var(--fs-sm)', fontWeight: 'var(--fw-semibold)',
+  borderBottom: '1px solid var(--border)', borderInlineStart: '1px solid var(--border)',
+};
+const posTd = {
+  position: 'sticky', right: 0, zIndex: 1, minWidth: 132, width: 132, background: 'var(--surface-2)',
+  padding: '4px 10px', borderBottom: '1px solid var(--border)', borderInlineStart: '1px solid var(--border)',
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

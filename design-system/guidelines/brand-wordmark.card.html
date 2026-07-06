@@ -1,0 +1,26 @@
+<!-- @dsCard group="Brand" viewport="700x220" name="Wordmark" subtitle="Text-only brand — white→indigo gradient on the dark navbar" -->
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  html, body { margin: 0; background: var(--bg); }
+  body { font-family: var(--font-sans); color: var(--text); padding: 0; }
+  .navbar { background: var(--navbar-bg); border-bottom: 1px solid var(--border); height: 56px; display: flex; align-items: center; padding: 0 24px; }
+  .brand { font-size: var(--fs-xl); font-weight: var(--fw-bold); letter-spacing: var(--ls-tight);
+    background: linear-gradient(90deg, #fff, var(--primary-hover)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .body { padding: 26px 24px; }
+  .big { font-size: 3rem; font-weight: var(--fw-bold); letter-spacing: var(--ls-tight);
+    background: linear-gradient(90deg, #fff, var(--primary-hover)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .note { font-size: var(--fs-sm); color: var(--text-dim); margin-top: 10px; }
+</style>
+</head>
+<body>
+  <div class="navbar"><span class="brand">ניהול מערכת אילוצים</span></div>
+  <div class="body">
+    <div class="big">אילוצים</div>
+    <p class="note">The product has no logo mark — the name is the brand. Set in Heebo Bold with a white→<code>--primary-hover</code> left-to-right gradient, background-clipped to the text. Use only on dark surfaces.</p>
+  </div>
+</body>
+</html>

@@ -1,0 +1,27 @@
+<!-- @dsCard group="Colors" viewport="700x180" name="Surfaces" subtitle="Layered dark surfaces — app bg through raised rows" -->
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  html, body { margin: 0; background: var(--bg); }
+  body { font-family: var(--font-sans); color: var(--text); padding: 18px; }
+  .row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .sw { border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; }
+  .chip { height: 64px; }
+  .meta { padding: 8px 10px; }
+  .name { font-size: var(--fs-base); font-weight: var(--fw-semibold); }
+  .val { font-size: var(--fs-xs); color: var(--text-dim); font-family: ui-monospace, monospace; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="sw"><div class="chip" style="background:var(--bg)"></div><div class="meta"><div class="name">bg</div><div class="val">#0f1115</div></div></div>
+    <div class="sw"><div class="chip" style="background:var(--navbar-bg)"></div><div class="meta"><div class="name">navbar-bg</div><div class="val">#12141b</div></div></div>
+    <div class="sw"><div class="chip" style="background:var(--surface)"></div><div class="meta"><div class="name">surface</div><div class="val">#161922</div></div></div>
+    <div class="sw"><div class="chip" style="background:var(--surface-2)"></div><div class="meta"><div class="name">surface-2</div><div class="val">#1d212c</div></div></div>
+    <div class="sw"><div class="chip" style="background:var(--surface-3)"></div><div class="meta"><div class="name">surface-3</div><div class="val">#242938</div></div></div>
+  </div>
+</body>
+</html>

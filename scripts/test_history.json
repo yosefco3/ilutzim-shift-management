@@ -1,0 +1,502 @@
+[
+  {
+    "timestamp": "2026-07-01T21:55:42",
+    "backend_coverage%": 33,
+    "backend_tests": 67,
+    "backend_passed": 67,
+    "backend_failed": 0,
+    "frontend_tests": 38,
+    "frontend_passed": 38,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-01T22:29:02",
+    "backend_coverage%": 33,
+    "backend_tests": 67,
+    "backend_passed": 67,
+    "backend_failed": 0,
+    "frontend_tests": 38,
+    "frontend_passed": 38,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-02T20:50:47",
+    "backend_coverage%": 33,
+    "backend_tests": 67,
+    "backend_passed": 67,
+    "backend_failed": 0,
+    "frontend_tests": 39,
+    "frontend_passed": 39,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-02T21:10:09",
+    "backend_coverage%": 33,
+    "backend_tests": 67,
+    "backend_passed": 67,
+    "backend_failed": 0,
+    "frontend_tests": 39,
+    "frontend_passed": 39,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-02T21:28:40",
+    "backend_coverage%": 33,
+    "backend_tests": 67,
+    "backend_passed": 67,
+    "backend_failed": 0,
+    "frontend_tests": 39,
+    "frontend_passed": 39,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-02T21:42:45",
+    "backend_coverage%": 33,
+    "backend_tests": 67,
+    "backend_passed": 67,
+    "backend_failed": 0,
+    "frontend_tests": 39,
+    "frontend_passed": 39,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-02T22:05:46",
+    "backend_coverage%": 33,
+    "backend_tests": 67,
+    "backend_passed": 67,
+    "backend_failed": 0,
+    "frontend_tests": 40,
+    "frontend_passed": 40,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-02T22:33:54",
+    "backend_coverage%": 33,
+    "backend_tests": 67,
+    "backend_passed": 67,
+    "backend_failed": 0,
+    "frontend_tests": 40,
+    "frontend_passed": 40,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-02T22:40:18",
+    "backend_coverage%": 33,
+    "backend_tests": 67,
+    "backend_passed": 67,
+    "backend_failed": 0,
+    "frontend_tests": 40,
+    "frontend_passed": 40,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-02T22:49:51",
+    "backend_coverage%": 33,
+    "backend_tests": 67,
+    "backend_passed": 67,
+    "backend_failed": 0,
+    "frontend_tests": 40,
+    "frontend_passed": 40,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-02T22:55:11",
+    "backend_coverage%": 33,
+    "backend_tests": 67,
+    "backend_passed": 67,
+    "backend_failed": 0,
+    "frontend_tests": 40,
+    "frontend_passed": 40,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-02T23:05:45",
+    "backend_coverage%": 33,
+    "backend_tests": 67,
+    "backend_passed": 67,
+    "backend_failed": 0,
+    "frontend_tests": 41,
+    "frontend_passed": 41,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-02T23:40:17",
+    "backend_coverage%": 33,
+    "backend_tests": 67,
+    "backend_passed": 67,
+    "backend_failed": 0,
+    "frontend_tests": 41,
+    "frontend_passed": 41,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-02T23:54:18",
+    "backend_coverage%": 33,
+    "backend_tests": 67,
+    "backend_passed": 67,
+    "backend_failed": 0,
+    "frontend_tests": 41,
+    "frontend_passed": 41,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-03T00:14:36",
+    "backend_coverage%": 33,
+    "backend_tests": 67,
+    "backend_passed": 67,
+    "backend_failed": 0,
+    "frontend_tests": 41,
+    "frontend_passed": 41,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-03T00:54:36",
+    "backend_coverage%": 33,
+    "backend_tests": 67,
+    "backend_passed": 67,
+    "backend_failed": 0,
+    "frontend_tests": 41,
+    "frontend_passed": 41,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-03T01:03:41",
+    "backend_coverage%": 33,
+    "backend_tests": 67,
+    "backend_passed": 67,
+    "backend_failed": 0,
+    "frontend_tests": 41,
+    "frontend_passed": 41,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-03T01:13:25",
+    "backend_coverage%": 33,
+    "backend_tests": 67,
+    "backend_passed": 67,
+    "backend_failed": 0,
+    "frontend_tests": 41,
+    "frontend_passed": 41,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-03T13:28:07",
+    "backend_coverage%": 33,
+    "backend_tests": 67,
+    "backend_passed": 67,
+    "backend_failed": 0,
+    "frontend_tests": 41,
+    "frontend_passed": 41,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-03T14:09:17",
+    "backend_coverage%": 33,
+    "backend_tests": 69,
+    "backend_passed": 69,
+    "backend_failed": 0,
+    "frontend_tests": 41,
+    "frontend_passed": 41,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-03T14:18:34",
+    "backend_coverage%": 33,
+    "backend_tests": 69,
+    "backend_passed": 69,
+    "backend_failed": 0,
+    "frontend_tests": 41,
+    "frontend_passed": 41,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-03T16:52:45",
+    "backend_coverage%": 33,
+    "backend_tests": 71,
+    "backend_passed": 71,
+    "backend_failed": 0,
+    "frontend_tests": 41,
+    "frontend_passed": 41,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-03T18:06:43",
+    "backend_coverage%": 33,
+    "backend_tests": 71,
+    "backend_passed": 71,
+    "backend_failed": 0,
+    "frontend_tests": 41,
+    "frontend_passed": 41,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-03T18:16:46",
+    "backend_coverage%": 33,
+    "backend_tests": 71,
+    "backend_passed": 71,
+    "backend_failed": 0,
+    "frontend_tests": 41,
+    "frontend_passed": 41,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-03T18:46:20",
+    "backend_coverage%": 33,
+    "backend_tests": 72,
+    "backend_passed": 72,
+    "backend_failed": 0,
+    "frontend_tests": 41,
+    "frontend_passed": 41,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-03T19:03:00",
+    "backend_coverage%": 33,
+    "backend_tests": 73,
+    "backend_passed": 73,
+    "backend_failed": 0,
+    "frontend_tests": 42,
+    "frontend_passed": 42,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-03T19:18:03",
+    "backend_coverage%": 33,
+    "backend_tests": 75,
+    "backend_passed": 75,
+    "backend_failed": 0,
+    "frontend_tests": 43,
+    "frontend_passed": 43,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-03T19:40:43",
+    "backend_coverage%": 33,
+    "backend_tests": 75,
+    "backend_passed": 75,
+    "backend_failed": 0,
+    "frontend_tests": 43,
+    "frontend_passed": 43,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-03T20:24:20",
+    "backend_coverage%": 33,
+    "backend_tests": 75,
+    "backend_passed": 75,
+    "backend_failed": 0,
+    "frontend_tests": 43,
+    "frontend_passed": 43,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-04T06:35:41",
+    "backend_coverage%": 33,
+    "backend_tests": 75,
+    "backend_passed": 75,
+    "backend_failed": 0,
+    "frontend_tests": 43,
+    "frontend_passed": 43,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-04T07:16:13",
+    "backend_coverage%": 33,
+    "backend_tests": 76,
+    "backend_passed": 76,
+    "backend_failed": 0,
+    "frontend_tests": 43,
+    "frontend_passed": 43,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-04T08:05:28",
+    "backend_coverage%": 33,
+    "backend_tests": 76,
+    "backend_passed": 76,
+    "backend_failed": 0,
+    "frontend_tests": 43,
+    "frontend_passed": 43,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-04T12:46:28",
+    "backend_coverage%": 29,
+    "backend_tests": 81,
+    "backend_passed": 81,
+    "backend_failed": 0,
+    "frontend_tests": 44,
+    "frontend_passed": 44,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-04T13:58:52",
+    "backend_coverage%": 27,
+    "backend_tests": 85,
+    "backend_passed": 85,
+    "backend_failed": 0,
+    "frontend_tests": 48,
+    "frontend_passed": 48,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-04T14:24:15",
+    "backend_coverage%": 27,
+    "backend_tests": 87,
+    "backend_passed": 87,
+    "backend_failed": 0,
+    "frontend_tests": 48,
+    "frontend_passed": 48,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-04T15:22:08",
+    "backend_coverage%": 26,
+    "backend_tests": 89,
+    "backend_passed": 89,
+    "backend_failed": 0,
+    "frontend_tests": 48,
+    "frontend_passed": 48,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-04T15:55:44",
+    "backend_coverage%": 26,
+    "backend_tests": 89,
+    "backend_passed": 89,
+    "backend_failed": 0,
+    "frontend_tests": 49,
+    "frontend_passed": 49,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-04T16:09:12",
+    "backend_coverage%": 26,
+    "backend_tests": 89,
+    "backend_passed": 89,
+    "backend_failed": 0,
+    "frontend_tests": 49,
+    "frontend_passed": 49,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-04T16:14:36",
+    "backend_coverage%": 26,
+    "backend_tests": 89,
+    "backend_passed": 89,
+    "backend_failed": 0,
+    "frontend_tests": 48,
+    "frontend_passed": 48,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-04T21:41:59",
+    "backend_coverage%": 26,
+    "backend_tests": 90,
+    "backend_passed": 90,
+    "backend_failed": 0,
+    "frontend_tests": 49,
+    "frontend_passed": 49,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-04T21:46:56",
+    "backend_coverage%": 26,
+    "backend_tests": 90,
+    "backend_passed": 90,
+    "backend_failed": 0,
+    "frontend_tests": 49,
+    "frontend_passed": 49,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-04T21:50:07",
+    "backend_coverage%": 26,
+    "backend_tests": 90,
+    "backend_passed": 90,
+    "backend_failed": 0,
+    "frontend_tests": 49,
+    "frontend_passed": 49,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-05T19:58:36",
+    "backend_coverage%": 24,
+    "backend_tests": 98,
+    "backend_passed": 98,
+    "backend_failed": 0,
+    "frontend_tests": 50,
+    "frontend_passed": 50,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-05T20:18:38",
+    "backend_coverage%": 24,
+    "backend_tests": 99,
+    "backend_passed": 99,
+    "backend_failed": 0,
+    "frontend_tests": 50,
+    "frontend_passed": 50,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-05T20:28:31",
+    "backend_coverage%": 24,
+    "backend_tests": 100,
+    "backend_passed": 100,
+    "backend_failed": 0,
+    "frontend_tests": 50,
+    "frontend_passed": 50,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-05T20:37:22",
+    "backend_coverage%": 24,
+    "backend_tests": 100,
+    "backend_passed": 100,
+    "backend_failed": 0,
+    "frontend_tests": 50,
+    "frontend_passed": 50,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-05T20:55:05",
+    "backend_coverage%": 24,
+    "backend_tests": 100,
+    "backend_passed": 100,
+    "backend_failed": 0,
+    "frontend_tests": 51,
+    "frontend_passed": 51,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-05T21:00:55",
+    "backend_coverage%": 24,
+    "backend_tests": 100,
+    "backend_passed": 100,
+    "backend_failed": 0,
+    "frontend_tests": 51,
+    "frontend_passed": 51,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-05T21:41:47",
+    "backend_coverage%": 24,
+    "backend_tests": 100,
+    "backend_passed": 100,
+    "backend_failed": 0,
+    "frontend_tests": 51,
+    "frontend_passed": 51,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-06T13:36:59",
+    "backend_coverage%": 24,
+    "backend_tests": 100,
+    "backend_passed": 100,
+    "backend_failed": 0,
+    "frontend_tests": 51,
+    "frontend_passed": 50,
+    "frontend_failed": 1
+  }
+]

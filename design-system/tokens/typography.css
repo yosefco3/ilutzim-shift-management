@@ -1,0 +1,41 @@
+/* ===========================================================================
+   Ilutsim — Typography tokens
+   The live app uses the platform system sans ('Segoe UI', Tahoma, …). For a
+   portable design system we standardise on Heebo — a clean, neutral Hebrew
+   sans whose proportions closely track Segoe UI / Tahoma in RTL. See fonts.css.
+   The Telegram guard side uses the native -apple-system / Roboto stack.
+   =========================================================================== */
+
+:root {
+  /* ── Families ─────────────────────────────────────────────── */
+  --font-sans: 'Heebo', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  --font-tg:   -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+               'Helvetica Neue', Arial, sans-serif;
+
+  /* ── Type scale (rem) ─────────────────────────────────────── */
+  --fs-xs:   0.75rem;   /* 12px — table head, meta, badges    */
+  --fs-sm:   0.8rem;    /* ~13px — hints, small buttons        */
+  --fs-base: 0.875rem;  /* 14px — body / controls (app default)*/
+  --fs-md:   0.9rem;    /* ~14.5px — inputs                    */
+  --fs-lg:   1.05rem;   /* ~17px — card titles                 */
+  --fs-xl:   1.25rem;   /* 20px — brand / section heads        */
+  --fs-2xl:  1.5rem;    /* 24px — page H2                      */
+
+  /* ── Weights ──────────────────────────────────────────────── */
+  --fw-regular:  400; /* @kind font */
+  --fw-medium:   500; /* @kind font */
+  --fw-semibold: 600; /* @kind font */  /* labels, badges, table heads */
+  --fw-bold:     700; /* @kind font */  /* brand, day names */
+  /* The app also uses 550 / 650 micro-weights for buttons / H2  */
+  --fw-control:  550; /* @kind font */
+  --fw-heading:  650; /* @kind font */
+
+  /* ── Line heights ─────────────────────────────────────────── */
+  --lh-tight: 1.2; /* @kind font */
+  --lh-snug:  1.4; /* @kind font */
+  --lh-base:  1.6; /* @kind font */
+
+  /* ── Tracking ─────────────────────────────────────────────── */
+  --ls-tight:   -0.01em; /* @kind font */  /* brand, headings */
+  --ls-caps:    0.05em;  /* @kind font */  /* uppercased table heads */
+}

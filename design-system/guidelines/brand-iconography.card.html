@@ -1,0 +1,32 @@
+<!-- @dsCard group="Brand" viewport="700x260" name="Iconography — Emoji" subtitle="The icon system IS emoji — no icon font, no SVG set" -->
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  html, body { margin: 0; background: var(--bg); }
+  body { font-family: var(--font-sans); color: var(--text); padding: 18px; }
+  .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .ic { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 8px; text-align: center; }
+  .gly { font-size: 1.5rem; line-height: 1.4; }
+  .nm { font-size: var(--fs-xs); color: var(--text-dim); }
+  .note { font-size: var(--fs-sm); color: var(--text-dim); margin: 0 0 14px; }
+</style>
+</head>
+<body>
+  <p class="note">Status &amp; actions are labelled with native emoji, set inline before the text. Keep them sparing and functional — never decorative.</p>
+  <div class="grid">
+    <div class="ic"><div class="gly">📅</div><div class="nm">שבוע / תאריך</div></div>
+    <div class="ic"><div class="gly">🔓</div><div class="nm">פתוח</div></div>
+    <div class="ic"><div class="gly">🔒</div><div class="nm">נעול</div></div>
+    <div class="ic"><div class="gly">📢</div><div class="nm">פרסום</div></div>
+    <div class="ic"><div class="gly">⏳</div><div class="nm">סגור</div></div>
+    <div class="ic"><div class="gly">🟢</div><div class="nm">פתח להגשה</div></div>
+    <div class="ic"><div class="gly">🗑️</div><div class="nm">מחיקה</div></div>
+    <div class="ic"><div class="gly">✓</div><div class="nm">הצלחה</div></div>
+    <div class="ic"><div class="gly">✕</div><div class="nm">שגיאה</div></div>
+    <div class="ic"><div class="gly">📊</div><div class="nm">ייצוא / דוח</div></div>
+  </div>
+</body>
+</html>

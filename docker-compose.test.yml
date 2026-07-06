@@ -1,0 +1,43 @@
+# ── Docker Compose Override — E2E Testing ─────────────────────────────────
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.test.yml \
+#     up --build --abort-on-container-exit --exit-code-from e2e
+
+services:
+  db:
+    # Override: use tmpfs for speed, no persistent volume
+    tmpfs:
+      - /var/lib/postgresql/data
+    # Reset healthcheck for fast spin-up
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ilutzim"]
+      interval: 2s
+      timeout: 2s
+      retries: 5
+
+  backend:
+    # Override: disable restart policy, seed test admin
+    restart: "no"
+    environment:
+      SEED_ADMIN_EMAIL: admin@test.com
+      SEED_ADMIN_PASSWORD: admin123
+      SEED_ADMIN_FULL_NAME: "Test Admin"
+
+  e2e:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: "no"
+    env_file:
+      - .env.docker
+    environment:
+      E2E_BASE_URL: "http://backend:8000"
+      SEED_ADMIN_EMAIL: admin@test.com
+      SEED_ADMIN_PASSWORD: admin123
+    depends_on:
+      backend:
+        condition: service_healthy
+    entrypoint: []
+    command: >
+      sh -c "pip install -q httpx pytest-asyncio && pytest tests/test_e2e.py -v"
+    working_dir: /app

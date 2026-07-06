@@ -1,0 +1,28 @@
+<!-- @dsCard group="Colors" viewport="700x160" name="Text & Borders" subtitle="Three text tiers + two border weights on dark" -->
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  html, body { margin: 0; background: var(--bg); }
+  body { font-family: var(--font-sans); padding: 18px; display: flex; gap: 24px; align-items: stretch; }
+  .text-col { flex: 1.4; display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+  .text-col div { font-size: var(--fs-lg); }
+  .val { font-size: var(--fs-xs); color: var(--text-dim); font-family: ui-monospace, monospace; margin-inline-start: 8px; }
+  .borders { flex: 1; display: flex; flex-direction: column; gap: 12px; justify-content: center; }
+  .b { height: 40px; border-radius: var(--radius); background: var(--surface); display: flex; align-items: center; padding: 0 12px; font-size: var(--fs-sm); color: var(--text-muted); }
+</style>
+</head>
+<body>
+  <div class="text-col">
+    <div style="color:var(--text)">טקסט ראשי<span class="val">--text · #e6e8ec</span></div>
+    <div style="color:var(--text-muted)">טקסט משני<span class="val">--text-muted · #9aa3b4</span></div>
+    <div style="color:var(--text-dim)">רמזים ומטא<span class="val">--text-dim · #6b7385</span></div>
+  </div>
+  <div class="borders">
+    <div class="b" style="border:1px solid var(--border)">border · #262b37</div>
+    <div class="b" style="border:1px solid var(--border-strong)">border-strong · #333a49</div>
+  </div>
+</body>
+</html>

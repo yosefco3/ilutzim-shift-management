@@ -1,0 +1,85 @@
+<!-- @dsCard group="Admin Dashboard" viewport="1100x720" name="Admin Dashboard" subtitle="Dark-indigo admin — login, weeks, guards, submissions" -->
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>אילוצים — ממשק אדמין</title>
+<link rel="stylesheet" href="../../styles.css" />
+<link rel="stylesheet" href="kit.css" />
+<style>
+  html, body { margin: 0; height: 100%; background: var(--bg); }
+  .toast-stack { position: fixed; top: 70px; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 0 1rem; z-index: 300; pointer-events: none; }
+  .toast-stack > * { pointer-events: auto; }
+</style>
+</head>
+<body>
+<div id="root" class="kit-admin"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script src="data.js"></script>
+<script type="text/babel" src="Navbar.jsx"></script>
+<script type="text/babel" src="WeeksScreen.jsx"></script>
+<script type="text/babel" src="GuardsScreen.jsx"></script>
+<script type="text/babel" src="SubmissionsScreen.jsx"></script>
+<script type="text/babel" src="LoginScreen.jsx"></script>
+<script type="text/babel">
+  const { Toast } = window.IlutsimDesignSystem_f4254f;
+
+  function EmptyScreen({ title, hint }) {
+    return (
+      <div>
+        <div className="page-header"><h2>{title}</h2></div>
+        <p className="empty-state">{hint}</p>
+      </div>
+    );
+  }
+
+  function App() {
+    const [route, setRoute] = React.useState('login');
+    const [toasts, setToasts] = React.useState([]);
+
+    const pushToast = (variant, message) => {
+      const id = Date.now() + Math.random();
+      setToasts((t) => [...t, { id, variant, message }]);
+      setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3500);
+    };
+    const removeToast = (id) => setToasts((t) => t.filter((x) => x.id !== id));
+
+    if (route === 'login') {
+      return (
+        <React.Fragment>
+          <window.KitNavbar current="login" onNavigate={setRoute} />
+          <window.LoginScreen onLogin={() => setRoute('guards')} />
+        </React.Fragment>
+      );
+    }
+
+    let screen;
+    if (route === 'weeks') screen = <window.WeeksScreen toast={pushToast} />;
+    else if (route === 'guards') screen = <window.GuardsScreen toast={pushToast} />;
+    else if (route === 'submissions') screen = <window.SubmissionsScreen />;
+    else if (route === 'events') screen = <EmptyScreen title="ניהול אירועים" hint="אין אירועים לשבוע זה" />;
+    else if (route === 'export') screen = <EmptyScreen title="ייצוא אילוצים" hint="בחר שבוע כדי להוריד קובץ Excel מעוצב" />;
+    else if (route === 'settings') screen = <EmptyScreen title="הגדרות מערכת" hint="ברירות-מחדל למשמרות, ספי כללי-אילוץ ואוטומציה" />;
+
+    return (
+      <React.Fragment>
+        <window.KitNavbar current={route} onNavigate={setRoute} />
+        <main className="main-content"><div className="page">{screen}</div></main>
+        <div className="toast-stack">
+          {toasts.map((t) => (
+            <Toast key={t.id} variant={t.variant} onClose={() => removeToast(t.id)}>{t.message}</Toast>
+          ))}
+        </div>
+      </React.Fragment>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

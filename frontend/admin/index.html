@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ניהול מערכת - אילוצים</title>
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@300..800&display=swap" />
+    <!--
+      Telegram WebApp SDK. Required so the guard area (/submit) works when opened
+      via a `web_app` button: it exposes window.Telegram.WebApp (real initData for
+      auth) and ready()/expand(). Without it a WebApp stays on Telegram's dark
+      loading screen ("blank dark screen"). Loaded synchronously (blocking) so it
+      is available before the deferred module script runs. Harmless on the admin
+      side (outside Telegram it just yields an empty WebApp object).
+    -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!--
+      Last-resort white-screen guard. ErrorBoundary only catches errors thrown
+      *during* React rendering — it cannot catch a module that fails to load or
+      parse in the browser (the classic mobile-WebView blank page). This inline
+      script paints a visible message into #root for two cases the boundary
+      misses: (1) any uncaught error / unhandled rejection, and (2) React never
+      mounting at all (root still empty after a few seconds). Without it those
+      failures look like an indistinguishable blank white page.
+    -->
+    <script>
+      (function () {
+        function paint(msg) {
+          var root = document.getElementById('root');
+          if (root && !root.firstChild) {
+            root.setAttribute('dir', 'rtl');
+            root.innerHTML =
+              '<div style="font-family:Heebo,sans-serif;padding:24px;text-align:center;color:#b00">' +
+              '<h2>אירעה שגיאה בטעינת הדף</h2>' +
+              '<p>נסו לרענן. אם הבעיה נמשכת, פנו למנהל.</p>' +
+              '<pre style="white-space:pre-wrap;text-align:left;direction:ltr;font-size:11px;color:#666">' +
+              String(msg).replace(/[<>&]/g, ' ') + '</pre></div>';
+          }
+        }
+        window.addEventListener('error', function (e) {
+          paint((e && e.message) || 'load error');
+        });
+        window.addEventListener('unhandledrejection', function (e) {
+          paint((e && e.reason && e.reason.message) || 'unhandled rejection');
+        });
+        window.addEventListener('load', function () {
+          setTimeout(function () { paint('הדף לא נטען (timeout)'); }, 6000);
+        });
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

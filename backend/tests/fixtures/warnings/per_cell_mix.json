@@ -1,0 +1,310 @@
+{
+  "input": {
+    "board": {
+      "rows": [
+        {
+          "position_id": "pos1",
+          "name": "ארנונה",
+          "band": "morning",
+          "required_attributes": [
+            "armed"
+          ],
+          "is_event": false,
+          "event_required_count": null,
+          "cells": [
+            {
+              "day_index": 0,
+              "active": true,
+              "window": {
+                "start": "07:00",
+                "end": "15:00"
+              },
+              "is_override": false
+            },
+            {
+              "day_index": 1,
+              "active": false,
+              "window": null,
+              "is_override": false
+            },
+            {
+              "day_index": 2,
+              "active": false,
+              "window": null,
+              "is_override": false
+            },
+            {
+              "day_index": 3,
+              "active": false,
+              "window": null,
+              "is_override": false
+            },
+            {
+              "day_index": 4,
+              "active": false,
+              "window": null,
+              "is_override": false
+            },
+            {
+              "day_index": 5,
+              "active": false,
+              "window": null,
+              "is_override": false
+            },
+            {
+              "day_index": 6,
+              "active": false,
+              "window": null,
+              "is_override": false
+            }
+          ]
+        },
+        {
+          "position_id": "pos2",
+          "name": "קומה 6",
+          "band": "morning",
+          "required_attributes": [],
+          "is_event": false,
+          "event_required_count": null,
+          "cells": [
+            {
+              "day_index": 0,
+              "active": true,
+              "window": {
+                "start": "11:00",
+                "end": "19:00"
+              },
+              "is_override": false
+            },
+            {
+              "day_index": 1,
+              "active": false,
+              "window": null,
+              "is_override": false
+            },
+            {
+              "day_index": 2,
+              "active": false,
+              "window": null,
+              "is_override": false
+            },
+            {
+              "day_index": 3,
+              "active": false,
+              "window": null,
+              "is_override": false
+            },
+            {
+              "day_index": 4,
+              "active": false,
+              "window": null,
+              "is_override": false
+            },
+            {
+              "day_index": 5,
+              "active": false,
+              "window": null,
+              "is_override": false
+            },
+            {
+              "day_index": 6,
+              "active": false,
+              "window": null,
+              "is_override": false
+            }
+          ]
+        },
+        {
+          "position_id": "ev1",
+          "name": "מועצה",
+          "band": "evening",
+          "required_attributes": [],
+          "is_event": true,
+          "event_required_count": 4,
+          "cells": [
+            {
+              "day_index": 0,
+              "active": true,
+              "window": {
+                "start": "18:00",
+                "end": "22:00"
+              },
+              "is_override": false
+            },
+            {
+              "day_index": 1,
+              "active": false,
+              "window": null,
+              "is_override": false
+            },
+            {
+              "day_index": 2,
+              "active": false,
+              "window": null,
+              "is_override": false
+            },
+            {
+              "day_index": 3,
+              "active": false,
+              "window": null,
+              "is_override": false
+            },
+            {
+              "day_index": 4,
+              "active": false,
+              "window": null,
+              "is_override": false
+            },
+            {
+              "day_index": 5,
+              "active": false,
+              "window": null,
+              "is_override": false
+            },
+            {
+              "day_index": 6,
+              "active": false,
+              "window": null,
+              "is_override": false
+            }
+          ]
+        }
+      ]
+    },
+    "assignments_by_cell": {
+      "pos1:0": [
+        {
+          "user_id": "u1",
+          "user_full_name": "נתן",
+          "user_roles": [],
+          "segment_start": null,
+          "segment_end": null
+        }
+      ],
+      "pos2:0": [
+        {
+          "user_id": "u1",
+          "user_full_name": "נתן",
+          "user_roles": [],
+          "segment_start": null,
+          "segment_end": null
+        }
+      ],
+      "ev1:0": [
+        {
+          "user_id": "u2",
+          "user_full_name": "דנה",
+          "user_roles": [],
+          "segment_start": null,
+          "segment_end": null
+        },
+        {
+          "user_id": "u3",
+          "user_full_name": "רון",
+          "user_roles": [],
+          "segment_start": null,
+          "segment_end": null
+        }
+      ]
+    },
+    "pool": [
+      {
+        "id": "u1",
+        "full_name": "נתן",
+        "roles": [],
+        "availability": {
+          "0": [
+            {
+              "start": "07:00",
+              "end": "19:00"
+            }
+          ]
+        }
+      },
+      {
+        "id": "u2",
+        "full_name": "דנה",
+        "roles": [],
+        "availability": {
+          "0": [
+            {
+              "start": "18:00",
+              "end": "22:00"
+            }
+          ]
+        }
+      },
+      {
+        "id": "u3",
+        "full_name": "רון",
+        "roles": [],
+        "availability": {
+          "0": [
+            {
+              "start": "18:00",
+              "end": "22:00"
+            }
+          ]
+        }
+      }
+    ],
+    "policy": {
+      "rest_minutes": 480,
+      "max_consecutive_days": 6,
+      "max_continuous_minutes": 720
+    }
+  },
+  "expected": {
+    "by_cell": {
+      "pos1:0": [
+        {
+          "type": "missing_attribute",
+          "guard_id": "u1",
+          "guard_name": "נתן",
+          "missing": [
+            "armed"
+          ]
+        },
+        {
+          "type": "double_booking",
+          "guard_id": "u1",
+          "guard_name": "נתן",
+          "other_position": "קומה 6"
+        },
+        {
+          "type": "already_in_shift",
+          "guard_id": "u1",
+          "guard_name": "נתן"
+        }
+      ],
+      "ev1:0": [
+        {
+          "type": "understaffed_event",
+          "need": 4,
+          "have": 2
+        }
+      ],
+      "pos2:0": [
+        {
+          "type": "double_booking",
+          "guard_id": "u1",
+          "guard_name": "נתן",
+          "other_position": "ארנונה"
+        },
+        {
+          "type": "already_in_shift",
+          "guard_id": "u1",
+          "guard_name": "נתן"
+        }
+      ]
+    },
+    "by_guard": {},
+    "summary": {
+      "total": 6,
+      "missing_attribute": 1,
+      "double_booking": 2,
+      "already_in_shift": 2,
+      "understaffed_event": 1
+    }
+  }
+}

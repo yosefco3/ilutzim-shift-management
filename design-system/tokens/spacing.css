@@ -1,0 +1,38 @@
+/* ===========================================================================
+   Ilutsim — Spacing, radius, shadow tokens
+   Radius + shadow values are lifted verbatim from the live app.
+   The spacing scale codifies the rem rhythm the app uses (0.25rem steps).
+   =========================================================================== */
+
+:root {
+  /* ── Spacing scale (the app works in 0.25rem increments) ──── */
+  --space-1:  0.25rem;   /* 4px  */
+  --space-2:  0.5rem;    /* 8px  */
+  --space-3:  0.75rem;   /* 12px */
+  --space-4:  1rem;      /* 16px */
+  --space-5:  1.25rem;   /* 20px — card padding */
+  --space-6:  1.5rem;    /* 24px — page gutters */
+  --space-8:  2rem;      /* 32px — main content padding */
+  --space-10: 2.5rem;    /* 40px — login card padding */
+
+  /* ── Radius ───────────────────────────────────────────────── */
+  --radius-sm: 7px;      /* buttons, inputs, badges (pill aside) */
+  --radius:    10px;     /* cards, tables, alerts                */
+  --radius-lg: 14px;     /* dialogs, login card                  */
+  --radius-pill: 999px;  /* badges, status pills, scrollbar      */
+
+  /* ── Elevation ────────────────────────────────────────────── */
+  --shadow:    0 1px 2px rgba(0, 0, 0, .4);     /* cards, tables  */
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, .45);   /* hover lift     */
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, .55);  /* dialogs, toast */
+
+  /* ── Layout ───────────────────────────────────────────────── */
+  --navbar-h:      56px;
+  --content-max:   1100px;  /* admin main column */
+  --guard-max:     480px;   /* Telegram mini-app column */
+
+  /* ── Motion ───────────────────────────────────────────────── */
+  --t-fast:   .15s;   /* @kind other */  /* color / background / border transitions */
+  --t-press:  .05s;   /* @kind other */  /* button active translate */
+  --ease:     ease;   /* @kind other */
+}

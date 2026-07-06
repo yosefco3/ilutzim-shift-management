@@ -1,0 +1,1 @@
+"""Attendance utils package."""

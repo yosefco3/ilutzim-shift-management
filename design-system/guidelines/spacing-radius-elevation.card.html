@@ -1,0 +1,37 @@
+<!-- @dsCard group="Spacing" viewport="700x200" name="Radius & Elevation" subtitle="Corner radii + the three-step dark shadow scale" -->
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  html, body { margin: 0; background: var(--bg); }
+  body { font-family: var(--font-sans); color: var(--text); padding: 20px; display: flex; gap: 30px; }
+  .col { flex: 1; }
+  .lbl { font-size: var(--fs-xs); color: var(--text-dim); text-transform: uppercase; letter-spacing: var(--ls-caps); margin: 0 0 12px; }
+  .radii { display: flex; gap: 14px; align-items: flex-end; }
+  .r { background: var(--surface-3); border: 1px solid var(--border-strong); width: 64px; height: 50px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; font-size: var(--fs-xs); color: var(--text-dim); font-family: ui-monospace, monospace; }
+  .shadows { display: flex; gap: 18px; }
+  .s { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); width: 80px; height: 50px; display: flex; align-items: center; justify-content: center; font-size: var(--fs-xs); color: var(--text-dim); font-family: ui-monospace, monospace; }
+</style>
+</head>
+<body>
+  <div class="col">
+    <p class="lbl">Radius</p>
+    <div class="radii">
+      <div class="r" style="border-radius:var(--radius-sm)">7</div>
+      <div class="r" style="border-radius:var(--radius)">10</div>
+      <div class="r" style="border-radius:var(--radius-lg)">14</div>
+      <div class="r" style="border-radius:var(--radius-pill); width:90px">999</div>
+    </div>
+  </div>
+  <div class="col">
+    <p class="lbl">Elevation</p>
+    <div class="shadows">
+      <div class="s" style="box-shadow:var(--shadow)">sm</div>
+      <div class="s" style="box-shadow:var(--shadow-md)">md</div>
+      <div class="s" style="box-shadow:var(--shadow-lg)">lg</div>
+    </div>
+  </div>
+</body>
+</html>

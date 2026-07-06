@@ -1,0 +1,138 @@
+# Cline Custom Rules - ilutzim_app Project
+
+## Task Execution Strategy — Break Large Tasks into Small Steps
+
+### When receiving a large feature request:
+1. **Always propose breaking it into small, sequential steps** — each step touching 2-4 files max.
+2. **Run tests after every step** — verify the step works before moving to the next.
+3. deleted
+4. **Present the full plan to the user before starting** — list all proposed steps, get approval, then execute one by one.
+5. **Each step should be independently testable** — not just a partial implementation that leaves the app broken.
+6. **Prefer many small commits over one large commit** — easier to review, revert, and debug.
+
+### Why this matters:
+- Bugs are caught early when each step is tested independently.
+- Context window stays clean — each step focuses on a narrow scope.
+- If something goes wrong, only the last step needs to be fixed.
+- The user can review progress and adjust direction between steps.
+
+## Step Budget — Hard Limit
+
+- Every task has a hard limit of **8 tool uses**.
+- If you reach 8 tool uses without completing the task, you MUST stop and report:
+  - What was accomplished so far
+  - What is blocking completion
+  - What you need from the user
+- Do NOT use a 9th tool without explicit user permission.
+
+## Progress Checkpoints
+
+- After every **3 tool uses**, append a one-line status to your response.
+  Format: `[Step X/Y] Done: ... | Next: ...`
+- This keeps the user informed and prevents silent spiraling.
+
+## Think-Before-Act, Not Think-Instead-Of-Act
+
+- Before using a tool, you may think for at most 2-3 sentences.
+- If you need longer analysis, output it visibly as part of your response — do not hide it in internal reasoning.
+- If you catch yourself writing more than 5 `<thinking>` paragraphs, STOP and ask the user for direction.
+
+## Code Review Graph — Mandatory Workflow
+
+### After Every Coding Mission (when code files were created or modified):
+1. deleted
+2.**Update the code graph** — Run the CLI command:
+   ```
+   /home/yosef/.local/bin/code-review-graph update
+   ```
+   This performs an incremental update (only changed files) and is fast.
+3. **Update APP_OVERVIEW.md** — If the change affects features, models, API endpoints, workflow, or architecture:
+   - Add a new entry to the **היסטוריית שינויים משמעותיים** table at the bottom
+   - Update relevant sections (models, endpoints, lifecycle, etc.) to reflect the change
+   - Update the "עדכון אחרון" date at the top
+   - Only skip if the change is purely internal (refactor, bug fix, test) with no user-facing impact.
+4. Only skip graph update if NO source code files (.py, .js, .ts, etc.) were touched.
+
+## Test Coverage — Mandatory Workflow
+
+### After every significant change / feature:
+1. **Update tests** — Add or update tests to cover the new/changed code.
+2. **Run the test suite** — Single command:
+   ```
+   python scripts/test_graph.py
+   ```
+   This script does everything: runs all tests (backend + frontend), checks coverage, and generates a markdown report.
+3. **One command instead of three** — No need to manually run pytest, vitest, and coverage separately.
+
+### When to run:
+- After completing a feature or significant change.
+- Before committing final results.
+- The script outputs results to `TEST_GRAPH.md` for easy review.
+
+### When Starting a New Coding Task:
+1. **Get minimal context first** — Use: 
+- `get_minimal_context_tool` to understand the current graph state.
+- `APP_OVERVIEW.md` to understand the app purpose etc
+2. **Before reading files manually**, try these graph tools to locate code faster:
+   - `semantic_search_nodes_tool` — Find functions/classes by name or description
+   - `query_graph_tool` — Trace relationships (callers_of, callees_of, imports_of, importers_of, children_of)
+   - `query_graph_tool` with pattern `file_summary` — Get all nodes in a file without reading it
+   - `get_impact_radius_tool` — Understand blast radius before making changes
+   - `list_flows_tool` / `get_flow_tool` — Understand execution paths
+   - `list_communities_tool` — Understand code organization
+   - `_PROGRESS.md` if you are inside a prompts directory.
+   
+
+### When Doing Code Review:
+- Use `detect_changes_tool` for risk-scored change analysis
+- Use `get_affected_flows_tool` to see which execution paths are impacted
+- Use `get_review_context_tool` for comprehensive review context
+
+### Preferred Search Pattern:
+Instead of `search_files` → `read_file` chains, prefer:
+1. `semantic_search_nodes_tool` to find the target
+2. `query_graph_tool` to understand relationships
+3. Only then `read_file` if you need the full source
+
+### Graph CLI Reference:
+- **Full rebuild:** `/home/yosef/.local/bin/code-review-graph build`
+- **Incremental update:** `/home/yosef/.local/bin/code-review-graph update`
+- **Post-process only:** `/home/yosef/.local/bin/code-review-graph postprocess`
+- **Status check:** `/home/yosef/.local/bin/code-review-graph status`
+
+## Prompt Library — Workflow
+
+### When receiving a prompt library directory (e.g. `features-prompts/something/`):
+1. **Check for `_PROGRESS.md`** in that directory — if it exists, read it to understand what's already done and where to continue.
+2. **If `_PROGRESS.md` doesn't exist** — create an empty file. This means nothing has been done yet.
+3. **Execute the next prompt file** (by number order: `01_...`, `02_...`, etc.).
+4. **After successful completion** (tests pass, committed):
+   - Append a summary line to `_PROGRESS.md`: what was done, files created/modified, commit message.
+   - Delete the prompt file that was just executed.
+5. **Continue to the next prompt** until all are done.
+6. **When all prompts are done** — add a final "✅ All prompts completed" line to `_PROGRESS.md`.
+
+### Why:
+- `_PROGRESS.md` acts as a resumable checkpoint inside the prompt library itself.
+- If stuck mid-way, reading `_PROGRESS.md` tells exactly where to continue.
+- Deleting executed prompts keeps the directory clean — only pending prompts remain.
+- `.clinerules` stays focused on workflows only — no status data here.
+
+## חשיבה תקועה — כלל עצירה (מחוזק)
+
+### אם אתה מזהה אחד מהתסמינים הבאים בחשיבה שלך:
+1. **לולאת ניסיונות** — ניסית 2+ גישות שונות לאותה בעיה וכולן נכשלו (הוחמר מ-3)
+2. **קריאת קבצים מוגזמת** — אתה שוקל לקרוא יותר מ-5 קבצים לאותו task
+3. **ניתוח מתארך** — אתה כותב ניתוח של יותר מ-3 פסקאות ב-`<thinking>`
+4. **מורכבות יתר** — עברו 6+ tool uses ואתה עדיין רחוק מפתרון
+
+### מה לעשות:
+- **עצור מיד** — אל תמשיך לחשוב / לנסות
+- **כתוב למשתמש** סיכום ברור של: מה ניסית, מה נכשל, מה חסר, מה אתה צריך
+- **הצע מסלולים אפשריים** — בקש עזרה, הצע לפרק את הבעיה, או הצע גישה חלופית
+- **אל תנחש** — אל תמשיך עם פתרון שאתה לא בטוח בו
+
+### למה זה חשוב:
+- חשיבה ממושכת ללא פלט = בזבוז context window וזמן
+- עדיף לעצור ולשאול מאשר להמשיך בכיוון שגוי
+- המשתמש יכול לתת מידע שיחסוך דקות של ניחושים

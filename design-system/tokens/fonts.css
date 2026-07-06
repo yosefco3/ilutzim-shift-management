@@ -1,0 +1,9 @@
+/* ===========================================================================
+   Ilutsim — Webfonts
+   SUBSTITUTION NOTE: the live app ships no webfonts — it renders in the host
+   system sans ('Segoe UI', Tahoma, …). For portable, consistent rendering this
+   design system standardises on Heebo (Google Fonts), the closest neutral
+   Hebrew sans. Swap this for the real brand font if one is adopted.
+   =========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap');

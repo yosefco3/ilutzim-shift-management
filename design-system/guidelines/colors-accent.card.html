@@ -1,0 +1,26 @@
+<!-- @dsCard group="Colors" viewport="700x180" name="Indigo Accent" subtitle="The single brand accent + its soft / ring tints" -->
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  html, body { margin: 0; background: var(--bg); }
+  body { font-family: var(--font-sans); color: var(--text); padding: 18px; }
+  .row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .sw { border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; }
+  .chip { height: 64px; }
+  .meta { padding: 8px 10px; }
+  .name { font-size: var(--fs-base); font-weight: var(--fw-semibold); }
+  .val { font-size: var(--fs-xs); color: var(--text-dim); font-family: ui-monospace, monospace; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="sw"><div class="chip" style="background:var(--primary)"></div><div class="meta"><div class="name">primary</div><div class="val">#6366f1</div></div></div>
+    <div class="sw"><div class="chip" style="background:var(--primary-hover)"></div><div class="meta"><div class="name">primary-hover</div><div class="val">#7c7ff5</div></div></div>
+    <div class="sw"><div class="chip" style="background:var(--primary-soft)"></div><div class="meta"><div class="name">primary-soft</div><div class="val">rgba α .15</div></div></div>
+    <div class="sw"><div class="chip" style="background:var(--bg); box-shadow: inset 0 0 0 2px var(--primary-ring)"></div><div class="meta"><div class="name">primary-ring</div><div class="val">rgba α .35</div></div></div>
+  </div>
+</body>
+</html>

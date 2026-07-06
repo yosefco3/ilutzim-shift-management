@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ilutzim — End-to-End Workforce Scheduling &amp; Attendance Platform</title>
+<meta name="description" content="A production shift-management platform for security teams: availability collection via Telegram, a smart scheduling board, an actual-schedule layer, a Telegram time clock, and payroll-grade reports.">
+<meta property="og:title" content="Ilutzim — Workforce Scheduling & Attendance Platform">
+<meta property="og:description" content="From guard availability to payroll reports — one pipeline, one source of truth.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+<style>
+  :root {
+    --bg: #0f1115;
+    --surface: #161922;
+    --surface-2: #1d212c;
+    --surface-3: #242938;
+    --border: #262b37;
+    --border-strong: #333a49;
+    --text: #e6e8ec;
+    --text-muted: #9aa3b4;
+    --text-dim: #6b7385;
+    --primary: #6366f1;
+    --primary-hover: #7c7ff5;
+    --primary-soft: rgba(99, 102, 241, .15);
+    --danger: #ef4444;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --info: #38bdf8;
+    --on-success: #86efac;
+    --on-danger: #fca5a5;
+    --on-warning: #fcd34d;
+    --on-info: #7dd3fc;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Inter", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+  ::selection { background: var(--primary-soft); }
+  a { color: var(--primary-hover); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+
+  /* ── Hero ─────────────────────────────────────────── */
+  .hero {
+    position: relative;
+    padding: 96px 0 64px;
+    background:
+      radial-gradient(1000px 500px at 80% -10%, rgba(99,102,241,.18), transparent 60%),
+      radial-gradient(700px 400px at 10% 10%, rgba(56,189,248,.08), transparent 60%);
+    border-bottom: 1px solid var(--border);
+  }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--on-info);
+    background: rgba(56,189,248,.1);
+    border: 1px solid rgba(56,189,248,.25);
+    padding: 6px 14px; border-radius: 999px;
+    margin-bottom: 24px;
+  }
+  h1 {
+    font-size: clamp(38px, 6vw, 64px);
+    font-weight: 800; line-height: 1.1; letter-spacing: -.02em;
+    margin-bottom: 8px;
+  }
+  h1 .heb { color: var(--primary-hover); font-weight: 700; }
+  .tagline {
+    font-size: clamp(18px, 2.4vw, 24px);
+    color: var(--text-muted);
+    max-width: 720px;
+    margin: 16px 0 32px;
+  }
+  .tagline strong { color: var(--text); font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 40px; }
+  .chip {
+    font-size: 13px; font-weight: 600;
+    color: var(--text-muted);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    padding: 7px 14px; border-radius: 999px;
+  }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; max-width: 860px; }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 22px;
+  }
+  .stat b { display: block; font-size: 34px; font-weight: 800; color: var(--primary-hover); line-height: 1.1; }
+  .stat span { font-size: 13.5px; color: var(--text-muted); }
+  @media (max-width: 760px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+
+  /* ── Sections ─────────────────────────────────────── */
+  section { padding: 72px 0; border-bottom: 1px solid var(--border); }
+  .sec-label {
+    font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--primary-hover); margin-bottom: 10px;
+  }
+  h2 { font-size: clamp(26px, 3.6vw, 38px); font-weight: 800; letter-spacing: -.01em; margin-bottom: 12px; }
+  .sec-sub { color: var(--text-muted); font-size: 17px; max-width: 760px; margin-bottom: 40px; }
+
+  /* ── Pipeline ─────────────────────────────────────── */
+  .pipeline { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; margin-bottom: 28px; }
+  .p-step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 14px;
+    position: relative;
+    transition: transform .2s, border-color .2s;
+  }
+  .p-step:hover { transform: translateY(-3px); border-color: var(--primary); }
+  .p-step .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 8px;
+    background: var(--primary-soft); color: var(--primary-hover);
+    font-weight: 800; font-size: 14px; margin-bottom: 10px;
+  }
+  .p-step h3 { font-size: 14.5px; font-weight: 700; margin-bottom: 6px; line-height: 1.3; }
+  .p-step p { font-size: 12.5px; color: var(--text-muted); line-height: 1.45; }
+  @media (max-width: 1000px) { .pipeline { grid-template-columns: repeat(4, 1fr); } }
+  @media (max-width: 640px) { .pipeline { grid-template-columns: repeat(2, 1fr); } }
+  .p-note {
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-left: 3px solid var(--primary);
+    border-radius: 10px;
+    padding: 16px 20px;
+    color: var(--text-muted);
+    font-size: 15px;
+    max-width: 860px;
+  }
+  .p-note b { color: var(--text); }
+
+  /* ── Screenshots ──────────────────────────────────── */
+  .shot-hero { margin-bottom: 22px; }
+  figure.shot {
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px rgba(0,0,0,.45);
+  }
+  figure.shot img { display: block; width: 100%; height: auto; }
+  figure.shot figcaption {
+    padding: 14px 20px;
+    font-size: 14px;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+  figure.shot figcaption b { color: var(--text); }
+  .shot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 22px; }
+  @media (max-width: 860px) { .shot-grid { grid-template-columns: 1fr; } }
+  .shot-row { display: grid; grid-template-columns: 2.05fr 1fr; gap: 22px; margin-top: 22px; align-items: start; }
+  @media (max-width: 860px) { .shot-row { grid-template-columns: 1fr; } }
+
+  /* ── Architecture ─────────────────────────────────── */
+  .arch { display: grid; grid-template-columns: 1.15fr 1fr; gap: 40px; align-items: start; }
+  @media (max-width: 900px) { .arch { grid-template-columns: 1fr; } }
+  .arch-diagram { display: flex; flex-direction: column; gap: 0; align-items: center; }
+  .arch-tier { width: 100%; display: flex; gap: 14px; justify-content: center; }
+  .arch-box {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    padding: 16px 18px;
+    text-align: center;
+  }
+  .arch-box h4 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .arch-box p { font-size: 12.5px; color: var(--text-muted); line-height: 1.4; }
+  .arch-box.core { border-color: var(--primary); background: linear-gradient(180deg, rgba(99,102,241,.10), var(--surface)); }
+  .arch-arrow { color: var(--text-dim); font-size: 20px; line-height: 1; padding: 8px 0; text-align: center; }
+  .arch-layers { display: flex; gap: 8px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
+  .arch-layer {
+    font-size: 12px; font-weight: 600; color: var(--text-muted);
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 4px 12px;
+  }
+  .principles { display: flex; flex-direction: column; gap: 14px; }
+  .principle {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+  }
+  .principle h4 { font-size: 15.5px; font-weight: 700; margin-bottom: 4px; }
+  .principle h4 .ico { margin-right: 8px; }
+  .principle p { font-size: 14px; color: var(--text-muted); }
+
+  /* ── Lifecycle ────────────────────────────────────── */
+  .lifecycle { display: flex; align-items: stretch; gap: 0; flex-wrap: wrap; margin-bottom: 30px; }
+  .lc-state {
+    flex: 1; min-width: 180px;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 14px;
+    padding: 20px;
+    text-align: center;
+  }
+  .lc-state .tag {
+    display: inline-block; font-size: 13px; font-weight: 800; letter-spacing: .06em;
+    padding: 4px 14px; border-radius: 999px; margin-bottom: 10px;
+  }
+  .lc-state p { font-size: 13.5px; color: var(--text-muted); line-height: 1.45; }
+  .lc-closed .tag { background: var(--surface-3); color: var(--text-muted); }
+  .lc-open .tag { background: rgba(34,197,94,.14); color: var(--on-success); }
+  .lc-build .tag { background: var(--primary-soft); color: var(--primary-hover); }
+  .lc-locked .tag { background: rgba(239,68,68,.13); color: var(--on-danger); }
+  .lc-arrow { display: flex; align-items: center; padding: 0 10px; color: var(--text-dim); flex-direction: column; justify-content: center; }
+  .lc-arrow small { font-size: 11px; white-space: nowrap; }
+  @media (max-width: 900px) {
+    .lifecycle { flex-direction: column; }
+    .lc-arrow { padding: 6px 0; transform: rotate(90deg); height: 40px; }
+    .lc-arrow small { transform: rotate(-90deg); display: none; }
+  }
+  .lc-facts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  @media (max-width: 760px) { .lc-facts { grid-template-columns: 1fr; } }
+
+  /* ── Feature deep dives ───────────────────────────── */
+  .features { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  @media (max-width: 860px) { .features { grid-template-columns: 1fr; } }
+  .feature {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 26px 28px;
+    transition: border-color .2s;
+  }
+  .feature:hover { border-color: var(--border-strong); }
+  .feature .f-ico { font-size: 26px; margin-bottom: 12px; display: block; }
+  .feature h3 { font-size: 20px; font-weight: 800; margin-bottom: 10px; }
+  .feature ul { list-style: none; }
+  .feature li {
+    font-size: 14.5px; color: var(--text-muted);
+    padding: 6px 0 6px 22px; position: relative;
+  }
+  .feature li::before {
+    content: "▸"; position: absolute; left: 2px; color: var(--primary);
+  }
+  .feature li b { color: var(--text); font-weight: 600; }
+
+  /* ── Numbers band ─────────────────────────────────── */
+  .band {
+    background: linear-gradient(135deg, rgba(99,102,241,.12), rgba(56,189,248,.06));
+    border: 1px solid var(--border-strong);
+    border-radius: 20px;
+    padding: 40px 30px;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 26px;
+    text-align: center;
+  }
+  @media (max-width: 760px) { .band { grid-template-columns: repeat(2, 1fr); } }
+  .band b { display: block; font-size: 44px; font-weight: 800; color: var(--text); line-height: 1.1; }
+  .band span { font-size: 14px; color: var(--text-muted); }
+
+  /* ── Roadmap / footer ─────────────────────────────── */
+  .roadmap { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  @media (max-width: 860px) { .roadmap { grid-template-columns: repeat(2, 1fr); } }
+  .road {
+    background: var(--surface);
+    border: 1px dashed var(--border-strong);
+    border-radius: 12px;
+    padding: 18px 20px;
+  }
+  .road h4 { font-size: 15px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+  .road p { font-size: 13px; color: var(--text-muted); }
+  footer { padding: 48px 0 64px; text-align: center; color: var(--text-dim); font-size: 14px; }
+  footer .foot-title { font-size: 16px; color: var(--text-muted); margin-bottom: 6px; }
+  footer b { color: var(--text); }
+
+  /* ── Reveal animation ─────────────────────────────── */
+  .reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s ease; }
+  .reveal.on { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ HERO ═══════════ -->
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">🛡️ Production system · Live since June 2026</div>
+    <h1>Ilutzim <span class="heb">· אילוצים</span></h1>
+    <p class="tagline">
+      End-to-end <strong>workforce scheduling, availability &amp; attendance</strong> for security teams —
+      from the moment a guard submits weekly availability in Telegram, to the
+      <strong>payroll report</strong> on the accountant's desk. One pipeline, one source of truth,
+      <strong>zero manual re-keying</strong>.
+    </p>
+    <div class="chips">
+      <span class="chip">Python 3.12 · FastAPI</span>
+      <span class="chip">PostgreSQL · Alembic</span>
+      <span class="chip">React 19 · Vite</span>
+      <span class="chip">Telegram Bot · aiogram 3</span>
+      <span class="chip">Docker · Railway</span>
+      <span class="chip">pytest · Vitest</span>
+    </div>
+    <div class="stats">
+      <div class="stat"><b>7</b><span>pipeline stages, submission → payroll</span></div>
+      <div class="stat"><b>3</b><span>schedule layers: planned · actual · attendance</span></div>
+      <div class="stat"><b>1,200+</b><span>automated tests (backend + frontend)</span></div>
+      <div class="stat"><b>0</b><span>manual keystrokes on the way to payroll</span></div>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════ PIPELINE ═══════════ -->
+<section>
+  <div class="wrap reveal">
+    <div class="sec-label">The pipeline</div>
+    <h2>Seven stages, one source of truth</h2>
+    <p class="sec-sub">Every stage feeds directly on the output of the previous one — the same data flows end to end, with no copy-paste and no parallel spreadsheets.</p>
+    <div class="pipeline">
+      <div class="p-step"><span class="num">1</span><h3>Availability submission</h3><p>Guards report weekly availability in a Telegram Web App — no extra app, no passwords.</p></div>
+      <div class="p-step"><span class="num">2</span><h3>Constraints workbook</h3><p>A styled, color-coded RTL Excel export of every submission — round-trip importable.</p></div>
+      <div class="p-step"><span class="num">3</span><h3>Scheduling board</h3><p>Availability paints the board; smart manual assignment with live soft warnings.</p></div>
+      <div class="p-step"><span class="num">4</span><h3>Publish &amp; lock</h3><p>Each guard gets a personal message + a PNG of the full schedule; locking is automatic.</p></div>
+      <div class="p-step"><span class="num">5</span><h3>Actual schedule</h3><p>An editable copy of the plan for the running week — last-minute swaps, forever.</p></div>
+      <div class="p-step"><span class="num">6</span><h3>Attendance &amp; comparison</h3><p>Telegram punch clock, cross-checked minute-by-minute against the actual schedule.</p></div>
+      <div class="p-step"><span class="num">7</span><h3>Payroll workbooks</h3><p>Payroll-bureau-ready Excel reports: standard vs. actual hours, fully transparent.</p></div>
+    </div>
+    <div class="p-note">
+      <b>The outcome:</b> an accurate, attendance-based payroll report — generated from real punches
+      reconciled against what was actually scheduled, not what someone remembers.
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ SCREENSHOTS ═══════════ -->
+<section>
+  <div class="wrap reveal">
+    <div class="sec-label">The product</div>
+    <h2>A live look</h2>
+    <p class="sec-sub">Real screens from the running system (demo data). Dark-indigo admin dashboard, RTL Hebrew, fully responsive.</p>
+
+    <figure class="shot shot-hero">
+      <img src="assets/builder-board.png" alt="Schedule builder board — positions × days grid with assignments, live soft warnings, and an availability-aware guard pool">
+      <figcaption><b>The scheduling board.</b> Positions × days for the upcoming week. Selecting a guard paints the board by their submitted availability; assignments are a click or a drag; a live warning engine flags conflicts, missing attributes and fatigue risks — <b>it warns, it never blocks</b>. Auto-saved in the background.</figcaption>
+    </figure>
+
+    <div class="shot-grid">
+      <figure class="shot">
+        <img src="assets/actual.png" alt="Actual schedule board — an editable 1:1 copy of the planned schedule for a started week">
+        <figcaption><b>The actual-schedule layer.</b> The week started? Planning is locked, but reality keeps changing — this editable 1:1 copy absorbs last-minute swaps, ad-hoc positions and retroactive payroll fixes. Attendance and payroll read from here.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="assets/attendance-day.png" alt="Attendance day view — timeline per employee with classified coverage bars">
+        <figcaption><b>Attendance, day view.</b> Every employee on one timeline: green = clean shift, red = no-show, striped = missing checkout. A live "now" marker, morning/evening/night bands, refreshed every minute. The admin <b>sees</b> — no reading required.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="assets/attendance-user-month.png" alt="Employee month view — planned vs actual timeline per day with payroll totals">
+        <figcaption><b>Employee month view.</b> Planned vs. actual per day, with the exact payroll math: standard hours, actual hours, signed differences. Rounded checkouts are shown next to the raw time; admin edits are flagged. Payroll starts here.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="assets/weeks.png" alt="Weeks hub page — week lifecycle cards with quick links and automation indicators">
+        <figcaption><b>The weeks hub.</b> Each week is a card with its lifecycle state and quick links — submissions, constraint export, actual board, attendance. Opening and locking are scheduled from settings; publish stays a human decision.</figcaption>
+      </figure>
+    </div>
+
+    <div class="shot-row">
+      <figure class="shot">
+        <img src="assets/submissions.png" alt="Submissions dashboard — per-guard submission status with reminder broadcast">
+        <figcaption><b>Submissions dashboard.</b> Who submitted, who hasn't, one-tap Telegram reminder to the stragglers, and inline admin editing — including guards with no Telegram at all (flagged), whose constraints the admin fills through the very same form.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="assets/guard-submit.png" alt="Guard availability form — Telegram Web App, 7 days × 3 shifts with per-shift hours">
+        <figcaption><b>The guard side.</b> A light Telegram Web App: 7 days × 3 shifts, custom hours per shift, soft warnings before sending. Identity comes from Telegram's signed init-data — no passwords.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ ARCHITECTURE ═══════════ -->
+<section>
+  <div class="wrap reveal">
+    <div class="sec-label">Under the hood</div>
+    <h2>Architecture</h2>
+    <p class="sec-sub">A layered FastAPI backend with separated domain packages, a single React app for both admin and guards, and a Telegram bot for notifications and punches.</p>
+    <div class="arch">
+      <div class="arch-diagram">
+        <div class="arch-tier">
+          <div class="arch-box"><h4>Telegram Bot</h4><p>aiogram · notifications, punch clock, submissions</p></div>
+          <div class="arch-box"><h4>Frontend — React 19</h4><p>admin dashboard + guard submission form</p></div>
+        </div>
+        <div class="arch-arrow">▼ &nbsp; REST API &nbsp; ▼</div>
+        <div class="arch-tier">
+          <div class="arch-box core">
+            <h4>Backend — FastAPI</h4>
+            <p>Controllers → Services → Repositories → Models</p>
+            <div class="arch-layers">
+              <span class="arch-layer">availability</span>
+              <span class="arch-layer">→ schedule builder</span>
+              <span class="arch-layer">→ attendance</span>
+            </div>
+            <p style="margin-top:8px">separate domain packages, one-way dependency boundary</p>
+          </div>
+        </div>
+        <div class="arch-arrow">▼</div>
+        <div class="arch-tier">
+          <div class="arch-box"><h4>PostgreSQL + Alembic</h4><p>20+ managed migrations · critical rules also enforced by DB-level unique indexes</p></div>
+        </div>
+      </div>
+      <div class="principles">
+        <div class="principle"><h4><span class="ico">🧱</span>Clean layering</h4><p>Business logic lives in services and is testable in isolation; controllers stay thin, repositories own the SQL.</p></div>
+        <div class="principle"><h4><span class="ico">🚩</span>Feature flags</h4><p>Every major capability (attendance, actual schedule, builder) ships dark behind a flag. Flag off = previous behavior, bit for bit.</p></div>
+        <div class="principle"><h4><span class="ico">🎯</span>Single read-model</h4><p>Excel export, Telegram publish, PNG render and the comparison engine all consume the same read-model — they cannot drift apart.</p></div>
+        <div class="principle"><h4><span class="ico">🧪</span>Tested at every layer</h4><p>pytest on the backend, Vitest on the frontend, golden-fixture parity tests keeping the JS and Python warning engines identical.</p></div>
+        <div class="principle"><h4><span class="ico">⏰</span>Self-healing scheduling</h4><p>APScheduler cron jobs with startup catch-up — a server that was down at midnight heals itself on boot.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ WEEK LIFECYCLE ═══════════ -->
+<section>
+  <div class="wrap reveal">
+    <div class="sec-label">Domain modeling</div>
+    <h2>The week lifecycle — a three-state machine</h2>
+    <p class="sec-sub">Deliberately simple: no reopening, at most one open week, and one irreversible final state. Enforced twice — in service logic and in the database itself.</p>
+    <div class="lifecycle">
+      <div class="lc-state lc-closed"><span class="tag">CLOSED</span><p>Future week,<br>waiting to be opened</p></div>
+      <div class="lc-arrow">→<small>admin opens</small></div>
+      <div class="lc-state lc-open"><span class="tag">OPEN</span><p>Submission window —<br>guards report availability</p></div>
+      <div class="lc-arrow">→<small>window closes</small></div>
+      <div class="lc-state lc-build"><span class="tag">CLOSED</span><p>Board building + publish<br>(broadcast keeps the status)</p></div>
+      <div class="lc-arrow">→<small>rollover — week begins</small></div>
+      <div class="lc-state lc-locked"><span class="tag">LOCKED</span><p>The week started —<br>final and irreversible</p></div>
+    </div>
+    <div class="lc-facts">
+      <div class="principle"><h4>📢 "Publish" is a pure broadcast</h4><p>It sends every guard a personal schedule + a PNG of the full board and stamps <i>published_at</i> — but never locks. Edit → republish, in a loop, until the week begins.</p></div>
+      <div class="principle"><h4>🔒 Locking only via rollover</h4><p>LOCKED happens exactly when the start date arrives — automatically and silently, on Saturday night. It locks both the board and the constraints, for everyone.</p></div>
+      <div class="principle"><h4>1️⃣ One OPEN week, guaranteed</h4><p>Opening is allowed only for the upcoming, never-yet-opened week. Enforced by service logic <b>and</b> a partial unique index in PostgreSQL — a race cannot break it.</p></div>
+      <div class="principle"><h4>🔁 Automation + self-healing</h4><p>Opening and locking are scheduled from the settings page; a startup catch-up covers any missed midnight. Retention keeps the last 60 weeks, automatically.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ FEATURE DEEP DIVES ═══════════ -->
+<section>
+  <div class="wrap reveal">
+    <div class="sec-label">Feature highlights</div>
+    <h2>Four subsystems, one philosophy</h2>
+    <p class="sec-sub">"The system surfaces, the human decides" — soft warnings everywhere, hard blocks almost nowhere.</p>
+    <div class="features">
+      <div class="feature">
+        <span class="f-ico">🏗️</span>
+        <h3>Schedule Builder</h3>
+        <ul>
+          <li><b>Activation profiles</b> (routine / holiday / event) — reusable position sets, assignable per week.</li>
+          <li>A position = a demand for one guard: days, hours and <b>required attributes</b> (armed, shift commander, patrol car).</li>
+          <li>Selecting a guard <b>paints the board</b> by their real submitted availability — full or partial coverage.</li>
+          <li>Click or drag to assign; up to two guards per cell with a <b>draggable hand-off divider</b> (30-minute snaps).</li>
+          <li><b>9 live soft warnings</b> — out of availability, double booking, missing attribute, under-rest, over-hours… flagging, never blocking.</li>
+          <li>Background auto-save with debounce — no save button, no lost work.</li>
+        </ul>
+      </div>
+      <div class="feature">
+        <span class="f-ico">🛠️</span>
+        <h3>Actual Schedule Layer</h3>
+        <ul>
+          <li>Born automatically the moment a week starts — a <b>1:1 private copy</b> of the plan (idempotent lazy seeding covers history and downtime).</li>
+          <li><b>Editable forever</b> — including finished weeks, for retroactive payroll fixes. No time gate, no availability checks.</li>
+          <li>Ad-hoc positions for unexpected events, tagged "added"; external <b>reinforcement guards</b> with their own report, kept out of payroll.</li>
+          <li>"Save as profile" — a good week becomes a reusable template.</li>
+          <li>A field-by-field <b>identity test</b> proves a fresh copy reads exactly like the plan.</li>
+        </ul>
+      </div>
+      <div class="feature">
+        <span class="f-ico">🕐</span>
+        <h3>Attendance Engine</h3>
+        <ul>
+          <li><b>Two-tap punch clock in Telegram</b> — persistent 🟢/🔴 keyboard, native location sharing, GPS geofence that <b>marks but doesn't block</b>.</li>
+          <li>Raw events are <b>append-only</b> — the repository refuses updates and deletes; double-taps deduplicated.</li>
+          <li>Idempotent pairing builds actual shifts: cross-midnight nights, orphan punches, a 16-hour cap.</li>
+          <li>A comparison engine classifies <b>every minute</b>: covered / small gap / large gap / no-show / beyond plan / future.</li>
+          <li>Admin edits are audited append-only with a mandatory reason; three automatic Telegram alerts (no-show, 12h+ shift, &lt;8h rest).</li>
+        </ul>
+      </div>
+      <div class="feature">
+        <span class="f-ico">📊</span>
+        <h3>Payroll Reports</h3>
+        <ul>
+          <li><b>A row for every calendar day</b>: standard from the actual schedule, actual from the punches, signed surplus/deficit computed automatically.</li>
+          <li>Two RTL Excel workbooks <b>faithful to the payroll bureau's own sample</b> — per-employee (with totals and signature blocks) and a center-wide summary.</li>
+          <li>Full transparency: admin-edited punches highlighted in orange; rounded checkout shown beside the raw time; a missing checkout counts <b>0 hours</b> until fixed — no phantom hours.</li>
+          <li>One-click download from the month view.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ ENGINEERING NUMBERS ═══════════ -->
+<section>
+  <div class="wrap reveal">
+    <div class="sec-label">Engineering discipline</div>
+    <h2>Built like a product, run like production</h2>
+    <p class="sec-sub">Deployed on Railway with auto-migrations on every deploy; secrets validated fail-fast at boot; login brute-force throttling; Excel formula-injection neutralized; import size caps against zip bombs.</p>
+    <div class="band">
+      <div><b>1,200+</b><span>automated tests, run on every merge</span></div>
+      <div><b>20+</b><span>Alembic migrations, auto-applied on deploy</span></div>
+      <div><b>9</b><span>soft-warning types in one canonical engine (Python ≡ JS, golden-fixture parity)</span></div>
+      <div><b>60</b><span>weeks of history retained, pruned automatically</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ ROADMAP ═══════════ -->
+<section>
+  <div class="wrap reveal">
+    <div class="sec-label">What's next</div>
+    <h2>The road ahead</h2>
+    <p class="sec-sub">The data model was designed for these from day one.</p>
+    <div class="roadmap">
+      <div class="road"><h4>🤖 Auto-assignment</h4><p>Availability, attributes and each guard's "preferred shift" are already collected as inputs for a suggestion engine.</p></div>
+      <div class="road"><h4>📅 Per-week exceptions</h4><p>One-off position tweaks in the builder without touching the profile.</p></div>
+      <div class="road"><h4>⏱️ Physical time clock</h4><p>A wall-mounted punch source, joining Telegram through the same append-only event log.</p></div>
+      <div class="road"><h4>🧾 Final payroll format</h4><p>Closing the loop with the payroll bureau on the definitive export format.</p></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-title">Built by <b>Yosef Cohen</b> · 2026</div>
+    FastAPI · React · PostgreSQL · aiogram · Docker — designed, built, tested and operated end to end.
+  </div>
+</footer>
+
+<script>
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting) { e.target.classList.add('on'); io.unobserve(e.target); }
+  }, { threshold: 0.08 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+</body>
+</html>
