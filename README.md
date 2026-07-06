@@ -7,6 +7,7 @@
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Alembic-4169E1?logo=postgresql&logoColor=white)
 ![Telegram](https://img.shields.io/badge/Telegram-aiogram_3-26A5E4?logo=telegram&logoColor=white)
+[![CI](https://github.com/yosefco3/ilutzim-shift-management/actions/workflows/ci.yml/badge.svg)](https://github.com/yosefco3/ilutzim-shift-management/actions/workflows/ci.yml)
 ![Tests](https://img.shields.io/badge/tests-1200%2B-22c55e)
 
 ## ✨ [View the full project showcase →](https://yosefco3.github.io/ilutzim-shift-management/)
