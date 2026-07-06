@@ -1,0 +1,62 @@
+# Local-only docs & planning (prompt library, overviews, PDFs)
+/prompts
+/.code-review-graph
+/features-prompts
+*.pdf
+*.md
+
+# Real-roster pipeline artifacts — must NEVER be committed to this public repo
+/scripts/constraints_065/
+
+# Portfolio / public docs — the only tracked markdown + showcase page
+!/README.md
+!docs/**
+
+# Claude Code local config
+.claude/
+
+# Keep test fixtures tracked (used by backend tests)
+!backend/tests/fixtures/*.xlsx
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Environment
+.env
+.env.local
+*.local
+!.env.docker
+*.log
+
+# Docker
+postgres-data/
+
+# IDE
+.vscode/
+.idea/
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local artifacts (sqlite test DBs, constraint export dumps)
+*.db
+constraints_*.xlsx
+
+# Local demo / scratch input files (constraints-import demo)
+/1.xlsx
+/השוואת_ייבוא_דמו.txt
