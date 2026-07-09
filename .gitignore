@@ -10,6 +10,7 @@
 
 # Portfolio / public docs — the only tracked markdown + showcase page
 !/README.md
+!/APP_OVERVIEW.md
 !docs/**
 
 # Claude Code local config
