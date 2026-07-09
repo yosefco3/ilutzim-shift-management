@@ -436,6 +436,7 @@ export default {
       min_nights: 'מינימום לילות',
       min_evenings: 'מינימום ערבים',
       max_consecutive_days: 'מקסימום ימים רצוף',
+      pool_show_unsubmitted: 'הצגת מאבטחים שלא הגישו אילוצים בלוח הסידור',
       auto_open_enabled: 'פתיחה אוטומטית פעילה',
       auto_open_weekday: 'יום פתיחה אוטומטית',
       auto_open_time: 'שעת פתיחה אוטומטית',

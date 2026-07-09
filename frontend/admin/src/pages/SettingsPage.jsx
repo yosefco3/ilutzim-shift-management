@@ -45,6 +45,7 @@ const FIELD_TYPES = {
   min_nights: 'number',
   min_evenings: 'number',
   max_consecutive_days: 'number',
+  pool_show_unsubmitted: 'bool',
   shift_default_morning: 'timerange',
   shift_default_afternoon: 'timerange',
   shift_default_night: 'timerange',
@@ -66,7 +67,13 @@ const GROUPS = [
   },
   {
     title: 'כללי שיבוץ',
-    keys: ['min_shifts_per_guard', 'min_nights', 'min_evenings', 'max_consecutive_days'],
+    keys: [
+      'min_shifts_per_guard',
+      'min_nights',
+      'min_evenings',
+      'max_consecutive_days',
+      'pool_show_unsubmitted',
+    ],
   },
   {
     title: 'פתיחה אוטומטית של שבוע',

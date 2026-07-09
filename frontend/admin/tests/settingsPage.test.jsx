@@ -130,6 +130,28 @@ describe('SettingsPage', () => {
     expect(screen.queryByText('company_name')).not.toBeInTheDocument();
   });
 
+  it('pool_show_unsubmitted renders as a switch in the scheduling-rules group and toggles', () => {
+    const setValue = vi.fn();
+    mockHook({
+      settings: [
+        { key: 'min_nights', value: '2', description: null },
+        { key: 'pool_show_unsubmitted', value: 'true', description: null },
+      ],
+      draft: { min_nights: '2', pool_show_unsubmitted: 'true' },
+      setValue,
+    });
+    render(<SettingsPage />);
+
+    expect(screen.getByText('כללי שיבוץ')).toBeInTheDocument();
+    expect(screen.getByText('הצגת מאבטחים שלא הגישו אילוצים בלוח הסידור')).toBeInTheDocument();
+    expect(screen.queryByText('pool_show_unsubmitted')).not.toBeInTheDocument();
+
+    const toggle = screen.getByRole('switch');
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(toggle);
+    expect(setValue).toHaveBeenCalledWith('pool_show_unsubmitted', 'false');
+  });
+
   it('attendance alert toggle renders as a switch', () => {
     mockHook({
       settings: [
