@@ -29,6 +29,20 @@ FRONTEND_DIR = REPO_ROOT / "frontend"
 HISTORY_PATH = Path(__file__).resolve().parent / "test_history.json"
 MAX_HISTORY = 50
 
+# ─────────────── CONFIG (dev-kit convention) ───────────────
+# Mapping strategy — how test files are matched to source files:
+#   "manual"          — only the hand-written *_MANUAL_MAP entries below
+#   "manual+imports"  — manual map PLUS static import analysis of each test
+#                       file (many-to-many: a test covers every app module it
+#                       imports). See the rules above backend_imports_map()
+#                       and frontend_imports_map().
+MAPPING_STRATEGY = "manual+imports"
+
+# Frontend dirs scanned for import-based mapping (relative to frontend/).
+FRONTEND_TEST_DIRS = ["admin/tests"]
+FRONTEND_SRC_EXTS = (".js", ".jsx", ".ts", ".tsx")
+# ────────────────────────────────────────────────────────────
+
 
 def backend_python() -> str:
     """Return the Python interpreter that has the backend deps installed.
@@ -261,12 +275,145 @@ def run_frontend_tests(subdir: str) -> dict[str, str]:
 
 
 # ── Source-test mapping ──────────────────────────────────────
+#
+# Import-based mapping rules (strategy "manual+imports"):
+#   * Only imports that resolve to a real module FILE under app/ count:
+#       from app.services.x import Y   -> app/services/x.py
+#       from app.services import x     -> app/services/x.py  (name is a module)
+#       import app.main                -> app/main.py
+#   * Names re-exported through a package __init__ (e.g. `from app.models
+#     import User`) do NOT count — nearly every test imports models/schemas
+#     for fixture setup, and counting those would mark files "covered" that
+#     no test actually exercises, making the coverage number meaningless.
+#   * conftest.py and tests/fixtures are never scanned (only test_*.py);
+#     imports that don't start with `app.` are ignored.
 
 
-def build_source_test_map() -> dict[str, list[str]]:
+def _resolve_app_module(dotted: str) -> str | None:
+    """'app.a.b' -> 'app/a/b.py' if that module file exists, else None."""
+    if dotted != "app" and not dotted.startswith("app."):
+        return None
+    rel = Path(*dotted.split(".")).with_suffix(".py")
+    cand = BACKEND_DIR / rel
+    if cand.is_file() and cand.name != "__init__.py":
+        return rel.as_posix()
+    return None
+
+
+def backend_imports_map() -> dict[str, list[str]]:
+    """test_file -> [source_files] via static import analysis (see rules above)."""
+    out: dict[str, list[str]] = {}
+    test_dir = BACKEND_DIR / BACKEND_TEST_DIR
+    for tf in sorted(test_dir.glob("test_*.py")):
+        try:
+            tree = ast.parse(tf.read_text(encoding="utf-8"))
+        except (SyntaxError, OSError):
+            continue
+        sources: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    src = _resolve_app_module(alias.name)
+                    if src:
+                        sources.add(src)
+            elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+                src = _resolve_app_module(node.module)
+                if src:
+                    sources.add(src)
+                else:
+                    # module is a package: count imported names that are
+                    # themselves modules (from app.services import x);
+                    # class/function re-exports fall through and are skipped
+                    for alias in node.names:
+                        sub = _resolve_app_module(f"{node.module}.{alias.name}")
+                        if sub:
+                            sources.add(sub)
+        if sources:
+            out[tf.name] = sorted(sources)
+    return out
+
+
+# Frontend import rules: a test covers every ../src/... module it statically
+# imports, EXCEPT modules it vi.mock()s in the same file — a mocked module is
+# replaced, not exercised. Bare-package imports (react, vitest, @testing-
+# library) and non-source assets (.css, images) are ignored.
+
+_JS_IMPORT_RE = re.compile(
+    r"""(?:import|export)[^'"]*?from\s+['"](\.[^'"]+)['"]|import\s+['"](\.[^'"]+)['"]"""
+)
+_JS_MOCK_RE = re.compile(r"""\bvi\.mock\(\s*['"](\.[^'"]+)['"]""")
+
+
+def _resolve_frontend_module(test_path: Path, spec: str, subdir: str) -> str | None:
+    """Resolve a relative import spec to 'admin/src/...' if it's a src module."""
+    base = (test_path.parent / spec).resolve()
+    src_root = (FRONTEND_DIR / subdir / "src").resolve()
+    if base.suffix in FRONTEND_SRC_EXTS:
+        candidates = [base]
+    else:
+        candidates = [base.with_name(base.name + ext) for ext in FRONTEND_SRC_EXTS]
+        candidates += [base / f"index{ext}" for ext in FRONTEND_SRC_EXTS]
+    for c in candidates:
+        if c.is_file() and src_root in c.parents:
+            return f"{subdir}/{c.relative_to(FRONTEND_DIR / subdir).as_posix()}"
+    return None
+
+
+def frontend_imports_map() -> dict[str, list[str]]:
+    """test_path ('admin/tests/x.test.jsx') -> ['admin/src/...'] via imports."""
+    out: dict[str, list[str]] = {}
+    for d in FRONTEND_TEST_DIRS:
+        subdir = d.split("/")[0]
+        tdir = FRONTEND_DIR / d
+        if not tdir.is_dir():
+            continue
+        for tf in sorted(tdir.glob("*.test.*")):
+            try:
+                text = tf.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            mocked = set(_JS_MOCK_RE.findall(text))
+            sources: set[str] = set()
+            for m in _JS_IMPORT_RE.finditer(text):
+                spec = m.group(1) or m.group(2)
+                if spec in mocked:
+                    continue
+                src = _resolve_frontend_module(tf, spec, subdir)
+                if src:
+                    sources.add(src)
+            if sources:
+                out[str(tf.relative_to(FRONTEND_DIR).as_posix())] = sorted(sources)
+    return out
+
+
+def build_backend_test_map() -> dict[str, list[str]]:
+    """test_file -> [source_files], per MAPPING_STRATEGY."""
+    merged: dict[str, set[str]] = defaultdict(set)
+    for tf, srcs in BACKEND_MANUAL_MAP.items():
+        merged[tf].update(srcs)
+    if "imports" in MAPPING_STRATEGY:
+        for tf, srcs in backend_imports_map().items():
+            merged[tf].update(srcs)
+    return {tf: sorted(s) for tf, s in merged.items()}
+
+
+def build_frontend_test_map() -> dict[str, list[str]]:
+    """test_path -> [source_paths], per MAPPING_STRATEGY."""
+    merged: dict[str, set[str]] = defaultdict(set)
+    for tf, srcs in FRONTEND_MANUAL_MAP.items():
+        merged[tf].update(srcs)
+    if "imports" in MAPPING_STRATEGY:
+        for tf, srcs in frontend_imports_map().items():
+            merged[tf].update(srcs)
+    return {tf: sorted(s) for tf, s in merged.items()}
+
+
+def build_source_test_map(backend_test_map: dict[str, list[str]] | None = None) -> dict[str, list[str]]:
     """Map source_file -> [test_files]."""
+    if backend_test_map is None:
+        backend_test_map = build_backend_test_map()
     mapping = defaultdict(list)
-    for test_file, source_files in BACKEND_MANUAL_MAP.items():
+    for test_file, source_files in backend_test_map.items():
         for src in source_files:
             mapping[src].append(test_file)
     return dict(mapping)
@@ -340,14 +487,36 @@ def format_trend(current: dict, previous: dict | None) -> str:
 # ── Markdown generation ──────────────────────────────────────
 
 
+def get_all_frontend_source_files() -> list[str]:
+    """All frontend source modules ('admin/src/...'), excluding tests/setup."""
+    files = []
+    for d in FRONTEND_TEST_DIRS:
+        subdir = d.split("/")[0]
+        src_root = FRONTEND_DIR / subdir / "src"
+        if not src_root.is_dir():
+            continue
+        for ext in FRONTEND_SRC_EXTS:
+            for f in src_root.rglob(f"*{ext}"):
+                if "node_modules" in f.parts or ".test." in f.name:
+                    continue
+                files.append(f"{subdir}/{f.relative_to(FRONTEND_DIR / subdir).as_posix()}")
+    return sorted(set(files))
+
+
 def generate_markdown(
     source_test_map: dict[str, list[str]],
     backend_results: dict[str, str],
     frontend_results: dict[str, str],
     run_tests: bool,
     trend_info: str = "",
+    backend_test_map: dict[str, list[str]] | None = None,
+    frontend_test_map: dict[str, list[str]] | None = None,
 ) -> str:
     """Generate the TEST_GRAPH.md content."""
+    if backend_test_map is None:
+        backend_test_map = build_backend_test_map()
+    if frontend_test_map is None:
+        frontend_test_map = build_frontend_test_map()
     lines = []
     lines.append("# Test Coverage Graph")
     lines.append("")
@@ -378,12 +547,12 @@ def generate_markdown(
         lines.append(f"| טסטים נכשלים (backend) | {failed} ❌ |")
 
     # Frontend stats
-    fe_src_files = []
-    for srcs in FRONTEND_MANUAL_MAP.values():
-        fe_src_files.extend(srcs)
-    fe_src_files = sorted(set(fe_src_files))
-    fe_covered = len(fe_src_files)
-    lines.append(f"| קבצי קוד frontend (ממופים) | {fe_covered} |")
+    fe_all = get_all_frontend_source_files()
+    fe_mapped = {s for srcs in frontend_test_map.values() for s in srcs}
+    fe_covered = [s for s in fe_all if s in fe_mapped]
+    fe_pct = len(fe_covered) * 100 // max(len(fe_all), 1)
+    lines.append(f"| קבצי קוד frontend | {len(fe_all)} |")
+    lines.append(f"| קבצי קוד frontend מכוסים | {len(fe_covered)} ({fe_pct}%) |")
 
     if run_tests and frontend_results:
         fe_passed = sum(1 for k, v in frontend_results.items() if not k.startswith("_") and v == "PASS")
@@ -446,7 +615,7 @@ def generate_markdown(
     lines.append("| תת-פרויקט | קובץ קוד | קובץ טסט | סטטוס |")
     lines.append("|---|---|---|---|")
 
-    for test_path, src_files in sorted(FRONTEND_MANUAL_MAP.items()):
+    for test_path, src_files in sorted(frontend_test_map.items()):
         parts = test_path.split("/")
         subproject = parts[0]
         test_file = "/".join(parts[1:])
@@ -470,8 +639,7 @@ def generate_markdown(
     lines.append("| קובץ טסט | מכסה קבצי קוד | סטטוס |")
     lines.append("|---|---|---|")
     for tf in all_tests:
-        srcs = BACKEND_MANUAL_MAP.get(tf, ["(auto-detect)"])
-        src_count = len(srcs)
+        src_count = len(backend_test_map.get(tf, []))
         if run_tests:
             status = backend_results.get(tf, "⚪ NOT RUN")
             if "PASS" in status:
@@ -496,8 +664,11 @@ def generate_json(
     backend_results: dict[str, str],
     frontend_results: dict[str, str],
     run_tests: bool,
+    frontend_test_map: dict[str, list[str]] | None = None,
 ) -> dict:
     """Generate a JSON-serializable report."""
+    if frontend_test_map is None:
+        frontend_test_map = build_frontend_test_map()
     all_source_files = get_all_source_files()
     covered = [s for s in all_source_files if s in source_test_map]
     uncovered = [s for s in all_source_files if s not in source_test_map]
@@ -524,7 +695,7 @@ def generate_json(
 
     # Frontend mapping
     frontend_map = []
-    for test_path, src_files in sorted(FRONTEND_MANUAL_MAP.items()):
+    for test_path, src_files in sorted(frontend_test_map.items()):
         parts = test_path.split("/")
         subproject = parts[0]
         test_file = "/".join(parts[1:])
@@ -586,7 +757,9 @@ def parse_args() -> argparse.Namespace:
 def main():
     args = parse_args()
     run_tests = not args.no_run
-    source_test_map = build_source_test_map()
+    backend_test_map = build_backend_test_map()
+    frontend_test_map = build_frontend_test_map()
+    source_test_map = build_source_test_map(backend_test_map)
 
     backend_results: dict[str, str] = {}
     frontend_results: dict[str, str] = {}
@@ -617,10 +790,11 @@ def main():
 
     # ── Output ──
     if args.json_output:
-        report = generate_json(source_test_map, backend_results, frontend_results, run_tests)
+        report = generate_json(source_test_map, backend_results, frontend_results, run_tests, frontend_test_map)
         print(json.dumps(report, ensure_ascii=False, indent=2))
     else:
-        md = generate_markdown(source_test_map, backend_results, frontend_results, run_tests, trend_info)
+        md = generate_markdown(source_test_map, backend_results, frontend_results, run_tests, trend_info,
+                               backend_test_map, frontend_test_map)
         output_path = REPO_ROOT / "TEST_GRAPH.md"
         output_path.write_text(md, encoding="utf-8")
         print(f"\n✅ Generated: {output_path}")
