@@ -1485,6 +1485,17 @@ body.board-focus .navbar { display: none; }
 }
 .guard-pool-done .guard-card { opacity: 0.6; }
 
+/* Non-submitters (pool_show_unsubmitted) — bottom section, warning-tinted cards. */
+.guard-pool-unsubmitted { margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--border); }
+.guard-card--unsubmitted {
+  background: var(--warning-soft);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+.guard-chip-unsubmitted {
+  color: var(--on-warning);
+  border-color: var(--warning);
+}
+
 .guard-card {
   border: 1px solid var(--border);
   border-radius: var(--radius);

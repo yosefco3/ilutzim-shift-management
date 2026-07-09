@@ -38,10 +38,14 @@ function GuardCard({ g, selected, onSelect, onDismiss, attrLabel, m, warnMsgs, w
   const usedPct = available > 0 ? Math.max(0, Math.min(100, ((available - remaining) / available) * 100)) : 0;
   const { rem, meter } = remStyle(remaining);
   const warnTitle = (warnings || []).map((w) => warningText(w, warnMsgs)).join('\n');
+  // Didn't submit constraints (pool_show_unsubmitted) — tinted card, a tag
+  // instead of hour math (they have no declared availability to meter).
+  const unsubmitted = g.submitted === false;
+  const bare = simple || unsubmitted;
 
   return (
     <div
-      className={`guard-card${selected ? ' selected' : ''}`}
+      className={`guard-card${unsubmitted ? ' guard-card--unsubmitted' : ''}${selected ? ' selected' : ''}`}
       role="button"
       tabIndex={0}
       aria-pressed={selected}
@@ -70,7 +74,7 @@ function GuardCard({ g, selected, onSelect, onDismiss, attrLabel, m, warnMsgs, w
           )}
           {g.full_name}
         </span>
-        {!simple && (
+        {!bare && (
           <span className="guard-card-rem" style={{ color: rem }}>
             {remaining <= 0 ? m.usedUp : `${m.remainingPrefix} ${hoursText(remaining)}${m.hoursSuffix}`}
           </span>
@@ -78,12 +82,17 @@ function GuardCard({ g, selected, onSelect, onDismiss, attrLabel, m, warnMsgs, w
       </div>
 
       <div className="guard-card-meta">
-        {!simple && (
+        {!bare && (
           <span className="guard-card-avail">
             {m.available} {hoursText(available)}{m.hoursSuffix}
           </span>
         )}
         <span className="guard-card-tags">
+          {unsubmitted && (
+            <span className="board-attr-chip guard-chip-unsubmitted">
+              {m.unsubmittedTag}
+            </span>
+          )}
           {onDismiss && (
             <button
               type="button"
@@ -121,7 +130,7 @@ function GuardCard({ g, selected, onSelect, onDismiss, attrLabel, m, warnMsgs, w
         </span>
       </div>
 
-      {!simple && (
+      {!bare && (
         <div className="guard-card-meter">
           <div className="guard-card-meter-fill" style={{ width: `${usedPct}%`, background: meter }} />
         </div>
@@ -172,13 +181,19 @@ export default function GuardPool({
     });
   };
 
-  const { active, done, dismissed } = useMemo(() => {
+  const { active, done, unsubmitted, dismissed } = useMemo(() => {
     const term = search.trim();
     const filtered = term ? guards.filter((g) => g.full_name.includes(term)) : guards;
     // Guards the admin manually hid from the pool for this session — pulled out
     // of the working list into a quiet, restorable section at the bottom.
     const dismissed = filtered.filter((g) => dismissedIds.has(g.id));
     let visible = filtered.filter((g) => !dismissedIds.has(g.id));
+    // Guards who didn't submit constraints (submitted === false, from
+    // pool_show_unsubmitted) get their own bottom section — pulled out before
+    // the AHMASH partition and the pin so they never climb the list. The
+    // actual board's guards carry no `submitted` field, so nothing moves there.
+    const unsubmitted = visible.filter((g) => g.submitted === false);
+    visible = visible.filter((g) => g.submitted !== false);
     // "AHMASH first" toggle: a stable partition — AHMASH guards lead, everyone
     // else follows, and the incoming sort order is kept within each group.
     if (ahmashFirst) {
@@ -194,7 +209,7 @@ export default function GuardPool({
     const active = simple ? rest : rest.filter((g) => (g.remaining_hours ?? 0) > 0);
     const done = simple ? [] : rest.filter((g) => (g.remaining_hours ?? 0) <= 0);
     if (pinned) active.unshift(pinned);
-    return { active, done, dismissed };
+    return { active, done, unsubmitted, dismissed };
   }, [guards, search, selectedId, dismissedIds, simple, ahmashFirst]);
 
   if (!guards.length) {
@@ -242,6 +257,17 @@ export default function GuardPool({
           <div className="guard-pool-done-title">{m.usedSection} · {done.length}</div>
           <div className="guard-pool-list">
             {done.map((g) => (
+              <GuardCard key={g.id} g={g} selected={g.id === selectedId} warnings={guardWarnings[g.id]} {...cardProps} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {unsubmitted.length > 0 && (
+        <div className="guard-pool-unsubmitted">
+          <div className="guard-pool-done-title">{m.unsubmittedSection} · {unsubmitted.length}</div>
+          <div className="guard-pool-list">
+            {unsubmitted.map((g) => (
               <GuardCard key={g.id} g={g} selected={g.id === selectedId} warnings={guardWarnings[g.id]} {...cardProps} />
             ))}
           </div>

@@ -190,6 +190,68 @@ describe('GuardPool', () => {
     });
   });
 
+  describe('non-submitters (pool_show_unsubmitted)', () => {
+    // Backend order: submitted guards first, non-submitters appended last.
+    const WITH_UNSUBMITTED = [
+      ...GUARDS,
+      {
+        id: 'u3',
+        full_name: 'איתי שכח',
+        roles: ['AHMASH'],
+        remaining_hours: 0,
+        available_hours: 0,
+        notes: null,
+        availability: {},
+        submitted: false,
+      },
+    ];
+
+    afterEach(() => localStorage.removeItem('board.ahmashFirst'));
+
+    it('renders them in a bottom section with the tag, after the used-up section', () => {
+      const { container } = render(
+        <GuardPool guards={WITH_UNSUBMITTED} selectedId={null} onSelect={() => {}} attrLabel={attrLabel} />,
+      );
+      expect(screen.getByText(/לא הגישו אילוצים/)).toBeInTheDocument();
+      expect(screen.getByText('לא הגיש אילוצים')).toBeInTheDocument();
+      const section = container.querySelector('.guard-pool-unsubmitted');
+      expect(section.querySelector('.guard-card-name').textContent).toBe('איתי שכח');
+      // The section sits below "נוצלו במלואם" in the DOM.
+      const done = container.querySelector('.guard-pool-done');
+      expect(done.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      // And he is NOT in the used-up section even with 0 remaining hours.
+      expect([...done.querySelectorAll('.guard-card-name')].map((n) => n.textContent))
+        .not.toContain('איתי שכח');
+    });
+
+    it('tints the card and hides the hour meta', () => {
+      const { container } = render(
+        <GuardPool guards={WITH_UNSUBMITTED} selectedId={null} onSelect={() => {}} attrLabel={attrLabel} />,
+      );
+      const card = container.querySelector('.guard-card--unsubmitted');
+      expect(card).not.toBeNull();
+      expect(card.querySelector('.guard-card-rem')).toBeNull();
+      expect(card.querySelector('.guard-card-meter')).toBeNull();
+      expect(card).toHaveAttribute('draggable', 'true'); // still assignable
+    });
+
+    it('an AHMASH non-submitter stays at the bottom even with "אחמ"שים קודם" ON', () => {
+      const { container } = render(
+        <GuardPool guards={WITH_UNSUBMITTED} selectedId={null} onSelect={() => {}} attrLabel={attrLabel} />,
+      );
+      expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
+      const names = [...container.querySelectorAll('.guard-card-name')].map((n) => n.textContent);
+      expect(names[names.length - 1]).toBe('איתי שכח');
+    });
+
+    it('actual-board guards (no submitted field) are untouched — no section appears', () => {
+      render(
+        <GuardPool guards={GUARDS} selectedId={null} onSelect={() => {}} attrLabel={attrLabel} simple />,
+      );
+      expect(screen.queryByText(/לא הגישו אילוצים/)).toBeNull();
+    });
+  });
+
   it('flags a guard with a policy warning (red dot + tooltip), clean guards have none', () => {
     const { container } = render(
       <GuardPool

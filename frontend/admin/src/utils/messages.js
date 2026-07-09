@@ -200,6 +200,8 @@ export default {
       hoursSuffix: 'ש׳',
       note: 'הערת המאבטח',
       usedSection: 'נוצלו במלואם',
+      unsubmittedSection: 'לא הגישו אילוצים',
+      unsubmittedTag: 'לא הגיש אילוצים',
       hint: 'בחר מאבטח כדי לראות היכן הוא זמין · לחץ תא צבוע לשיבוץ',
       hintSelected: 'זמינות המאבטח צבועה על הלוח — לחץ תא לשיבוץ',
       dismiss: 'הסתר מהמאגר',
