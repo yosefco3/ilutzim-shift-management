@@ -203,14 +203,15 @@ class TestAvailabilityService:
         pool = await _service(db_session).build_pool(week.id)
         assert [g["full_name"].split()[0] for g in pool] == ["פנוי", "בזי"]
 
-    async def test_excludes_non_submitters_and_inactive(self, db_session):
+    async def test_excludes_inactive(self, db_session):
         week = await _make_week(db_session)
         active = await _make_user(db_session, "0501111111")
         inactive = await _make_user(db_session, "0502222222", is_active=False)
         await _submit(db_session, active, week, {0: [("07:00", "15:00")]})
         await _submit(db_session, inactive, week, {0: [("07:00", "15:00")]})
-        # A third user who never submitted is implicitly excluded.
-        await _make_user(db_session, "0503333333")
+        # An inactive user who never submitted is excluded from the
+        # unsubmitted tail too.
+        await _make_user(db_session, "0503333333", is_active=False)
 
         pool = await _service(db_session).build_pool(week.id)
         assert [g["id"] for g in pool] == [active.id]
@@ -219,3 +220,100 @@ class TestAvailabilityService:
         import uuid
         with pytest.raises(WeekNotFoundException):
             await _service(db_session).build_pool(uuid.uuid4())
+
+
+class _StubSettings:
+    """Settings stand-in — returns a fixed pool_show_unsubmitted value."""
+
+    def __init__(self, value):
+        self._value = value
+
+    async def get_setting(self, key):
+        assert key == "pool_show_unsubmitted"
+        return self._value
+
+
+def _service_with_setting(session, value):
+    return AvailabilityService(
+        ScheduleWeekRepository(session),
+        SubmissionRepository(session),
+        UserRepository(session),
+        AssignmentRepository(session),
+        PositionRepository(session),
+        settings_service=_StubSettings(value),
+    )
+
+
+class TestUnsubmittedInPool:
+    """pool_show_unsubmitted — active non-submitters at the end of the pool."""
+
+    async def test_unsubmitted_appended_last_by_name(self, db_session):
+        week = await _make_week(db_session)
+        submitted = await _make_user(db_session, "0501111111", first="זריז")
+        await _submit(db_session, submitted, week, {0: [("07:00", "11:00")]})
+        late_b = await _make_user(db_session, "0502222222", first="בני")
+        late_a = await _make_user(db_session, "0503333333", first="אבי")
+
+        pool = await _service(db_session).build_pool(week.id)  # default ON
+        assert [g["id"] for g in pool] == [submitted.id, late_a.id, late_b.id]
+        tail = pool[1]
+        assert tail["submitted"] is False
+        assert tail["availability"] == {}
+        assert tail["available_hours"] == 0.0
+        assert tail["notes"] is None
+        assert pool[0]["submitted"] is True
+
+    async def test_unsubmitted_after_used_up_submitters(self, db_session):
+        """Even a fully-consumed submitter sorts before a non-submitter."""
+        week = await _make_week(db_session)
+        used_up = await _make_user(db_session, "0501111111", first="עסוק")
+        await _submit(db_session, used_up, week, {0: [("07:00", "15:00")]})  # 8h
+        pos = await _make_position(db_session, {"0": {"start": "07:00", "end": "15:00"}})
+        db_session.add(ScheduleAssignment(
+            week_id=week.id, position_id=pos.id, day_index=0, user_id=used_up.id
+        ))
+        await db_session.flush()
+        late = await _make_user(db_session, "0502222222", first="אבי")
+
+        pool = await _service(db_session).build_pool(week.id)
+        assert [g["id"] for g in pool] == [used_up.id, late.id]
+        assert pool[0]["remaining_hours"] == 0.0
+
+    async def test_setting_off_hides_unsubmitted(self, db_session):
+        week = await _make_week(db_session)
+        submitted = await _make_user(db_session, "0501111111")
+        await _submit(db_session, submitted, week, {0: [("07:00", "15:00")]})
+        late = await _make_user(db_session, "0502222222")
+
+        service = _service_with_setting(db_session, "false")
+        pool = await service.build_pool(week.id)
+        assert [g["id"] for g in pool] == [submitted.id]
+        # The warnings path forces them back in regardless of the setting.
+        forced = await service.build_pool(week.id, include_unsubmitted=True)
+        assert late.id in [g["id"] for g in forced]
+
+    async def test_setting_on_string_true(self, db_session):
+        week = await _make_week(db_session)
+        late = await _make_user(db_session, "0502222222")
+        pool = await _service_with_setting(db_session, "true").build_pool(week.id)
+        assert [g["id"] for g in pool] == [late.id]
+
+    async def test_hidden_unsubmitted_keeps_his_assignment(self, db_session):
+        """Switch OFF removes the guard from the pool — never his assignments."""
+        week = await _make_week(db_session)
+        late = await _make_user(db_session, "0502222222")
+        pos = await _make_position(db_session, {"0": {"start": "07:00", "end": "15:00"}})
+        db_session.add(ScheduleAssignment(
+            week_id=week.id, position_id=pos.id, day_index=0, user_id=late.id
+        ))
+        await db_session.flush()
+
+        service = _service_with_setting(db_session, "false")
+        assert await service.build_pool(week.id) == []
+        # The assignment survives, and the warnings-path pool sees its hours.
+        rows = await AssignmentRepository(db_session).list_for_week(week.id)
+        assert [a.user_id for a in rows] == [late.id]
+        forced = await service.build_pool(week.id, include_unsubmitted=True)
+        assert forced[0]["assigned_hours"] == 8.0
+        assert forced[0]["remaining_hours"] == -8.0
+        assert forced[0]["submitted"] is False

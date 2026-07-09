@@ -62,7 +62,7 @@ class FakeAvailabilityService:
         self._guards = guards or []
         self._missing = missing
 
-    async def build_pool(self, week_id):
+    async def build_pool(self, week_id, include_unsubmitted=None):
         if self._missing:
             raise WeekNotFoundException()
         return self._guards

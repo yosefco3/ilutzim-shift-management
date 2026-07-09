@@ -67,7 +67,9 @@ async def get_warnings(
     """
     try:
         board = await board_service.resolve_board(week_id)
-        pool = await availability_service.build_pool(week_id)
+        # Always include non-submitters here — an assigned guard must keep his
+        # out-of-availability warning even when the pool switch hides him.
+        pool = await availability_service.build_pool(week_id, include_unsubmitted=True)
         assignments = await assignment_service.list_for_week(week_id)
     except AppBaseException as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message)

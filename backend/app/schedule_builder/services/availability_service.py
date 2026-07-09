@@ -18,6 +18,12 @@ schedule builder needs to place them visually:
 - ``notes`` — the guard's free-text ``general_notes`` from their submission
   (e.g. "עדיפות לבקרים"), surfaced next to their name.
 
+Active guards who did NOT submit for the week can be appended at the end of
+the pool (``submitted: False``, empty availability) — controlled by the
+``pool_show_unsubmitted`` system setting (default ON) or forced per call via
+``include_unsubmitted`` (the warnings endpoint always includes them, so an
+assigned non-submitter keeps warning even when the pool switch is OFF).
+
 Coverage colouring per cell is computed client-side from ``availability`` (see
 ``utils/intervals`` ported to JS) so it updates instantly on selection.
 """
@@ -26,6 +32,7 @@ import uuid
 from datetime import time
 
 from app.exceptions import WeekNotFoundException
+from app.services.automation_settings import as_bool
 from app.repositories.schedule_week_repository import ScheduleWeekRepository
 from app.repositories.submission_repository import SubmissionRepository
 from app.repositories.user_repository import UserRepository
@@ -82,18 +89,32 @@ class AvailabilityService:
         user_repo: UserRepository,
         assignment_repo: AssignmentRepository,
         position_repo: PositionRepository,
+        settings_service=None,
     ) -> None:
         self._week_repo = week_repo
         self._submission_repo = submission_repo
         self._user_repo = user_repo
         self._assignment_repo = assignment_repo
         self._position_repo = position_repo
+        # Optional (None = the pool_show_unsubmitted default applies) so
+        # non-request callers/tests don't have to wire the settings layer.
+        self._settings_service = settings_service
 
-    async def build_pool(self, week_id: uuid.UUID) -> list[dict]:
-        """Return the enriched pool for a week, sorted by remaining hours desc."""
+    async def build_pool(
+        self, week_id: uuid.UUID, include_unsubmitted: bool | None = None
+    ) -> list[dict]:
+        """Return the enriched pool for a week, sorted by remaining hours desc.
+
+        ``include_unsubmitted``: True/False overrides; None reads the
+        ``pool_show_unsubmitted`` setting. When on, active guards without a
+        submission are appended after every submitted guard, name-sorted.
+        """
         week = await self._week_repo.get_by_id(week_id)
         if week is None:
             raise WeekNotFoundException()
+
+        if include_unsubmitted is None:
+            include_unsubmitted = await self._show_unsubmitted()
 
         submissions = await self._submission_repo.get_submissions_for_week(week_id)
         users = {
@@ -120,10 +141,55 @@ class AvailabilityService:
                 "available_hours": available_hours,
                 "assigned_hours": assigned_hours,
                 "remaining_hours": round(available_hours - assigned_hours, 2),
+                "submitted": True,
             })
 
         pool.sort(key=lambda g: (-g["remaining_hours"], g["full_name"]))
+        if include_unsubmitted:
+            pool += await self._unsubmitted_entries(week_id, assigned)
         return pool
+
+    async def _show_unsubmitted(self) -> bool:
+        """The ``pool_show_unsubmitted`` setting (default ON when unwired)."""
+        if self._settings_service is None:
+            return True
+        return as_bool(
+            await self._settings_service.get_setting("pool_show_unsubmitted"),
+            default=True,
+        )
+
+    async def _unsubmitted_entries(
+        self, week_id: uuid.UUID, assigned: dict
+    ) -> list[dict]:
+        """Pool entries for active guards with no submission, name-sorted.
+
+        Empty availability / zero hours — the warnings engine reads that as
+        "no declared coverage", so any placement warns out-of-availability
+        (deliberate: assigning them is allowed, with a warning). Their real
+        ``assigned_hours`` still count so an already-placed guard shows it.
+        """
+        active = await self._user_repo.get_active_users()
+        missing = set(await self._submission_repo.get_missing_submissions(
+            week_id, [u.id for u in active]
+        ))
+        entries = []
+        for user in active:
+            if user.id not in missing:
+                continue
+            assigned_hours = assigned.get(user.id, 0.0)
+            entries.append({
+                "id": user.id,
+                "full_name": user.full_name,
+                "roles": list(user.roles or []),
+                "notes": None,
+                "availability": {},
+                "available_hours": 0.0,
+                "assigned_hours": assigned_hours,
+                "remaining_hours": round(-assigned_hours, 2),
+                "submitted": False,
+            })
+        entries.sort(key=lambda g: g["full_name"])
+        return entries
 
     def _build_availability(self, submission, week_start) -> tuple[dict, float]:
         """Per-day merged windows (HH:MM) + total union hours for a submission."""

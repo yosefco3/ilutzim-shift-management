@@ -13,6 +13,7 @@ from fastapi import Depends
 from app.database import get_pool
 from app.repositories.schedule_week_repository import ScheduleWeekRepository
 from app.repositories.submission_repository import SubmissionRepository
+from app.repositories.system_settings_repository import SystemSettingsRepository
 from app.repositories.user_repository import UserRepository
 from app.schedule_builder.repositories.assignment_repository import (
     AssignmentRepository,
@@ -36,6 +37,7 @@ from app.schedule_builder.services.saved_schedule_service import (
     SavedScheduleService,
 )
 from app.schedule_builder.services.week_profile_service import WeekProfileService
+from app.services.settings_service import SettingsService
 
 
 async def get_profile_service(session=Depends(get_pool)) -> ProfileService:
@@ -89,6 +91,7 @@ async def get_availability_service(session=Depends(get_pool)) -> AvailabilitySer
         UserRepository(session),
         AssignmentRepository(session),
         PositionRepository(session),
+        settings_service=SettingsService(SystemSettingsRepository(session)),
     )
 
 

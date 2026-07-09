@@ -35,6 +35,10 @@ SETTINGS_DEFAULTS: dict[str, Any] = {
     "min_nights": 2,
     "min_evenings": 2,
     "max_consecutive_days": 6,
+    # Planning-board pool: also list active guards who did NOT submit
+    # constraints (at the end, tagged "לא הגיש אילוצים"). OFF hides them from
+    # the pool only — existing assignments are never touched.
+    "pool_show_unsubmitted": True,
     # Week auto open/lock — placeholder config only (no scheduler wired yet).
     "auto_open_enabled": False,
     "auto_open_weekday": "thursday",

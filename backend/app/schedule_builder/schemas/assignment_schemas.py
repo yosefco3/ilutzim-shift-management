@@ -117,3 +117,5 @@ class PoolGuardSchema(BaseModel):
     available_hours: float = 0.0
     assigned_hours: float = 0.0
     remaining_hours: float = 0.0
+    # False = an active guard with no submission this week (pool_show_unsubmitted).
+    submitted: bool = True
