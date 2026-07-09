@@ -1,35 +1,5 @@
 [
   {
-    "timestamp": "2026-07-01T21:55:42",
-    "backend_coverage%": 33,
-    "backend_tests": 67,
-    "backend_passed": 67,
-    "backend_failed": 0,
-    "frontend_tests": 38,
-    "frontend_passed": 38,
-    "frontend_failed": 0
-  },
-  {
-    "timestamp": "2026-07-01T22:29:02",
-    "backend_coverage%": 33,
-    "backend_tests": 67,
-    "backend_passed": 67,
-    "backend_failed": 0,
-    "frontend_tests": 38,
-    "frontend_passed": 38,
-    "frontend_failed": 0
-  },
-  {
-    "timestamp": "2026-07-02T20:50:47",
-    "backend_coverage%": 33,
-    "backend_tests": 67,
-    "backend_passed": 67,
-    "backend_failed": 0,
-    "frontend_tests": 39,
-    "frontend_passed": 39,
-    "frontend_failed": 0
-  },
-  {
     "timestamp": "2026-07-02T21:10:09",
     "backend_coverage%": 33,
     "backend_tests": 67,
@@ -498,5 +468,35 @@
     "frontend_tests": 51,
     "frontend_passed": 50,
     "frontend_failed": 1
+  },
+  {
+    "timestamp": "2026-07-07T20:44:37",
+    "backend_coverage%": 24,
+    "backend_tests": 100,
+    "backend_passed": 100,
+    "backend_failed": 0,
+    "frontend_tests": 51,
+    "frontend_passed": 51,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-07T20:48:36",
+    "backend_coverage%": 24,
+    "backend_tests": 100,
+    "backend_passed": 100,
+    "backend_failed": 0,
+    "frontend_tests": 51,
+    "frontend_passed": 51,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-09T19:47:52",
+    "backend_coverage%": 24,
+    "backend_tests": 100,
+    "backend_passed": 100,
+    "backend_failed": 0,
+    "frontend_tests": 51,
+    "frontend_passed": 51,
+    "frontend_failed": 0
   }
 ]
