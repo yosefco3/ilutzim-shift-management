@@ -7,5 +7,11 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: './tests/setup.js',
+    // Pin feature flags for tests regardless of the developer's local
+    // .env/.env.local (vitest loads them via Vite): the procedures flag ships
+    // default-OFF and the flag-off gating tests assert that.
+    env: {
+      VITE_PROCEDURES_ENABLED: 'false',
+    },
   },
 });

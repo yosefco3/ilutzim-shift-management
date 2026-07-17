@@ -5,6 +5,7 @@ import {
   addProcedureQuestion,
   updateProcedureQuestion,
   deleteProcedureQuestion,
+  generateProcedureQuestions,
   publishProcedure,
   fetchProcedureResults,
 } from '../api/adminApiClient';
@@ -222,7 +223,27 @@ export default function ProcedureDetailPage() {
 function QuestionsTab({ proc, isDraft, editingId, setEditingId, reload }) {
   const toast = useToast();
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [generating, setGenerating] = useState(false);
   const questions = proc.questions || [];
+
+  // AI generation, also available here (not only on the list page) — this is
+  // where the admin lands right after creating a procedure.
+  const handleGenerate = async () => {
+    setGenerating(true);
+    try {
+      const result = await generateProcedureQuestions(proc.id);
+      toast.success(
+        result.skipped
+          ? m.generatePartial(result.generated, result.total_questions)
+          : m.generateDone(result.generated),
+      );
+      await reload();
+    } catch (err) {
+      toast.error(err.status === 503 ? m.errGenerateUnavailable : (err.message || m.errGenerate));
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const handleSave = async (data, questionId) => {
     if (questionId) {
@@ -295,13 +316,25 @@ function QuestionsTab({ proc, isDraft, editingId, setEditingId, reload }) {
           />
         </div>
       ) : (
-        <button
-          className="btn btn-secondary"
-          onClick={() => setEditingId('new')}
-          data-testid="add-question-btn"
-        >
-          {m.addQuestion}
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {isDraft && (
+            <button
+              className="btn btn-primary"
+              onClick={handleGenerate}
+              disabled={generating}
+              data-testid="generate-ai-btn"
+            >
+              {generating ? m.generating : m.generate}
+            </button>
+          )}
+          <button
+            className="btn btn-secondary"
+            onClick={() => setEditingId('new')}
+            data-testid="add-question-btn"
+          >
+            {m.addQuestion}
+          </button>
+        </div>
       )}
 
       {deleteTarget && (

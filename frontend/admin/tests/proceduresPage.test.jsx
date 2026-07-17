@@ -114,8 +114,8 @@ describe('ProceduresPage', () => {
     expect(createProcedure).not.toHaveBeenCalled();
   });
 
-  it('uploads a .docx → fills the body with the extracted text for review', async () => {
-    const extracted = 'תוכן שהופק מהקובץ';
+  it('uploads a .docx → first line becomes the title, the rest fills the body', async () => {
+    const extracted = 'סד"פ – תשאול ובידוק\n\nפסקה ראשונה של הנוהל\nפסקה שנייה';
     fetchProcedures.mockResolvedValue([]);
     uploadProcedureDocx.mockResolvedValue({
       text: extracted,
@@ -131,13 +131,33 @@ describe('ProceduresPage', () => {
     fireEvent.change(screen.getByTestId('docx-input'), { target: { files: [file] } });
 
     await waitFor(() => expect(uploadProcedureDocx).toHaveBeenCalledWith(file, ''));
-    // The extracted text fills the editable body for review.
-    expect(await screen.findByLabelText(m.bodyField)).toHaveValue(extracted);
-    // And the source filename + char count are surfaced.
+    // The document's first line auto-fills the title; the body holds the rest.
+    expect(await screen.findByLabelText(m.titleField)).toHaveValue('סד"פ – תשאול ובידוק');
+    expect(screen.getByLabelText(m.bodyField)).toHaveValue('פסקה ראשונה של הנוהל\nפסקה שנייה');
+    // And the source filename is surfaced.
     expect(screen.getByTestId('docx-extracted')).toHaveTextContent('procedure.docx');
-    expect(screen.getByTestId('docx-extracted')).toHaveTextContent(
-      m.extractedChars(extracted.length),
-    );
+  });
+
+  it('uploads a .docx with a title already typed → keeps it and fills the full body', async () => {
+    const extracted = 'שורה ראשונה\nגוף';
+    fetchProcedures.mockResolvedValue([]);
+    uploadProcedureDocx.mockResolvedValue({
+      text: extracted,
+      source_filename: 'procedure.docx',
+      char_count: extracted.length,
+    });
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: m.add }));
+    fireEvent.change(screen.getByLabelText(m.titleField), { target: { value: 'כותרת ידנית' } });
+
+    const file = new File(['docx-bytes'], 'procedure.docx', {
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    });
+    fireEvent.change(screen.getByTestId('docx-input'), { target: { files: [file] } });
+
+    await waitFor(() => expect(uploadProcedureDocx).toHaveBeenCalledWith(file, 'כותרת ידנית'));
+    expect(await screen.findByLabelText(m.titleField)).toHaveValue('כותרת ידנית');
+    expect(screen.getByLabelText(m.bodyField)).toHaveValue(extracted);
   });
 
   it('shows the generate spinner then a toast on success', async () => {

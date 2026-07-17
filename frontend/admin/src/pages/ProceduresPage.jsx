@@ -209,7 +209,21 @@ function NewProcedureForm({ onSaved, onCancel }) {
     setFormError('');
     try {
       const result = await uploadProcedureDocx(file, title);
-      setBody(result.text || '');
+      const text = result.text || '';
+      // The document's first non-empty line becomes the title (unless the admin
+      // already typed one) and is stripped from the body to avoid duplication.
+      if (!title.trim()) {
+        const lines = text.split('\n');
+        const idx = lines.findIndex((l) => l.trim());
+        if (idx >= 0) {
+          setTitle(lines[idx].trim().slice(0, 200));
+          setBody(lines.slice(idx + 1).join('\n').replace(/^\n+/, ''));
+        } else {
+          setBody(text);
+        }
+      } else {
+        setBody(text);
+      }
       setSourceFilename(result.source_filename || file.name);
     } catch (err) {
       setFormError(err.message || messages.common.error);

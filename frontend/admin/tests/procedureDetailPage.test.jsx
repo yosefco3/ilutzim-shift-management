@@ -7,6 +7,7 @@ vi.mock('../src/api/adminApiClient', () => ({
   addProcedureQuestion: vi.fn(),
   updateProcedureQuestion: vi.fn(),
   deleteProcedureQuestion: vi.fn(),
+  generateProcedureQuestions: vi.fn(),
   publishProcedure: vi.fn(),
   fetchProcedureResults: vi.fn(),
 }));
@@ -18,6 +19,7 @@ import {
   addProcedureQuestion,
   updateProcedureQuestion,
   deleteProcedureQuestion,
+  generateProcedureQuestions,
   publishProcedure,
   fetchProcedureResults,
 } from '../src/api/adminApiClient';
@@ -73,10 +75,47 @@ describe('ProcedureDetailPage — questions editor', () => {
     addProcedureQuestion.mockReset();
     updateProcedureQuestion.mockReset();
     deleteProcedureQuestion.mockReset();
+    generateProcedureQuestions.mockReset();
     publishProcedure.mockReset();
     fetchProcedureResults.mockReset();
     toast.success.mockReset();
     toast.error.mockReset();
+  });
+
+  it('draft shows an AI-generate button that generates and reloads', async () => {
+    fetchProcedure.mockResolvedValue(DRAFT_PROC);
+    generateProcedureQuestions.mockResolvedValue({
+      generated: 16, skipped: 0, total_questions: 17,
+    });
+    renderPage();
+    await screen.findByText('גוף הנוהל לבדיקה');
+
+    fireEvent.click(screen.getByTestId('generate-ai-btn'));
+    await waitFor(() => expect(generateProcedureQuestions).toHaveBeenCalledWith('p1'));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith(m.generateDone(16)));
+    // Reloaded after generation (initial load + reload).
+    expect(fetchProcedure).toHaveBeenCalledTimes(2);
+  });
+
+  it('AI-generate 503 surfaces the unavailable message; no button on published', async () => {
+    fetchProcedure.mockResolvedValue(DRAFT_PROC);
+    const err = new Error('boom');
+    err.status = 503;
+    generateProcedureQuestions.mockRejectedValue(err);
+    renderPage();
+    await screen.findByText('גוף הנוהל לבדיקה');
+
+    fireEvent.click(screen.getByTestId('generate-ai-btn'));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(m.errGenerateUnavailable),
+    );
+  });
+
+  it('published procedure has no AI-generate button', async () => {
+    fetchProcedure.mockResolvedValue(PUBLISHED_PROC);
+    renderPage('/procedures/p2');
+    await screen.findByText('גוף הנוהל לבדיקה');
+    expect(screen.queryByTestId('generate-ai-btn')).toBeNull();
   });
 
   it('renders the body text + existing questions with the correct option marked', async () => {
