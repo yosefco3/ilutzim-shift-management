@@ -43,7 +43,13 @@ export async function request(endpoint, options = {}) {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     // FastAPI HTTPException uses `detail`; app exceptions use `error`.
-    throw new Error(body.detail || body.error || `HTTP ${res.status}`);
+    const message = body.detail || body.error || `HTTP ${res.status}`;
+    const error = new Error(message);
+    // Surface the HTTP status so callers can branch (e.g. publish 409 → offer
+    // rebroadcast, generate 503 → "service unavailable") without parsing Hebrew
+    // message strings. Additive only — existing callers read err.message.
+    error.status = res.status;
+    throw error;
   }
 
   // Handle 204 No Content (e.g. DELETE responses)
@@ -271,6 +277,111 @@ export function updateSettings(settingsMap) {
   return request('/admin/settings', {
     method: 'PUT',
     body: JSON.stringify({ settings: settingsMap }),
+  });
+}
+
+// ──── Procedures (סד"פ) ────
+// Mirrors backend/app/procedures/controllers/procedure_controller.py endpoints.
+// All run under /admin/procedures (admin-only). The generate call can take
+// 30–60s (one Claude request per procedure) — the shared request() helper has no
+// timeout, so the spinner on ProceduresPage just shows until it resolves.
+export function fetchProcedures() {
+  return request('/admin/procedures');
+}
+
+export function fetchProcedure(id) {
+  return request(`/admin/procedures/${id}`);
+}
+
+export function createProcedure({ title, body_text }) {
+  return request('/admin/procedures', {
+    method: 'POST',
+    body: JSON.stringify({ title, body_text }),
+  });
+}
+
+export function updateProcedure(id, { title, body_text }) {
+  const body = {};
+  if (title !== undefined) body.title = title;
+  if (body_text !== undefined) body.body_text = body_text;
+  return request(`/admin/procedures/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
+export function archiveProcedure(id) {
+  return request(`/admin/procedures/${id}/archive`, { method: 'POST' });
+}
+
+// Trigger AI question generation (drafts only). Resolves with
+// { generated, skipped, total_questions }; rejects on 503 (no API key / Claude
+// failure) or 409 (not a draft).
+export function generateProcedureQuestions(id) {
+  return request(`/admin/procedures/${id}/generate`, { method: 'POST' });
+}
+
+// ── Question editing ──
+export function addProcedureQuestion(procId, { text, options, correct_index }) {
+  return request(`/admin/procedures/${procId}/questions`, {
+    method: 'POST',
+    body: JSON.stringify({ text, options, correct_index }),
+  });
+}
+
+export function updateProcedureQuestion(procId, qId, data) {
+  return request(`/admin/procedures/${procId}/questions/${qId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteProcedureQuestion(procId, qId) {
+  return request(`/admin/procedures/${procId}/questions/${qId}`, {
+    method: 'DELETE',
+  });
+}
+
+// Publish (or re-broadcast) a procedure. rebroadcast=true skips guards who
+// already passed (POST /publish?rebroadcast=true). Resolves with
+// { sent, skipped, total, republished }; rejects with 409 if already published
+// when called without rebroadcast.
+export function publishProcedure(id, { rebroadcast = false } = {}) {
+  const query = rebroadcast ? '?rebroadcast=true' : '';
+  return request(`/admin/procedures/${id}/publish${query}`, { method: 'POST' });
+}
+
+export function fetchProcedureResults(id) {
+  return request(`/admin/procedures/${id}/results`);
+}
+
+// Upload a .docx for text extraction (does NOT save — returns the extracted
+// text for the admin to review/edit before creating the procedure). Multipart,
+// so it bypasses the JSON-forcing request() helper, same shape as
+// uploadConstraints(): FormData + browser-set boundary + bearer token. The
+// backend declares `title` as a Form field (not Query), so it goes in the body.
+export function uploadProcedureDocx(file, title = '') {
+  const url = `${API_BASE}/admin/procedures/upload`;
+
+  const form = new FormData();
+  form.append('file', file);
+  form.append('title', title || '');
+
+  const token = getToken();
+  const headers = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  return fetch(url, { method: 'POST', headers, body: form }).then(async (res) => {
+    if (res.status === 401) {
+      clearToken();
+      window.location.href = '/login';
+      throw new Error('Unauthorized');
+    }
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail || body.error || `HTTP ${res.status}`);
+    }
+    return res.json();
   });
 }
 

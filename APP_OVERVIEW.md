@@ -107,3 +107,4 @@ resync בלי restart) · sweep נוכחות יומי 04:30 · התראות נו
 | 2026-07-09 | `pool_show_unsubmitted` — מי שלא הגיש מופיע בסוף ה-POOL עם תג, סוויטש בהגדרות | `availability_service.py`, `GuardPool.jsx`, `SettingsPage.jsx` |
 | 2026-07-09 | המסמך הזה שוחזר | `APP_OVERVIEW.md` |
 | 2026-07-17 | procedure_quiz בקאנד (סד"פ + מבחן AI בטלגרם) — 5 מודלים, ג'נרציה ב-Claude API, quiz polls, תזכורת; dark מאחורי `PROCEDURES_ENABLED=off` | `backend/app/procedures/`, `bot/handlers/procedures.py`, מיגרציה `f4a1c3e5b7d9` |
+| 2026-07-17 | procedure_quiz פרונטאנד אדמין — ProceduresPage (יצירה/העלאת docx/ג'נרציה) + ProcedureDetailPage (עורך שאלות, פרסום, תוצאות); `VITE_PROCEDURES_ENABLED` ברירת מחדל **off** (`=== 'true'`, בשונה משאר הדגלים) | `frontend/admin/src/pages/Procedure*.jsx`, `App.jsx`, `Navbar.jsx`, `adminApiClient.js` |

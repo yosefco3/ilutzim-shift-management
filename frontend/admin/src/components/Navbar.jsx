@@ -9,6 +9,12 @@ const BUILDER_ENABLED = import.meta.env.VITE_SCHEDULE_BUILDER_ENABLED !== 'false
 const ATTENDANCE_ENABLED = import.meta.env.VITE_ATTENDANCE_ENABLED !== 'false';
 // "סידור בפועל" (actual schedule) — same build-time flag convention.
 const ACTUAL_SCHEDULE_ENABLED = import.meta.env.VITE_ACTUAL_SCHEDULE_ENABLED !== 'false';
+// סד"פ (procedure quiz) — DELIBERATE divergence: unlike the flags above (which
+// use `!== 'false'`, i.e. default ON), this feature ships DARK and defaults OFF.
+// It is flipped ON only in the final deploy step (deploy-safe sequencing — the
+// backend lands in prod first with this unset, so no nav entry appears until the
+// full feature is ready). Matches the inverted check in App.jsx.
+const PROCEDURES_ENABLED = import.meta.env.VITE_PROCEDURES_ENABLED === 'true';
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -62,6 +68,13 @@ export default function Navbar() {
           <>
             <span className="navbar-group-sep" aria-hidden="true">|</span>
             <NavLink to="/attendance">{messages.nav.attendance}</NavLink>
+          </>
+        )}
+        {/* סד"פ — נהלים (feature-flagged, default OFF — see PROCEDURES_ENABLED). */}
+        {PROCEDURES_ENABLED && (
+          <>
+            <span className="navbar-group-sep" aria-hidden="true">|</span>
+            <NavLink to="/procedures">{messages.procedures.nav}</NavLink>
           </>
         )}
         {/* הגדרות — אחרון לפני "התנתק" (יוסף 4/7): עמוד תחזוקה, לא עבודה יומית. */}

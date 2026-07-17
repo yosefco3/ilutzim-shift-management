@@ -19,6 +19,8 @@ import AttendancePage from './pages/AttendancePage';
 import AttendanceUserPage from './pages/AttendanceUserPage';
 import ActualBoardPage from './pages/ActualBoardPage';
 import ReinforcementsReportPage from './pages/ReinforcementsReportPage';
+import ProceduresPage from './pages/ProceduresPage';
+import ProcedureDetailPage from './pages/ProcedureDetailPage';
 import './styles/admin.css';
 
 // Part B (schedule builder + constraints import) is hidden in production via a
@@ -30,6 +32,12 @@ const ATTENDANCE_ENABLED = import.meta.env.VITE_ATTENDANCE_ENABLED !== 'false';
 // "סידור בפועל" (actual schedule) — same convention; pairs with the backend
 // ACTUAL_SCHEDULE_ENABLED comparison-source flag.
 const ACTUAL_SCHEDULE_ENABLED = import.meta.env.VITE_ACTUAL_SCHEDULE_ENABLED !== 'false';
+// סד"פ (procedure quiz) — DELIBERATE divergence from the flags above: the others
+// use `!== 'false'` (default ON), but this feature ships DARK — it defaults OFF
+// and is flipped ON only in the final deploy step, once the frontend + bot are
+// complete (deploy-safe sequencing: every prior backend step lands in prod with
+// this flag unset, so the routes/nav entry are absent for end users).
+const PROCEDURES_ENABLED = import.meta.env.VITE_PROCEDURES_ENABLED === 'true';
 
 export default function App() {
   return (
@@ -82,6 +90,13 @@ function AppContent() {
               <Route path="/builder/profiles" element={<ProtectedRoute><ProfilesPage /></ProtectedRoute>} />
               <Route path="/builder/positions" element={<ProtectedRoute><PositionsPage /></ProtectedRoute>} />
               <Route path="/builder/board" element={<ProtectedRoute><BoardPage /></ProtectedRoute>} />
+            </>
+          )}
+          {/* סד"פ — procedure quiz (feature-flagged, default OFF — see PROCEDURES_ENABLED). */}
+          {PROCEDURES_ENABLED && (
+            <>
+              <Route path="/procedures" element={<ProtectedRoute><ProceduresPage /></ProtectedRoute>} />
+              <Route path="/procedures/:id" element={<ProtectedRoute><ProcedureDetailPage /></ProtectedRoute>} />
             </>
           )}
           <Route path="*" element={<Navigate to="/guards" replace />} />

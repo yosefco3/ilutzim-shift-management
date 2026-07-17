@@ -2158,3 +2158,21 @@ body.board-focus .navbar { display: none; }
 .board-page.is-focus .actual-toolbar,
 .board-page.is-focus .actual-warnings-banner,
 .board-page.is-focus .page-subtitle { display: none; }
+
+/* ── Procedures (סד"פ) ─────────────────────────────────────────────────── */
+/* Procedure body is rendered in a <pre> to preserve paragraph breaks; without
+   this it falls back to no-wrap monospace, which breaks Hebrew text. */
+.proc-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  max-height: 320px;
+  overflow-y: auto;
+  margin: 0;
+}
+
+.option-correct {
+  font-weight: 700;
+}
