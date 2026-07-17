@@ -54,7 +54,9 @@ def upgrade() -> None:
         sa.Column('options', sa.JSON(), nullable=False),
         sa.Column('correct_index', sa.Integer(), nullable=False),
         sa.Column('display_order', sa.Integer(), nullable=False, server_default='0'),
-        sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('1')),
+        # 'true', not '1' — PostgreSQL rejects an integer default on a boolean
+        # column (SQLite accepts both, which is why tests didn't catch this).
+        sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('true')),
         sa.Column(
             'source',
             sa.Enum('AI', 'MANUAL', name='question_source'),
