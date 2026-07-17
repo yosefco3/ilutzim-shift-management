@@ -103,13 +103,12 @@ def _sent_texts(fake_bot):
 
 
 def _assert_chunks_balanced_and_within_limit(chunks):
-    """Every chunk ≤4096 chars (incl. tags) with balanced <b> and <blockquote>."""
+    """Every chunk ≤4096 chars (incl. tags) with balanced <b> tags and no
+    blockquote (the collapsed-quote experiment was reverted 2026-07-18)."""
     for chunk in chunks:
         assert len(chunk) <= 4096, f"chunk over limit ({len(chunk)} chars)"
         assert chunk.count("<b>") == chunk.count("</b>"), f"unbalanced <b>: {chunk!r}"
-        assert chunk.count(notif._BQ_OPEN) == chunk.count(notif._BQ_CLOSE), (
-            f"unbalanced blockquote: {chunk!r}"
-        )
+        assert "<blockquote" not in chunk, f"blockquote reintroduced: {chunk!r}"
 
 
 async def test_send_procedure_converts_bold_markers_to_html(monkeypatch):
@@ -145,8 +144,8 @@ async def test_send_procedure_odd_asterisk_is_literal(monkeypatch):
     assert sent.count("<b>") == 1  # title only — body has no bold tag
 
 
-async def test_send_procedure_wraps_body_in_blockquote_title_outside(monkeypatch):
-    """The body sits inside <blockquote expandable>; the bold title is outside."""
+async def test_send_procedure_plain_message_bold_title(monkeypatch):
+    """Regular (non-collapsed) message: bold title line + plain body."""
     fake_bot = MagicMock()
     fake_bot.send_message = AsyncMock()
     monkeypatch.setattr(notif, "get_bot", lambda: fake_bot)
@@ -155,9 +154,7 @@ async def test_send_procedure_wraps_body_in_blockquote_title_outside(monkeypatch
 
     chunks = _sent_texts(fake_bot)
     assert len(chunks) == 1
-    assert chunks[0] == (
-        "📜 <b>הנוהל</b>\n\n<blockquote expandable>תוכן הנוהל</blockquote>"
-    )
+    assert chunks[0] == "📜 <b>הנוהל</b>\n\nתוכן הנוהל"
 
 
 async def test_send_procedure_chunks_balanced_and_within_limit(monkeypatch):
@@ -197,8 +194,8 @@ async def test_send_procedure_overlong_paragraph_strips_bold_and_splits(monkeypa
 
 
 async def test_send_procedure_keyboard_still_last_chunk_only(monkeypatch):
-    """The reply_markup still rides the final chunk only once the body is
-    blockquote-wrapped (regression guard for the new packing)."""
+    """The reply_markup still rides the final chunk only (regression guard for
+    the paragraph-packing)."""
     fake_bot = MagicMock()
     fake_bot.send_message = AsyncMock()
     monkeypatch.setattr(notif, "get_bot", lambda: fake_bot)
@@ -214,9 +211,9 @@ async def test_send_procedure_keyboard_still_last_chunk_only(monkeypatch):
     _assert_chunks_balanced_and_within_limit(_sent_texts(fake_bot))
 
 
-async def test_send_procedure_plain_text_unchanged_just_collapsed(monkeypatch):
-    """A stored procedure with no markers renders as before (escaped), only now
-    collapsed inside a blockquote — no stray <b> in the body."""
+async def test_send_procedure_plain_text_unchanged(monkeypatch):
+    """A stored procedure with no markers renders escaped, as a regular
+    message — no blockquote, no stray <b> in the body."""
     fake_bot = MagicMock()
     fake_bot.send_message = AsyncMock()
     monkeypatch.setattr(notif, "get_bot", lambda: fake_bot)
@@ -227,10 +224,6 @@ async def test_send_procedure_plain_text_unchanged_just_collapsed(monkeypatch):
     chunks = _sent_texts(fake_bot)
     assert len(chunks) == 1
     chunk = chunks[0]
-    # body is escaped exactly as the old code escaped it, now collapsed in the quote
-    assert (
-        "<blockquote expandable>סעיף אחד\n\nסעיף שני עם &lt; וגם &amp; בפנים</blockquote>"
-        in chunk
-    )
-    assert "&lt;" in chunk and "&amp;" in chunk
+    assert "סעיף אחד\n\nסעיף שני עם &lt; וגם &amp; בפנים" in chunk
+    assert "<blockquote" not in chunk
     assert chunk.count("<b>") == 1  # title only

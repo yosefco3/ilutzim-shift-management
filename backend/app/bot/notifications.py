@@ -26,11 +26,6 @@ TG_MESSAGE_LIMIT = 4096
 # literal asterisk, not a tag.
 _BOLD_PAIR = re.compile(r"\*([^*]*)\*")
 
-# Procedure bodies ship collapsed: each chunk's body is wrapped in an
-# expandable blockquote (Telegram renders a "show more" quote the guard taps
-# to expand). The bold title line stays outside it.
-_BQ_OPEN = "<blockquote expandable>"
-_BQ_CLOSE = "</blockquote>"
 
 
 async def send_notification(telegram_id: int, text: str, reply_markup=None) -> bool:
@@ -423,11 +418,15 @@ def _convert_paragraph_markers(paragraph: str) -> str:
 
 
 def _wrap_procedure_chunk(title_block: str, body: str) -> str:
-    """Assemble one chunk: optional title line (chunk 0 only) outside a
-    blockquote that wraps the body."""
+    """Assemble one chunk: optional title line (chunk 0 only) above the body.
+
+    Plain message, no blockquote — the collapsed-quote experiment (2026-07-18)
+    was reverted per user feedback: Telegram renders blockquote text in a
+    smaller font, which hurt readability for procedure bodies.
+    """
     if title_block:
-        return f"{title_block}\n\n{_BQ_OPEN}{body}{_BQ_CLOSE}"
-    return f"{_BQ_OPEN}{body}{_BQ_CLOSE}"
+        return f"{title_block}\n\n{body}"
+    return body
 
 
 def _pack_procedure_chunks(
@@ -435,18 +434,17 @@ def _pack_procedure_chunks(
 ) -> list[str]:
     """Pack already-converted (HTML) paragraphs into ≤``limit``-char chunks.
 
-    Each chunk's body is wrapped in ``<blockquote expandable>…</blockquote>``;
-    ``title_block`` (the bold 📜 title line) prefixes the FIRST chunk only and
-    stays outside the blockquote. Paragraphs are packed whole, so no chunk ever
-    splits a ``<b>…</b>`` pair — every chunk is independently tag-balanced.
+    ``title_block`` (the bold 📜 title line) prefixes the FIRST chunk only.
+    Paragraphs are packed whole, so no chunk ever splits a ``<b>…</b>`` pair —
+    every chunk is independently tag-balanced.
 
     A single converted paragraph too long for a chunk even on its own falls
     back to stripping its ``<b>`` tags and hard-splitting the plain escaped
     text (the existing sentence/word fallback): correctness over formatting
-    for that pathological case. The blockquote + title overhead is reserved
-    out of the per-chunk budget so the wrapped result never exceeds ``limit``.
+    for that pathological case. The title overhead is reserved out of the
+    per-chunk budget so the assembled result never exceeds ``limit``.
     """
-    overhead = len(_BQ_OPEN) + len(_BQ_CLOSE)
+    overhead = 0
     chunks: list[str] = []
     is_first = True
     i = 0
@@ -474,7 +472,7 @@ def _pack_procedure_chunks(
         chunks.append(_wrap_procedure_chunk(title_block if is_first else "", acc))
         is_first = False
     if not chunks:
-        # No body — just the title (no empty blockquote).
+        # No body — just the title.
         chunks.append(title_block)
     return chunks
 
@@ -485,15 +483,16 @@ async def send_procedure(
     """Send a procedure (title + body) to one guard, chunked to ≤4096 chars.
 
     The body's ``*…*`` bold markers are converted to Telegram HTML
-    (``<b>…</b>``) per paragraph BEFORE packing, and each chunk's body is
-    wrapped in an expandable ``<blockquote>`` (collapsed until the guard taps
-    to expand); the bold title line stays outside the blockquote. Chunks pack
-    whole converted paragraphs so no ``<b>`` / ``<blockquote>`` tag is ever
-    split across a message (a single overlong paragraph falls back to plain
-    hard-split text). ``reply_markup`` (the start-quiz keyboard) attaches to
-    the LAST chunk only. All text is HTML-escaped (the bot parses every chunk
-    as HTML). Mirrors ``send_notification``: never raises, returns
+    (``<b>…</b>``) per paragraph BEFORE packing; the bold title line leads the
+    first chunk. Chunks pack whole converted paragraphs so no ``<b>`` tag is
+    ever split across a message (a single overlong paragraph falls back to
+    plain hard-split text). ``reply_markup`` (the start-quiz keyboard) attaches
+    to the LAST chunk only. All text is HTML-escaped (the bot parses every
+    chunk as HTML). Mirrors ``send_notification``: never raises, returns
     success/failure (a blocked bot logs and counts as a skipped send).
+
+    Note: a collapsed ``<blockquote expandable>`` body was tried (2026-07-18)
+    and reverted — Telegram renders quote text smaller, hurting readability.
     """
     try:
         bot = get_bot()
