@@ -18,6 +18,11 @@ os.environ.setdefault("ADMIN_API_KEY", "test-admin-key")
 os.environ.setdefault("JWT_SECRET_KEY", "test-jwt-secret")
 os.environ.setdefault("ENVIRONMENT", "dev")
 os.environ.setdefault("DEV_AUTH_BYPASS_ENABLED", "true")
+# Pin the procedures flag OFF for tests regardless of the developer's local
+# backend/.env (pydantic-settings gives real env vars precedence over the
+# dotenv file, so this setdefault wins over .env). Tests that need it ON flip
+# it explicitly via monkeypatch.setenv + get_settings.cache_clear().
+os.environ.setdefault("PROCEDURES_ENABLED", "false")
 
 from datetime import date, timedelta
 
