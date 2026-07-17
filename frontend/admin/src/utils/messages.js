@@ -683,6 +683,7 @@ export default {
 
     // ── Detail page ──
     back: '← חזרה לנהלים',
+    backToList: '🔙 לרשימת הנהלים',
     body: 'גוף הנוהל',
     bodyEmpty: 'אין תוכן',
     editTitle: 'עריכת כותרת וגוף',
@@ -739,6 +740,21 @@ export default {
     publishAlreadyMsg: 'הנוהל כבר פורסם. ניתן לשדר שוב רק למאבטחים שטרם עברו את המבחן.',
     rebroadcastLabel: 'שדר מחדש למי שטרם עבר',
     rebroadcastDone: (sent, skipped, total) => `נשלח שוב ל-${sent} מתוך ${total} מאבטחים (${skipped} דילגו)`,
+
+    // Default procedure (הנוהל הנוכחי) — badge + per-row publish actions on
+    // the list page. Every publish path sets the procedure as the single
+    // default (clearing the previous one); the row action depends on status.
+    defaultBadge: '⭐ ברירת מחדל',
+    rowPublish: 'פרסם',                           // draft → first publish
+    republish: 'פרסם מחדש',                       // archived → re-publish
+    markDefaultBroadcast: 'קבע כברירת מחדל ושדר', // published non-default
+    reshare: 'שדר מחדש',                          // published default
+    republishConfirmTitle: 'פרסום מחדש של הנוהל',
+    republishConfirm: 'הנוהל יוגדר כהנוהל הנוכחי (ברירת המחדל) במקום הקודם ויופץ לכל המאבטחים. להמשיך?',
+    markDefaultConfirmTitle: 'הפיכה להנוהל הנוכחי',
+    markDefaultConfirm: 'הנוהל יוגדר כהנוהל הנוכחי (ברירת המחדל) במקום הנוהל הקודם, ויופץ שוב למאבטחים שטרם עברו את המבחן. להמשיך?',
+    reshareConfirmTitle: 'שידור מחדש של הנוהל',
+    reshareConfirm: 'הנוהל (הנוכחי) יופץ שוב למאבטחים שטרם עברו את המבחן. להמשיך?',
 
     // ── Results ──
     resultsHint: 'סטטוס למאבטח (מתגברים אינם נספרים).',

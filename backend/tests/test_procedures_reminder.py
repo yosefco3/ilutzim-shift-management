@@ -33,9 +33,10 @@ def _service(db_session, send=None):
 
 async def _old_procedure(db_session, *, hours_old=REMINDER_AGE_HOURS + 1):
     published = now_il().replace(tzinfo=None) - timedelta(hours=hours_old)
+    # The reminder targets ONLY the default procedure, so the fixture flags it.
     proc = Procedure(
         title="נהל ישן", body_text="תוכן", status=ProcedureStatus.PUBLISHED,
-        published_at=published,
+        published_at=published, is_default=True,
     )
     db_session.add(proc)
     await db_session.commit()
@@ -71,9 +72,43 @@ async def test_reminder_sent_once_then_idempotent(db_session):
 async def test_reminder_skips_recently_published(db_session):
     send = AsyncMock(return_value=True)
     svc = _service(db_session, send)
+    # Default procedure, but published only 2h ago → below the 48h age gate.
     proc = Procedure(title="חדש", body_text="תוכן", status=ProcedureStatus.PUBLISHED,
-                     published_at=now_il().replace(tzinfo=None) - timedelta(hours=2))
+                     published_at=now_il().replace(tzinfo=None) - timedelta(hours=2),
+                     is_default=True)
     db_session.add(proc)
+    await db_session.commit()
+    await _guard(db_session)
+    assert await svc.run(now_il().replace(tzinfo=None)) == 0
+    assert send.await_count == 0
+
+
+async def test_reminder_ignores_non_default_published_procedures(db_session):
+    """An old, published, non-default procedure is NOT reminded about."""
+    send = AsyncMock(return_value=True)
+    svc = _service(db_session, send)
+    published = now_il().replace(tzinfo=None) - timedelta(hours=REMINDER_AGE_HOURS + 1)
+    # Old + published + not passed, but NOT the default → ignored.
+    proc = Procedure(
+        title="נהל אחר", body_text="תוכן", status=ProcedureStatus.PUBLISHED,
+        published_at=published, is_default=False,
+    )
+    db_session.add(proc)
+    await db_session.commit()
+    await _guard(db_session)
+    assert await svc.run(now_il().replace(tzinfo=None)) == 0
+    assert send.await_count == 0
+
+
+async def test_reminder_nothing_when_there_is_no_default(db_session):
+    """No default procedure at all → no reminders, even for old published ones."""
+    send = AsyncMock(return_value=True)
+    svc = _service(db_session, send)
+    published = now_il().replace(tzinfo=None) - timedelta(hours=REMINDER_AGE_HOURS + 1)
+    db_session.add(Procedure(
+        title="נהל ישן", body_text="תוכן", status=ProcedureStatus.PUBLISHED,
+        published_at=published,  # not default
+    ))
     await db_session.commit()
     await _guard(db_session)
     assert await svc.run(now_il().replace(tzinfo=None)) == 0

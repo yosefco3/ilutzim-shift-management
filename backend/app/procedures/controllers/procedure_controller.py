@@ -74,6 +74,7 @@ def _procedure_out(proc) -> ProcedureOut:
         status=proc.status.value,
         created_at=proc.created_at,
         published_at=proc.published_at,
+        is_default=proc.is_default,
         questions=[_question_out(q) for q in (proc.questions or [])],
     )
 

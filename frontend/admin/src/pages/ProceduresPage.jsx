@@ -5,8 +5,10 @@ import {
   createProcedure,
   uploadProcedureDocx,
   generateProcedureQuestions,
+  publishProcedure,
 } from '../api/adminApiClient';
 import { useToast } from '../components/Toast';
+import ConfirmDialog from '../components/ConfirmDialog';
 import messages from '../utils/messages';
 
 const m = messages.procedures;
@@ -19,6 +21,53 @@ const STATUS_META = {
 };
 
 const STATUS_LABEL = (status) => STATUS_META[status]?.label || status;
+
+/**
+ * Per-row publish action for a procedure. Every publish path makes the
+ * procedure the single default (clearing the previous one); the button label +
+ * confirm dialog + whether to rebroadcast depend on the current status:
+ *   draft            → first publish (broadcast to ALL)
+ *   archived         → re-publish (broadcast to ALL, becomes default)
+ *   published        → rebroadcast=true (skips guards who already passed);
+ *                      non-default becomes the default, default is re-shared.
+ */
+function publishActionMeta(proc) {
+  if (proc.status === 'draft') {
+    return {
+      rebroadcast: false,
+      label: m.rowPublish,
+      title: m.publishConfirmTitle,
+      message: m.publishConfirm,
+      confirmLabel: m.publishLabel,
+    };
+  }
+  if (proc.status === 'archived') {
+    return {
+      rebroadcast: false,
+      label: m.republish,
+      title: m.republishConfirmTitle,
+      message: m.republishConfirm,
+      confirmLabel: m.republish,
+    };
+  }
+  if (proc.status === 'published' && !proc.is_default) {
+    return {
+      rebroadcast: true,
+      label: m.markDefaultBroadcast,
+      title: m.markDefaultConfirmTitle,
+      message: m.markDefaultConfirm,
+      confirmLabel: m.markDefaultBroadcast,
+    };
+  }
+  // published + default → re-share (rebroadcast, stays the default).
+  return {
+    rebroadcast: true,
+    label: m.reshare,
+    title: m.reshareConfirmTitle,
+    message: m.reshareConfirm,
+    confirmLabel: m.reshare,
+  };
+}
 
 /**
  * ProceduresPage (סד"פ) — list of procedures with a "new procedure" flow
@@ -39,6 +88,9 @@ export default function ProceduresPage() {
   // id (so one failing row doesn't smear its error onto another).
   const [generatingId, setGeneratingId] = useState(null);
   const [genErrors, setGenErrors] = useState({});
+
+  // Per-row publish state: which id is mid-publish (disables its button).
+  const [publishingId, setPublishingId] = useState(null);
 
   // Ignore stale fetches after unmount / re-entry.
   const reqId = useRef(0);
@@ -86,6 +138,23 @@ export default function ProceduresPage() {
     }
   };
 
+  const handlePublish = useCallback(async (proc, rebroadcast) => {
+    setPublishingId(proc.id);
+    try {
+      const result = await publishProcedure(proc.id, { rebroadcast });
+      toast.success(
+        rebroadcast
+          ? m.rebroadcastDone(result.sent, result.skipped, result.total)
+          : m.publishDone(result.sent, result.skipped, result.total),
+      );
+      await load(); // refresh the default badge
+    } catch (err) {
+      toast.error(err.message || messages.common.error);
+    } finally {
+      setPublishingId(null);
+    }
+  }, [load, toast]);
+
   return (
     <div className="page">
       <div className="page-header">
@@ -131,8 +200,10 @@ export default function ProceduresPage() {
                   key={proc.id}
                   proc={proc}
                   generating={generatingId === proc.id}
+                  publishing={publishingId === proc.id}
                   error={genErrors[proc.id]}
                   onGenerate={() => handleGenerate(proc)}
+                  onPublish={handlePublish}
                   onOpen={() => navigate(`/procedures/${proc.id}`)}
                 />
               ))}
@@ -144,15 +215,22 @@ export default function ProceduresPage() {
   );
 }
 
-function ProcedureRow({ proc, generating, error, onGenerate, onOpen }) {
+function ProcedureRow({ proc, generating, publishing, error, onGenerate, onPublish, onOpen }) {
   const isDraft = proc.status === 'draft';
   const meta = STATUS_META[proc.status] || { badge: 'badge-muted' };
+  const [publishOpen, setPublishOpen] = useState(false);
+  const action = publishActionMeta(proc);
   return (
     <tr data-testid={`procedure-row-${proc.id}`}>
       <td className="guard-cell">
         <button className="btn btn-ghost btn-sm" onClick={onOpen} data-testid={`open-${proc.id}`}>
           {proc.title}
         </button>
+        {proc.is_default && (
+          <span className="badge badge-published" data-testid={`default-badge-${proc.id}`} style={{ marginInlineStart: '0.5rem' }}>
+            {m.defaultBadge}
+          </span>
+        )}
       </td>
       <td>
         <span className={`badge ${meta.badge}`}>{STATUS_LABEL(proc.status)}</span>
@@ -175,6 +253,14 @@ function ProcedureRow({ proc, generating, error, onGenerate, onOpen }) {
               {generating ? m.generating : m.generate}
             </button>
           )}
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => setPublishOpen(true)}
+            disabled={publishing}
+            data-testid={`publish-${proc.id}`}
+          >
+            {publishing ? m.publishing : action.label}
+          </button>
           <button className="btn btn-outline btn-sm" onClick={onOpen}>
             {m.edit}
           </button>
@@ -183,6 +269,18 @@ function ProcedureRow({ proc, generating, error, onGenerate, onOpen }) {
           <div className="alert alert-error" role="alert" style={{ marginTop: 8 }}>
             {error}
           </div>
+        )}
+        {publishOpen && (
+          <ConfirmDialog
+            title={action.title}
+            message={action.message}
+            confirmLabel={action.confirmLabel}
+            onConfirm={() => {
+              setPublishOpen(false);
+              onPublish(proc, action.rebroadcast);
+            }}
+            onCancel={() => setPublishOpen(false)}
+          />
         )}
       </td>
     </tr>

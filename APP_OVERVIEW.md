@@ -108,3 +108,4 @@ resync בלי restart) · sweep נוכחות יומי 04:30 · התראות נו
 | 2026-07-09 | המסמך הזה שוחזר | `APP_OVERVIEW.md` |
 | 2026-07-17 | procedure_quiz בקאנד (סד"פ + מבחן AI בטלגרם) — 5 מודלים, ג'נרציה ב-Claude API, quiz polls, תזכורת; dark מאחורי `PROCEDURES_ENABLED=off` | `backend/app/procedures/`, `bot/handlers/procedures.py`, מיגרציה `f4a1c3e5b7d9` |
 | 2026-07-17 | procedure_quiz פרונטאנד אדמין — ProceduresPage (יצירה/העלאת docx/ג'נרציה) + ProcedureDetailPage (עורך שאלות, פרסום, תוצאות); `VITE_PROCEDURES_ENABLED` ברירת מחדל **off** (`=== 'true'`, בשונה משאר הדגלים) | `frontend/admin/src/pages/Procedure*.jsx`, `App.jsx`, `Navbar.jsx`, `adminApiClient.js` |
+| 2026-07-18 | נוהל ברירת-מחדל: `Procedure.is_default` (unique חלקי, אחד בלבד); כל פרסום/שידור-מחדש קובע אותו; תזכורות רק עליו; ⭐ ראשון בבוט; כפתורי פרסום פר-שורה + תג בטבלת האדמין | מיגרציה `a6c8e0f2b4d6`, `procedure_service.py`, `reminder_service.py`, `ProceduresPage.jsx` |

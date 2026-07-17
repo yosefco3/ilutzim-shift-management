@@ -47,6 +47,28 @@ def retake_kb(procedure_id) -> InlineKeyboardMarkup:
     )
 
 
+def order_and_mark_procedures(procedures) -> list[tuple[str, str]]:
+    """Order published procedures for the bot list and build ``(id, label)`` items.
+
+    The default procedure (``is_default``) leads the list with a ⭐ marker on its
+    button; the rest keep the newest-first order returned by
+    ``ProcedureRepository.list_published``. Returns the full ordered item list;
+    the caller paginates it.
+    """
+    default = next((p for p in procedures if getattr(p, "is_default", False)), None)
+    if default is not None:
+        ordered = [default] + [p for p in procedures if p.id != default.id]
+    else:
+        ordered = list(procedures)
+    return [
+        (
+            str(p.id),
+            ("⭐ " + p.title) if getattr(p, "is_default", False) else p.title,
+        )
+        for p in ordered
+    ]
+
+
 def procedures_list_kb(
     items: list[tuple[str, str]], page: int = 0, total: int = 0
 ) -> InlineKeyboardMarkup:

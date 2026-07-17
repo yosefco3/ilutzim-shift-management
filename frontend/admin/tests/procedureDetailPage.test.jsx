@@ -247,6 +247,31 @@ describe('ProcedureDetailPage — questions editor', () => {
   });
 });
 
+describe('ProcedureDetailPage — back to list', () => {
+  beforeEach(() => {
+    fetchProcedure.mockReset();
+  });
+
+  it('prominent back button navigates to /procedures', async () => {
+    fetchProcedure.mockResolvedValue(DRAFT_PROC);
+    render(
+      <MemoryRouter initialEntries={['/procedures/p1']}>
+        <Routes>
+          <Route path="/procedures/:id" element={<ProcedureDetailPage />} />
+          <Route path="/procedures" element={<div data-testid="procedures-list" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const back = await screen.findByTestId('back-to-list');
+    expect(back).toHaveTextContent(m.backToList);
+    fireEvent.click(back);
+
+    // Navigation actually happened — the /procedures sentinel route rendered.
+    expect(await screen.findByTestId('procedures-list')).toBeInTheDocument();
+  });
+});
+
 describe('ProcedureDetailPage — publish', () => {
   beforeEach(() => {
     fetchProcedure.mockReset();

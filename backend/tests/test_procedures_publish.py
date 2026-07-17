@@ -158,3 +158,48 @@ async def test_rebroadcast_still_reaches_non_passers(db_session):
     summary = await svc.publish(proc.id, rebroadcast=True)
     assert summary["sent"] == 1
     assert pub.calls[-1] == ["222"]
+
+
+async def test_first_publish_makes_procedure_the_default(db_session):
+    svc = _svc(db_session)
+    proc = await _make_proc(db_session, n_active=7)
+    assert proc.is_default is False
+    await svc.publish(proc.id)
+    fresh = await svc._procedures.get_by_id(proc.id)
+    assert fresh.is_default is True
+
+
+async def test_publish_moves_default_and_clears_previous(db_session):
+    """Publishing a second procedure clears the old default (single default)."""
+    svc = _svc(db_session)
+    first = await _make_proc(db_session, n_active=7)
+    second = await _make_proc(db_session, n_active=7)
+
+    await svc.publish(first.id)
+    assert (await svc._procedures.get_by_id(first.id)).is_default is True
+    assert (await svc._procedures.get_by_id(second.id)).is_default is False
+
+    await svc.publish(second.id)
+    # second is now the default; first's default flag is cleared (atomically)
+    assert (await svc._procedures.get_by_id(second.id)).is_default is True
+    assert (await svc._procedures.get_by_id(first.id)).is_default is False
+    # exactly one default overall
+    default = await svc._procedures.get_default()
+    assert default is not None and default.id == second.id
+
+
+async def test_rebroadcast_reselects_default(db_session):
+    """Re-broadcast re-selects the default and clears the previous one."""
+    svc = _svc(db_session)
+    proc = await _make_proc(db_session, n_active=7)
+    other = await _make_proc(db_session, n_active=7)
+
+    # other becomes the default first, then proc is published (default→proc)
+    await svc.publish(other.id)
+    await svc.publish(proc.id)
+    assert (await svc._procedures.get_by_id(proc.id)).is_default is True
+
+    # publishing `other` again via rebroadcast moves the default back to it
+    await svc.publish(other.id, rebroadcast=True)
+    assert (await svc._procedures.get_by_id(other.id)).is_default is True
+    assert (await svc._procedures.get_by_id(proc.id)).is_default is False

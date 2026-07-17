@@ -82,6 +82,7 @@ class ProcedureOut(BaseModel):
     status: str
     created_at: datetime
     published_at: datetime | None = None
+    is_default: bool = False
     questions: list[QuestionOut] = Field(default_factory=list)
 
 
@@ -95,6 +96,7 @@ class ProcedureListItem(BaseModel):
     status: str
     created_at: datetime
     published_at: datetime | None = None
+    is_default: bool = False
     active_questions: int = 0
     total_questions: int = 0
 

@@ -71,6 +71,7 @@ class ProcedureService:
                     "status": p.status.value,
                     "created_at": p.created_at,
                     "published_at": p.published_at,
+                    "is_default": p.is_default,
                     "active_questions": active,
                     "total_questions": total,
                 }
@@ -117,6 +118,9 @@ class ProcedureService:
           - PUBLISHED + ``rebroadcast`` → re-send to guards who have NOT passed
             only (no redundant noise to those who already passed).
 
+        On every successful path this procedure also becomes the single default
+        (the previous default is cleared atomically in the same transaction).
+
         Requires ≥ ``procedure_quiz_size`` active questions at publish time. The
         broadcast is synchronous and returns real ``{sent, skipped, total}``.
         """
@@ -141,6 +145,12 @@ class ProcedureService:
             )
             republished = False
             recipients = await self._all_recipients()
+
+        # Every successful publish path (first publish, archived re-publish, and
+        # rebroadcast alike) makes this procedure the single default — atomically
+        # and BEFORE the broadcast, so a crash mid-fan-out can't leave a stale
+        # default. The reminder job + bot list then target the new default.
+        proc = await self._procedures.set_as_default(procedure_id)
 
         summary = await self._publisher.broadcast(
             recipients, proc.title, proc.body_text, procedure_id

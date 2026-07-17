@@ -9,7 +9,7 @@ and eventually ARCHIVED. The body is plain Text so it can be long.
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, String, Text
+from sqlalchemy import Boolean, DateTime, Enum, Index, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
@@ -33,9 +33,29 @@ class Procedure(BaseModel):
         default=ProcedureStatus.DRAFT,
     )
     published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Exactly one procedure may be the current/default (הנוהל הנוכחי): the bot
+    # list surfaces it first with a ⭐ and the reminder job targets only it.
+    # Enforced by the partial unique index below. 'false' (PG literal), not
+    # '1'/'0' — PG rejects an integer default on a boolean column.
+    is_default: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
 
     questions: Mapped[list["QuizQuestion"]] = relationship(
         back_populates="procedure",
         cascade="all, delete-orphan",
         order_by="QuizQuestion.display_order",
+    )
+
+    __table_args__ = (
+        # Partial unique index: at most one default procedure. Emitted for both
+        # dialects so it holds in SQLite tests and PostgreSQL prod (same pattern
+        # as uq_quiz_attempt_one_in_progress).
+        Index(
+            "uq_procedure_single_default",
+            "is_default",
+            unique=True,
+            postgresql_where=text("is_default"),
+            sqlite_where=text("is_default"),
+        ),
     )

@@ -28,6 +28,7 @@ from app.bot.keyboards.procedures import (
     PROC_MENU_CB,
     PROC_VIEW_PREFIX,
     QUIZ_START_PREFIX,
+    order_and_mark_procedures,
     procedure_view_kb,
     procedures_list_kb,
     retake_kb,
@@ -87,19 +88,20 @@ async def _show_list(callback: CallbackQuery, *, page: int) -> None:
     finally:
         await session.close()
 
-    total = len(procedures)
-    page = max(0, min(page, (total - 1) // PAGE_SIZE if total else 0))
-    window = procedures[page * PAGE_SIZE : page * PAGE_SIZE + PAGE_SIZE]
-    items = [(str(p.id), p.title) for p in window]
-
     if not procedures:
         await callback.message.edit_text("אין נהלים זמינים כרגע.")
         await callback.answer()
         return
 
+    # Default procedure leads with a ⭐ marker; the rest stay newest-first.
+    items = order_and_mark_procedures(procedures)
+    total = len(items)
+    page = max(0, min(page, (total - 1) // PAGE_SIZE if total else 0))
+    window = items[page * PAGE_SIZE : page * PAGE_SIZE + PAGE_SIZE]
+
     await callback.message.edit_text(
         f"📋 נהלי ביטחון (עמוד {page + 1})",
-        reply_markup=procedures_list_kb(items, page=page, total=total),
+        reply_markup=procedures_list_kb(window, page=page, total=total),
     )
     await callback.answer()
 

@@ -42,9 +42,35 @@ async def test_procedure_defaults_and_status(db_session):
     proc = await _procedure(db_session)
     assert proc.status == ProcedureStatus.DRAFT
     assert proc.published_at is None
+    assert proc.is_default is False  # a fresh procedure is never the default
     await db_session.commit()
     fresh = await db_session.get(Procedure, proc.id)
     assert fresh.status == ProcedureStatus.DRAFT
+    assert fresh.is_default is False
+
+
+@pytest.mark.parametrize("first_default,second_default,should_block", [
+    (True, True, True),    # two defaults → blocked by the partial unique index
+    (True, False, False),  # a default + a non-default coexist
+    (False, True, False),
+    (False, False, False), # many non-defaults are fine
+])
+async def test_partial_unique_index_single_default(
+    db_session, first_default, second_default, should_block
+):
+    """At most one procedure may be the default (the partial index backstop)."""
+    a = Procedure(title="א", body_text="תוכן", is_default=first_default)
+    db_session.add(a)
+    await db_session.flush()
+
+    b = Procedure(title="ב", body_text="תוכן", is_default=second_default)
+    db_session.add(b)
+    if should_block:
+        with pytest.raises(IntegrityError):
+            await db_session.flush()
+        await db_session.rollback()
+    else:
+        await db_session.flush()
 
 
 async def test_question_source_and_options_json(db_session):

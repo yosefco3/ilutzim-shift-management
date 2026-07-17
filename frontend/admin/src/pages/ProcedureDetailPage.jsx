@@ -136,34 +136,40 @@ export default function ProcedureDetailPage() {
     <div className="page">
       <div className="page-header">
         <div>
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/procedures')}>
-            {m.back}
-          </button>
-          <h2 style={{ marginTop: 4 }}>{proc.title}</h2>
+          <h2>{proc.title}</h2>
           <p className="page-subtitle">
             <span className={`badge ${meta.badge}`}>{meta.label || proc.status}</span>
           </p>
         </div>
-        {isDraft && (
-          <button
-            className="btn btn-primary"
-            onClick={() => setPublishDialog('first')}
-            disabled={publishing}
-            data-testid="publish-btn"
-          >
-            {publishing ? m.publishing : m.publish}
-          </button>
-        )}
-        {!isDraft && proc.status === 'published' && (
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <button
             className="btn btn-secondary"
-            onClick={() => setPublishDialog('rebroadcast')}
-            disabled={publishing}
-            data-testid="rebroadcast-btn"
+            onClick={() => navigate('/procedures')}
+            data-testid="back-to-list"
           >
-            {m.rebroadcastLabel}
+            {m.backToList}
           </button>
-        )}
+          {isDraft && (
+            <button
+              className="btn btn-primary"
+              onClick={() => setPublishDialog('first')}
+              disabled={publishing}
+              data-testid="publish-btn"
+            >
+              {publishing ? m.publishing : m.publish}
+            </button>
+          )}
+          {!isDraft && proc.status === 'published' && (
+            <button
+              className="btn btn-secondary"
+              onClick={() => setPublishDialog('rebroadcast')}
+              disabled={publishing}
+              data-testid="rebroadcast-btn"
+            >
+              {m.rebroadcastLabel}
+            </button>
+          )}
+        </div>
       </div>
 
       {error && <div className="alert alert-error" role="alert">{error}</div>}

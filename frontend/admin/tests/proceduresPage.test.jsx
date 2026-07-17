@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 const navigate = vi.fn();
@@ -13,6 +13,7 @@ vi.mock('../src/api/adminApiClient', () => ({
   createProcedure: vi.fn(),
   uploadProcedureDocx: vi.fn(),
   generateProcedureQuestions: vi.fn(),
+  publishProcedure: vi.fn(),
 }));
 const toast = { success: vi.fn(), error: vi.fn() };
 vi.mock('../src/components/Toast', () => ({ useToast: () => toast }));
@@ -22,6 +23,7 @@ import {
   createProcedure,
   uploadProcedureDocx,
   generateProcedureQuestions,
+  publishProcedure,
 } from '../src/api/adminApiClient';
 import ProceduresPage from '../src/pages/ProceduresPage';
 import messages from '../src/utils/messages';
@@ -32,6 +34,7 @@ const DRAFT_PROC = {
   id: 'p1',
   title: 'נוהל תגובה לחריגת גדר',
   status: 'draft',
+  is_default: false,
   created_at: '2026-07-09T10:00:00',
   published_at: null,
   active_questions: 0,
@@ -41,6 +44,7 @@ const PUBLISHED_PROC = {
   id: 'p2',
   title: 'נוהל מעבר משמרת',
   status: 'published',
+  is_default: false,
   created_at: '2026-07-01T10:00:00',
   published_at: '2026-07-02T10:00:00',
   active_questions: 7,
@@ -61,6 +65,7 @@ describe('ProceduresPage', () => {
     createProcedure.mockReset();
     uploadProcedureDocx.mockReset();
     generateProcedureQuestions.mockReset();
+    publishProcedure.mockReset();
     toast.success.mockReset();
     toast.error.mockReset();
     navigate.mockReset();
@@ -207,5 +212,92 @@ describe('ProceduresPage', () => {
 
     fireEvent.click(screen.getByTestId('open-p1'));
     expect(navigate).toHaveBeenCalledWith('/procedures/p1');
+  });
+});
+
+describe('ProceduresPage — default badge + per-row publish', () => {
+  beforeEach(() => {
+    fetchProcedures.mockReset();
+    publishProcedure.mockReset();
+    toast.success.mockReset();
+    toast.error.mockReset();
+  });
+
+  const proc = (overrides) => ({
+    id: 'p1',
+    title: 'נוהל',
+    status: 'draft',
+    is_default: false,
+    published_at: null,
+    active_questions: 7,
+    total_questions: 7,
+    ...overrides,
+  });
+
+  it('shows the ⭐ default badge only on the default procedure row', async () => {
+    fetchProcedures.mockResolvedValue([
+      proc({ id: 'a', title: 'נהל א', status: 'published', is_default: true }),
+      proc({ id: 'b', title: 'נהל ב', status: 'published', is_default: false }),
+    ]);
+    renderPage();
+
+    const badge = await screen.findByTestId('default-badge-a');
+    expect(badge).toHaveTextContent(m.defaultBadge);
+    expect(screen.queryByTestId('default-badge-b')).toBeNull();
+  });
+
+  // Per-row publish: button label + confirm dialog + the exact API call depend
+  // on status (and whether it's already the default). Expected values mirror
+  // the messages.procedures keys the component renders.
+  const CASES = [
+    { name: 'draft → first publish', status: 'draft', is_default: false,
+      label: m.rowPublish, confirm: m.publishLabel, rebroadcast: false, message: m.publishConfirm },
+    { name: 'archived → re-publish', status: 'archived', is_default: false,
+      label: m.republish, confirm: m.republish, rebroadcast: false, message: m.republishConfirm },
+    { name: 'published non-default → set default + rebroadcast', status: 'published', is_default: false,
+      label: m.markDefaultBroadcast, confirm: m.markDefaultBroadcast, rebroadcast: true, message: m.markDefaultConfirm },
+    { name: 'published default → reshare', status: 'published', is_default: true,
+      label: m.reshare, confirm: m.reshare, rebroadcast: true, message: m.reshareConfirm },
+  ];
+
+  it.each(CASES)(
+    'per-row publish for $name: right button + confirm + API call',
+    async (c) => {
+      fetchProcedures.mockResolvedValue([
+        proc({ id: 'p1', status: c.status, is_default: c.is_default }),
+      ]);
+      publishProcedure.mockResolvedValue({ sent: 3, skipped: 1, total: 4 });
+      renderPage();
+
+      const publishBtn = await screen.findByTestId('publish-p1');
+      expect(publishBtn).toHaveTextContent(c.label);
+
+      fireEvent.click(publishBtn);
+      // Confirm dialog open with the message for this action.
+      await screen.findByText(c.message);
+      // Scope to the modal so the confirm button (same label as the row button
+      // in some cases) is unambiguous.
+      const overlay = document.querySelector('.modal-overlay');
+      fireEvent.click(within(overlay).getByRole('button', { name: c.confirm }));
+
+      await waitFor(() =>
+        expect(publishProcedure).toHaveBeenCalledWith('p1', { rebroadcast: c.rebroadcast }),
+      );
+      expect(publishProcedure).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('publish success toast shows the {sent, skipped, total} counts', async () => {
+    fetchProcedures.mockResolvedValue([proc({ id: 'p1', status: 'draft' })]);
+    publishProcedure.mockResolvedValue({ sent: 3, skipped: 1, total: 4 });
+    renderPage();
+
+    fireEvent.click(await screen.findByTestId('publish-p1'));
+    await screen.findByText(m.publishConfirm);
+    const overlay = document.querySelector('.modal-overlay');
+    fireEvent.click(within(overlay).getByRole('button', { name: m.publishLabel }));
+
+    // publishDone(3,1,4) → "...3 מתוך 4 מאבטחים (1 דילגו)"
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith(m.publishDone(3, 1, 4)));
   });
 });
