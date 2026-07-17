@@ -193,3 +193,20 @@ def test_upload_docx_10mb_cap(monkeypatch):
         data={"title": "נהל"},
     )
     assert res.status_code == 413
+
+
+@pytest.mark.asyncio
+async def test_create_endpoint_serializes_fresh_procedure(db_session):
+    """Regression: the create endpoint must not lazy-load `questions` off the
+    freshly-created instance (MissingGreenlet on an async session) — it re-fetches
+    with the relationship eager-loaded before serializing."""
+    from app.procedures.controllers.procedure_controller import create_procedure
+    from app.procedures.schemas import ProcedureCreate
+
+    out = await create_procedure(
+        ProcedureCreate(title="נוהל חדש", body_text="תוכן הנוהל"),
+        service=_svc(db_session),
+    )
+    assert out.title == "נוהל חדש"
+    assert out.status == "draft"
+    assert out.questions == []

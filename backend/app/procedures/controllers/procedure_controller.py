@@ -93,7 +93,12 @@ async def create_procedure(
     proc = await service.create(
         title=body.title, body_text=body.body_text, source_filename=None
     )
-    return _procedure_out(proc)
+    # Re-fetch with the questions relationship eager-loaded (same as the
+    # update/archive handlers): serializing the freshly-created instance would
+    # lazy-load `proc.questions`, which raises MissingGreenlet on an async
+    # session.
+    full = await service.get(proc.id)
+    return _procedure_out(full)
 
 
 @router.post("/upload", response_model=DocxUploadOut)
