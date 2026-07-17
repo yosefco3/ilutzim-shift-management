@@ -17,10 +17,15 @@ ARG VITE_ATTENDANCE_ENABLED=true
 # סידור בפועל (actual schedule) UI — default ON; pair with the backend
 # ACTUAL_SCHEDULE_ENABLED env var (which switches the comparison source).
 ARG VITE_ACTUAL_SCHEDULE_ENABLED=true
+# נהלים (procedure quiz, סד"פ) UI — default OFF (ships dark); the app code reads
+# it with `=== 'true'`. Go-live = set VITE_PROCEDURES_ENABLED=true AND the
+# backend PROCEDURES_ENABLED env var (both required, like part B).
+ARG VITE_PROCEDURES_ENABLED=false
 RUN VITE_SCHEDULE_BUILDER_ENABLED=$VITE_SCHEDULE_BUILDER_ENABLED \
     VITE_API_URL=$VITE_API_URL \
     VITE_ATTENDANCE_ENABLED=$VITE_ATTENDANCE_ENABLED \
     VITE_ACTUAL_SCHEDULE_ENABLED=$VITE_ACTUAL_SCHEDULE_ENABLED \
+    VITE_PROCEDURES_ENABLED=$VITE_PROCEDURES_ENABLED \
     npm run build
 
 # ── Stage 2: python dependencies ──
