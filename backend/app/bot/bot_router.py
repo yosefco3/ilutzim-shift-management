@@ -42,6 +42,15 @@ def get_dispatcher() -> Dispatcher:
 
         dp.include_router(attendance_router)
 
+    # Procedure-quiz (סד"פ) handlers, only when the feature is on. MUST be
+    # included BEFORE main_router: core has a catch-all "לא הבנתי" message
+    # handler; this router matches its own menu/quiz callbacks. Registering it
+    # before polling also makes aiogram include "poll_answer" in allowed_updates.
+    if get_settings().PROCEDURES_ENABLED:
+        from app.bot.handlers.procedures import router as procedures_router
+
+        dp.include_router(procedures_router)
+
     dp.include_router(main_router)
 
     _dispatcher = dp

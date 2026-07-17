@@ -197,6 +197,16 @@ def create_app() -> FastAPI:
 
         app.include_router(attendance_router)
 
+    # ── Procedure-quiz (סד"פ) — feature-flagged, ships dormant ──
+    # When PROCEDURES_ENABLED is False the admin router is not registered (every
+    # /admin/procedures/* path returns 404). The bot procedures router and the
+    # reminder scheduler job are likewise gated on the flag (see bot_router /
+    # scheduler). Nothing new runs until the flag is flipped on.
+    if settings.PROCEDURES_ENABLED:
+        from app.procedures.controllers import procedures_router
+
+        app.include_router(procedures_router)
+
     # Health check endpoint
     @app.get("/health")
     async def health_check() -> dict[str, str]:

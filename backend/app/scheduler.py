@@ -154,6 +154,36 @@ async def run_attendance_daily_sweep() -> None:
         logger.warning("Attendance daily sweep failed: %s", exc)
 
 
+async def run_procedure_reminders() -> None:
+    """Daily cron job (procedures / סד"פ): remind guards who haven't passed a
+    published procedure (older than 48h) — one reminder per guard per procedure.
+    Own committed session; idempotent via the ``ProcedureReminderSent`` ledger;
+    failures are logged and swallowed. Only runs when PROCEDURES_ENABLED."""
+    try:
+        from app.bot.notifications import send_notification
+        from app.database import get_session
+        from app.procedures.dependencies import build_reminder_service
+        from app.utils.date_utils import now_il
+
+        async def _send(telegram_id, procedure_id, title):
+            from app.bot.keyboards.procedures import start_quiz_kb
+
+            text = (
+                f"⏰ <b>תזכורת מבחן נוהל</b>\n\n"
+                f"טרם השלמת את המבחן על הנוהל:\n<b>{title}</b>\n\n"
+                "נא להשלים את המבחן בהקדם."
+            )
+            return await send_notification(
+                telegram_id, text, reply_markup=start_quiz_kb(str(procedure_id))
+            )
+
+        async with get_session() as session:
+            service = build_reminder_service(session, send=_send)
+            await service.run(now=now_il().replace(tzinfo=None))
+    except Exception as exc:
+        logger.warning("Procedure reminders job failed: %s", exc)
+
+
 def _apply_automation_job(scheduler, job_id, cfg, func, timezone) -> None:
     """Add/replace the job when enabled, or remove it when disabled."""
     if cfg.get("enabled"):
@@ -265,6 +295,20 @@ def start_scheduler() -> AsyncIOScheduler | None:
             id="attendance_alerts",
             replace_existing=True,
             misfire_grace_time=300,
+            coalesce=True,
+        )
+
+    # Procedure-quiz (סד"פ) — daily reminder for guards who haven't passed a
+    # published procedure. Fixed hour (12:00 Israel), flag-gated, idempotent.
+    if settings.PROCEDURES_ENABLED:
+        scheduler.add_job(
+            run_procedure_reminders,
+            trigger="cron",
+            hour=12,
+            minute=0,
+            id="procedure_reminders",
+            replace_existing=True,
+            misfire_grace_time=3600,
             coalesce=True,
         )
 

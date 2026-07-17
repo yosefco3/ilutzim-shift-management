@@ -13,6 +13,12 @@ logger = logging.getLogger("ilutzim")
 # Hebrew weekday names, Sunday=0 … Saturday=6 (matches day_index everywhere).
 _HE_DAYS = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"]
 
+# A single Telegram message caps at 4096 chars. Long procedure bodies are
+# chunked on paragraph boundaries (with a hard-split fallback for one
+# overlong paragraph). Defined locally so this Part-A module does not import
+# the procedures package.
+TG_MESSAGE_LIMIT = 4096
+
 
 async def send_notification(telegram_id: int, text: str, reply_markup=None) -> bool:
     """Send a message to a single Telegram user."""
@@ -326,6 +332,102 @@ async def send_photo(
     except Exception as exc:
         logger.error(
             "send_photo: FAILED for telegram_id=%s — %s",
+            telegram_id, exc, exc_info=True,
+        )
+        return False
+
+
+# ── Procedure broadcast (chunked) ────────────────────────────────────────────
+
+
+def _hard_split_paragraph(text: str, limit: int) -> list[str]:
+    """Split a single paragraph longer than ``limit`` on sentence then word
+    boundaries (last resort: a hard cut). Returns the pieces in order."""
+    pieces: list[str] = []
+    remaining = text
+    while len(remaining) > limit:
+        cut = 0
+        for sep in (". ", "! ", "? "):  # sentence boundary
+            idx = remaining.rfind(sep, 0, limit)
+            if idx > cut:
+                cut = idx + len(sep)
+        if cut == 0:  # word boundary
+            idx = remaining.rfind(" ", 0, limit)
+            if idx > 0:
+                cut = idx
+        if cut == 0:
+            cut = limit
+        pieces.append(remaining[:cut].rstrip())
+        remaining = remaining[cut:].lstrip()
+    if remaining:
+        pieces.append(remaining)
+    return pieces
+
+
+def chunk_message(text: str, limit: int = TG_MESSAGE_LIMIT) -> list[str]:
+    """Split ``text`` into ≤ ``limit``-char chunks on paragraph (newline)
+    boundaries, with a hard-split fallback for any single overlong paragraph."""
+    paragraphs = text.split("\n")
+    chunks: list[str] = []
+    current = ""
+    for para in paragraphs:
+        candidate = para if not current else current + "\n" + para
+        if len(candidate) <= limit:
+            current = candidate
+            continue
+        if current:  # flush the accumulated chunk
+            chunks.append(current)
+            current = ""
+        if len(para) <= limit:
+            current = para
+        else:
+            pieces = _hard_split_paragraph(para, limit)
+            chunks.extend(pieces[:-1])
+            current = pieces[-1]
+    if current:
+        chunks.append(current)
+    return chunks or [text[:limit].rstrip()]
+
+
+async def send_procedure(
+    telegram_id, title: str, body_text: str, reply_markup=None
+) -> bool:
+    """Send a procedure (title + body) to one guard, chunked to ≤4096 chars.
+
+    Splits the body on paragraph boundaries (hard-split fallback for one
+    overlong paragraph) and attaches ``reply_markup`` (the start-quiz keyboard)
+    to the LAST chunk only. The body is HTML-escaped BEFORE chunking (the bot
+    parses every chunk as HTML, so a raw ``<``/``&`` would 400 the send);
+    escaping lengthens the text, so the 4096 chunking runs on the escaped
+    string. Mirrors ``send_notification``: never raises, returns success/failure
+    (a blocked bot logs and counts as a skipped send).
+    """
+    try:
+        bot = get_bot()
+        if bot is None:
+            logger.error(
+                "send_procedure: bot is None — cannot send to telegram_id=%s",
+                telegram_id,
+            )
+            return False
+        import html as _html
+
+        full = f"📜 <b>{_html.escape(title)}</b>\n\n{_html.escape(body_text)}"
+        chunks = chunk_message(full, TG_MESSAGE_LIMIT)
+        last = len(chunks) - 1
+        for i, chunk in enumerate(chunks):
+            markup = reply_markup if i == last else None
+            await bot.send_message(
+                chat_id=telegram_id, text=chunk, reply_markup=markup
+            )
+        logger.info(
+            "send_procedure: SUCCESS for telegram_id=%s (%d chunks)",
+            telegram_id, len(chunks),
+        )
+        return True
+    except Exception as exc:
+        logger.error(
+            "send_procedure: FAILED for telegram_id=%s — %s",
             telegram_id, exc, exc_info=True,
         )
         return False

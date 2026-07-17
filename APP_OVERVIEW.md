@@ -1,6 +1,6 @@
 # APP_OVERVIEW — Ilutzim · אילוצים
 
-> עדכון אחרון: 2026-07-09
+> עדכון אחרון: 2026-07-17
 > מסמך חי. עדכן אחרי כל שינוי שנוגע בפיצ'רים/מודלים/endpoints/workflow/ארכיטקטורה.
 > **הערה:** המסמך שוחזר ב-2026-07-09 (המקור אבד בייצוא הריפו) ומאז **נכנס לגיט**
 > (`!/APP_OVERVIEW.md` ב-.gitignore). הריפו ציבורי — לא לכתוב כאן דומיינים/סודות.
@@ -46,12 +46,15 @@ Telegram Bot (aiogram, polling)     React 19 admin+guards (frontend/admin)
 
 **Stage 3:** `AttendanceEvent` (החתמה IN/OUT + GPS) · `AttendanceShift` (זיווג מול הסידור; violations) · `AttendanceAdjustment` (תיקון ידני, audit) · `AttendanceAlertSent` (מניעת כפל התראות).
 
+**Procedures (סד"פ) — `backend/app/procedures/`:** `Procedure` (title/body; DRAFT/PUBLISHED/ARCHIVED) · `QuizQuestion` (בנק MCQ; source AI/MANUAL + edited_at — ריג'נרציה מוחקת רק AI לא-ערוכות) · `QuizAttempt` (מדגם שאלות + תשובות snapshot; unique חלקי על IN_PROGRESS) · `QuizPollLink` (poll_id טלגרם → attempt/question + סדר תשובות מעורבב) · `ProcedureReminderSent` (תזכורת אחת per מאבטח+נוהל). ג'נרציית שאלות: Claude API (מודל בהגדרה `procedure_ai_model`, ברירת מחדל claude-opus-4-8; ANTHROPIC_API_KEY אופציונלי — בלעדיו generate מחזיר 503 והאפליקציה עולה רגיל). מבחן: quiz polls בבוט, מעבר ≥`procedure_pass_threshold` (80), מדגם `procedure_quiz_size` (7).
+
 ## Endpoints (קבוצות עיקריות)
 - `/auth` — התחברות אדמין · `/submissions` — הגשות מאבטח (Telegram initData)
 - `/admin/users` · `/admin/weeks` (open/close/publish/lock) · `/admin/notifications` · `/admin/export` · `/admin/settings` · `/admin/import/constraints`
 - `/admin/builder/*` (Part B) — profiles / positions / attributes / board / **pool** / assignments / warnings / saved-schedules
 - `/admin/actual/*` — הסידור בפועל (עמדות, שיבוצים, מתגברים, ייצוא Excel/PNG, save-as-profile)
 - `/admin/attendance/*` — events / shifts / adjustments / comparison / דוחות שכר
+- `/admin/procedures/*` — נהלים (סד"פ): CRUD + upload docx + generate + questions + publish + results (תחת `PROCEDURES_ENABLED`)
 - `GET /health` — Railway healthcheck
 
 ## Workflow / Lifecycle
@@ -75,6 +78,7 @@ resync בלי restart) · sweep נוכחות יומי 04:30 · התראות נו
 | `ATTENDANCE_ENABLED` + `VITE_ATTENDANCE_ENABLED` | off | **on** (מאומת 2026-07-05) |
 | `ACTUAL_SCHEDULE_ENABLED` + `VITE_ACTUAL_SCHEDULE_ENABLED` | off | **on** (מאומת 2026-07-05) |
 | `pool_show_unsubmitted` (SystemSetting, לא env) | on | on |
+| `PROCEDURES_ENABLED` + `VITE_PROCEDURES_ENABLED` | **off** | off (טרם — יודלק בצעד האחרון של הפיצ'ר) |
 
 ## דיפלוי
 - **Railway**, live מאז 2026-06-20 (דומיין הפרוד לא מתועד בריפו הציבורי — נמצא ב-Railway/cloudflared). ענף הדיפלוי: **`production`** (push = deploy).
@@ -102,3 +106,4 @@ resync בלי restart) · sweep נוכחות יומי 04:30 · התראות נו
 | 2026-07-07 | פרופוגציית דמו 065 לפרוד בפקודה אחת + סקריפט reset אחרי-דמו | `scripts/propagate_demo_to_prod.*`, `scripts/reset_prod_demo.*` |
 | 2026-07-09 | `pool_show_unsubmitted` — מי שלא הגיש מופיע בסוף ה-POOL עם תג, סוויטש בהגדרות | `availability_service.py`, `GuardPool.jsx`, `SettingsPage.jsx` |
 | 2026-07-09 | המסמך הזה שוחזר | `APP_OVERVIEW.md` |
+| 2026-07-17 | procedure_quiz בקאנד (סד"פ + מבחן AI בטלגרם) — 5 מודלים, ג'נרציה ב-Claude API, quiz polls, תזכורת; dark מאחורי `PROCEDURES_ENABLED=off` | `backend/app/procedures/`, `bot/handlers/procedures.py`, מיגרציה `f4a1c3e5b7d9` |

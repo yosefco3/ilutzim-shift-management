@@ -31,6 +31,15 @@ from app.attendance.models.attendance_shift import AttendanceShift  # noqa: E402
 from app.attendance.models.attendance_adjustment import AttendanceAdjustment  # noqa: E402,F401
 from app.attendance.models.attendance_alert_sent import AttendanceAlertSent  # noqa: E402,F401
 
+# Procedure-quiz (סד"פ) models — imported here ONLY so Alembic autogenerate
+# sees them in Base.metadata (and so Base.metadata.create_all in tests builds
+# them). The code itself lives under app/procedures/.
+from app.procedures.models.procedure import Procedure  # noqa: E402,F401
+from app.procedures.models.quiz_question import QuizQuestion  # noqa: E402,F401
+from app.procedures.models.quiz_attempt import QuizAttempt  # noqa: E402,F401
+from app.procedures.models.quiz_poll_link import QuizPollLink  # noqa: E402,F401
+from app.procedures.models.procedure_reminder_sent import ProcedureReminderSent  # noqa: E402,F401
+
 __all__ = [
     "Base",
     "BaseModel",

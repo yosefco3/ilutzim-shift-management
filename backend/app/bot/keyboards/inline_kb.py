@@ -9,12 +9,23 @@ DAY_NAMES = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "
 
 
 def main_menu_kb() -> InlineKeyboardMarkup:
-    """Main menu after /start."""
-    return InlineKeyboardMarkup(inline_keyboard=[
+    """Main menu after /start.
+
+    The 'נהלים' (procedures) entry is appended only when PROCEDURES_ENABLED is
+    on, so with the flag off the menu is unchanged and the button cannot lead
+    to an unregistered handler.
+    """
+    rows = [
         [InlineKeyboardButton(text="📅 הגשת אילוצים", callback_data="submit")],
         [InlineKeyboardButton(text="📊 סטטוס אילוצים", callback_data="status")],
         [InlineKeyboardButton(text="ℹ️ עזרה", callback_data="help")],
-    ])
+    ]
+    from app.bot.keyboards.procedures import main_menu_procedures_button
+
+    btn = main_menu_procedures_button()
+    if btn is not None:
+        rows.append([btn])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def weekday_kb(week_id: str) -> InlineKeyboardMarkup:

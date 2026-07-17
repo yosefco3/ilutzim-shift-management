@@ -63,6 +63,11 @@ SETTINGS_DEFAULTS: dict[str, Any] = {
     "attendance_long_shift_hours": 12,
     "attendance_min_rest_hours": 8,
     "company_name": "ספרא",
+    # Procedure-quiz (סד"פ) — pass threshold (percent), quiz size (sampled
+    # from a larger bank), and the Claude model id used to generate questions.
+    "procedure_pass_threshold": 80,
+    "procedure_quiz_size": 7,
+    "procedure_ai_model": "claude-opus-4-8",
 }
 
 

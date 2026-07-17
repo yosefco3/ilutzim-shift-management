@@ -67,6 +67,20 @@ class Settings(BaseSettings):
     # honoured ONLY when ENVIRONMENT == "dev" (enforced by a model validator).
     DEV_AUTH_BYPASS_ENABLED: bool = False
 
+    # Procedure-quiz (סד"פ): admin publishes a security procedure + an
+    # AI-generated MCQ bank; guards take the quiz as native Telegram polls.
+    # Ships dormant — when False the admin router is NOT registered (404), the
+    # bot procedures router is not included, and the reminder scheduler job is
+    # not scheduled. Nothing new runs until this is flipped on.
+    PROCEDURES_ENABLED: bool = False
+
+    # Claude API key for quiz-question generation. INTENTIONALLY Optional (unlike
+    # the repo's other required secrets): steps 1–9 ship dark to production
+    # WITHOUT the key configured, and a required field would crash app boot. The
+    # generation service validates the key at call time and returns a clear 503
+    # if unset. Generation is admin-only, so the key is never in the guard path.
+    ANTHROPIC_API_KEY: str | None = None
+
     # Cron / Scheduling
     CRON_WEEKLY_OPEN_DAY: str = "sunday"
     CRON_WEEKLY_OPEN_HOUR: str = "09:00"
