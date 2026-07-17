@@ -309,3 +309,39 @@ async def test_create_endpoint_serializes_fresh_procedure(db_session):
     assert out.title == "נוהל חדש"
     assert out.status == "draft"
     assert out.questions == []
+
+
+@pytest.mark.asyncio
+async def test_delete_procedure_removes_it_and_its_questions(db_session):
+    """Hard delete: the procedure and its question bank are gone (ORM cascade);
+    a later get raises 404."""
+    from app.exceptions import UserNotFoundException
+    from app.procedures.constants import QuestionSource
+
+    svc = _svc(db_session)
+    proc = await svc.create("נוהל למחיקה", "תוכן")
+    await QuizQuestionRepository(db_session).create(
+        procedure_id=proc.id,
+        text="שאלה?",
+        options=["א", "ב"],
+        correct_index=0,
+        display_order=0,
+        is_active=True,
+        source=QuestionSource.AI,
+    )
+
+    await svc.delete(proc.id)
+
+    assert await QuizQuestionRepository(db_session).count_all(proc.id) == 0
+    with pytest.raises(UserNotFoundException):
+        await svc.get(proc.id)
+
+
+@pytest.mark.asyncio
+async def test_delete_unknown_procedure_404(db_session):
+    import uuid as _uuid
+
+    from app.exceptions import UserNotFoundException
+
+    with pytest.raises(UserNotFoundException):
+        await _svc(db_session).delete(_uuid.uuid4())

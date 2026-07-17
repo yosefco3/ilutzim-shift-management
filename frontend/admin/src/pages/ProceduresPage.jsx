@@ -6,6 +6,7 @@ import {
   uploadProcedureDocx,
   generateProcedureQuestions,
   publishProcedure,
+  deleteProcedure,
 } from '../api/adminApiClient';
 import { useToast } from '../components/Toast';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -138,6 +139,16 @@ export default function ProceduresPage() {
     }
   };
 
+  const handleDelete = useCallback(async (proc) => {
+    try {
+      await deleteProcedure(proc.id);
+      toast.success(m.procDeleted);
+      await load();
+    } catch (err) {
+      toast.error(err.message || messages.common.error);
+    }
+  }, [load, toast]);
+
   const handlePublish = useCallback(async (proc, rebroadcast) => {
     setPublishingId(proc.id);
     try {
@@ -204,6 +215,7 @@ export default function ProceduresPage() {
                   error={genErrors[proc.id]}
                   onGenerate={() => handleGenerate(proc)}
                   onPublish={handlePublish}
+                  onDelete={handleDelete}
                   onOpen={() => navigate(`/procedures/${proc.id}`)}
                 />
               ))}
@@ -215,10 +227,11 @@ export default function ProceduresPage() {
   );
 }
 
-function ProcedureRow({ proc, generating, publishing, error, onGenerate, onPublish, onOpen }) {
+function ProcedureRow({ proc, generating, publishing, error, onGenerate, onPublish, onDelete, onOpen }) {
   const isDraft = proc.status === 'draft';
   const meta = STATUS_META[proc.status] || { badge: 'badge-muted' };
   const [publishOpen, setPublishOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const action = publishActionMeta(proc);
   return (
     <tr data-testid={`procedure-row-${proc.id}`}>
@@ -264,6 +277,13 @@ function ProcedureRow({ proc, generating, publishing, error, onGenerate, onPubli
           <button className="btn btn-outline btn-sm" onClick={onOpen}>
             {m.edit}
           </button>
+          <button
+            className="btn btn-danger btn-sm"
+            onClick={() => setDeleteOpen(true)}
+            data-testid={`delete-proc-${proc.id}`}
+          >
+            {m.delete}
+          </button>
         </div>
         {error && (
           <div className="alert alert-error" role="alert" style={{ marginTop: 8 }}>
@@ -280,6 +300,18 @@ function ProcedureRow({ proc, generating, publishing, error, onGenerate, onPubli
               onPublish(proc, action.rebroadcast);
             }}
             onCancel={() => setPublishOpen(false)}
+          />
+        )}
+        {deleteOpen && (
+          <ConfirmDialog
+            title={m.deleteProcTitle}
+            message={isDraft ? m.deleteProcConfirmDraft : m.deleteProcConfirmHistory}
+            confirmLabel={m.delete}
+            onConfirm={() => {
+              setDeleteOpen(false);
+              onDelete(proc);
+            }}
+            onCancel={() => setDeleteOpen(false)}
           />
         )}
       </td>
@@ -314,7 +346,9 @@ function NewProcedureForm({ onSaved, onCancel }) {
         const lines = text.split('\n');
         const idx = lines.findIndex((l) => l.trim());
         if (idx >= 0) {
-          setTitle(lines[idx].trim().slice(0, 200));
+          // Strip the *bold* markers the docx extractor emits — the title is
+          // sent bold anyway, and literal asterisks would show in Telegram.
+          setTitle(lines[idx].trim().replace(/\*/g, '').trim().slice(0, 200));
           setBody(lines.slice(idx + 1).join('\n').replace(/^\n+/, ''));
         } else {
           setBody(text);

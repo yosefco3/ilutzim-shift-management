@@ -107,6 +107,23 @@ class ProcedureService:
             procedure_id, status=ProcedureStatus.ARCHIVED
         )
 
+    async def delete(self, procedure_id: uuid.UUID) -> None:
+        """Hard-delete a procedure and ALL of its quiz history.
+
+        Questions go via the ORM cascade; attempts, poll links, and reminder
+        rows via the DB-level ``ON DELETE CASCADE``. This erases guards' scores
+        for the procedure — the archive action is the keep-history alternative.
+        Deleting the default procedure simply leaves no default until the next
+        publish (reminders pause).
+        """
+        proc = await self._get_or_404(procedure_id)
+        title, status = proc.title, proc.status.value
+        await self._procedures.delete(procedure_id)
+        logger.info(
+            "Procedure deleted: id=%s title=%r status=%s (history erased)",
+            procedure_id, title, status,
+        )
+
     # ── Publish ───────────────────────────────────────────────────────────
 
     async def publish(self, procedure_id: uuid.UUID, *, rebroadcast: bool = False) -> dict:

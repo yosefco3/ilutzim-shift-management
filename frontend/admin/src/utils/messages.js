@@ -722,6 +722,12 @@ export default {
     deleteQuestionTitle: 'מחיקת שאלה',
     deleteQuestionMsg: 'למחוק את השאלה? לא ניתן לבטל.',
     deleteDisabledAfterPublish: 'לאחר פרסום ניתן רק להשבית שאלה, לא למחוק',
+    deleteProcTitle: 'מחיקת נוהל',
+    deleteProcConfirmDraft: 'הטיוטה תימחק לצמיתות. להמשיך?',
+    deleteProcConfirmHistory:
+      'הנוהל יימחק לצמיתות יחד עם כל היסטוריית המבחנים שלו (ניסיונות, ציונים ותוצאות). ' +
+      'כדי לשמור את ההיסטוריה — העבירו לארכיון במקום. להמשיך?',
+    procDeleted: 'הנוהל נמחק',
 
     // Client-side validation mirroring the Telegram quiz-poll limits
     // (backend constants: MAX_QUESTION_CHARS=300, MAX_OPTION_CHARS=100, 2–4 options).

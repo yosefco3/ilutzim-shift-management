@@ -167,6 +167,15 @@ async def archive_procedure(
     return _procedure_out(full)
 
 
+@router.delete("/{procedure_id}", status_code=204)
+async def delete_procedure(
+    procedure_id: uuid.UUID,
+    service: ProcedureService = Depends(get_procedure_service),
+) -> None:
+    """Hard-delete a procedure + all its quiz history (archive keeps history)."""
+    await service.delete(procedure_id)
+
+
 @router.post("/{procedure_id}/generate", response_model=GenerateOut)
 async def generate_questions(
     procedure_id: uuid.UUID,

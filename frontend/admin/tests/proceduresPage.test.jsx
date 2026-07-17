@@ -14,6 +14,7 @@ vi.mock('../src/api/adminApiClient', () => ({
   uploadProcedureDocx: vi.fn(),
   generateProcedureQuestions: vi.fn(),
   publishProcedure: vi.fn(),
+  deleteProcedure: vi.fn(),
 }));
 const toast = { success: vi.fn(), error: vi.fn() };
 vi.mock('../src/components/Toast', () => ({ useToast: () => toast }));
@@ -24,6 +25,7 @@ import {
   uploadProcedureDocx,
   generateProcedureQuestions,
   publishProcedure,
+  deleteProcedure,
 } from '../src/api/adminApiClient';
 import ProceduresPage from '../src/pages/ProceduresPage';
 import messages from '../src/utils/messages';
@@ -66,9 +68,38 @@ describe('ProceduresPage', () => {
     uploadProcedureDocx.mockReset();
     generateProcedureQuestions.mockReset();
     publishProcedure.mockReset();
+    deleteProcedure.mockReset();
     toast.success.mockReset();
     toast.error.mockReset();
     navigate.mockReset();
+  });
+
+  it('deletes a draft after a confirm', async () => {
+    fetchProcedures.mockResolvedValue([DRAFT_PROC]);
+    deleteProcedure.mockResolvedValue(null);
+    renderPage();
+    await screen.findByText('נוהל תגובה לחריגת גדר');
+
+    fireEvent.click(screen.getByTestId('delete-proc-p1'));
+    expect(screen.getByText(m.deleteProcConfirmDraft)).toBeInTheDocument();
+    const modal = document.querySelector('.modal-overlay');
+    fireEvent.click(within(modal).getByRole('button', { name: m.delete }));
+
+    await waitFor(() => expect(deleteProcedure).toHaveBeenCalledWith('p1'));
+    expect(toast.success).toHaveBeenCalledWith(m.procDeleted);
+  });
+
+  it('deleting a published procedure warns about erasing quiz history', async () => {
+    fetchProcedures.mockResolvedValue([PUBLISHED_PROC]);
+    renderPage();
+    await screen.findByText('נוהל מעבר משמרת');
+
+    fireEvent.click(screen.getByTestId('delete-proc-p2'));
+    expect(screen.getByText(m.deleteProcConfirmHistory)).toBeInTheDocument();
+    // Cancel — nothing deleted.
+    const modal = document.querySelector('.modal-overlay');
+    fireEvent.click(within(modal).getByRole('button', { name: messages.common.cancel }));
+    expect(deleteProcedure).not.toHaveBeenCalled();
   });
 
   it('renders the list of procedures with status + question counts', async () => {

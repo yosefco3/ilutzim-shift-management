@@ -314,6 +314,12 @@ export function archiveProcedure(id) {
   return request(`/admin/procedures/${id}/archive`, { method: 'POST' });
 }
 
+// Hard-delete: removes the procedure AND all its quiz history (attempts,
+// scores, results) via DB cascade. Archive is the keep-history alternative.
+export function deleteProcedure(id) {
+  return request(`/admin/procedures/${id}`, { method: 'DELETE' });
+}
+
 // Trigger AI question generation (drafts only). Resolves with
 // { generated, skipped, total_questions }; rejects on 503 (no API key / Claude
 // failure) or 409 (not a draft).
