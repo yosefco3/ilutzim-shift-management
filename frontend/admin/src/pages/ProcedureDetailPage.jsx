@@ -231,6 +231,9 @@ function QuestionsTab({ proc, isDraft, editingId, setEditingId, reload }) {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [generating, setGenerating] = useState(false);
   const questions = proc.questions || [];
+  // Once an AI bank exists, stop offering generation (a re-run would replace
+  // unedited AI questions) — same rule as the list page.
+  const hasAiQuestions = questions.some((q) => q.source === 'ai');
 
   // AI generation, also available here (not only on the list page) — this is
   // where the admin lands right after creating a procedure.
@@ -323,7 +326,7 @@ function QuestionsTab({ proc, isDraft, editingId, setEditingId, reload }) {
         </div>
       ) : (
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          {isDraft && (
+          {isDraft && !hasAiQuestions && (
             <button
               className="btn btn-primary"
               onClick={handleGenerate}

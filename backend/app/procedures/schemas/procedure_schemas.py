@@ -99,6 +99,8 @@ class ProcedureListItem(BaseModel):
     is_default: bool = False
     active_questions: int = 0
     total_questions: int = 0
+    # True once an AI bank was generated — the UI hides the generate button.
+    has_ai_questions: bool = False
 
 
 # ── Questions ────────────────────────────────────────────────────────────────

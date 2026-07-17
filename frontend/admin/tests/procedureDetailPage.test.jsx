@@ -57,6 +57,13 @@ const PUBLISHED_PROC = {
   published_at: '2026-07-02T10:00:00',
 };
 
+// Draft whose only question is manual — the AI-generate button should still be
+// offered (no AI bank exists yet).
+const DRAFT_NO_AI = {
+  ...DRAFT_PROC,
+  questions: [{ ...DRAFT_PROC.questions[0], source: 'manual' }],
+};
+
 function renderPage(initial = '/procedures/p1') {
   // Render inside the real route so useParams() resolves :id (mirrors production;
   // without a <Route> the page would read id=null).
@@ -83,7 +90,7 @@ describe('ProcedureDetailPage — questions editor', () => {
   });
 
   it('draft shows an AI-generate button that generates and reloads', async () => {
-    fetchProcedure.mockResolvedValue(DRAFT_PROC);
+    fetchProcedure.mockResolvedValue(DRAFT_NO_AI);
     generateProcedureQuestions.mockResolvedValue({
       generated: 16, skipped: 0, total_questions: 17,
     });
@@ -98,7 +105,7 @@ describe('ProcedureDetailPage — questions editor', () => {
   });
 
   it('AI-generate 503 surfaces the unavailable message; no button on published', async () => {
-    fetchProcedure.mockResolvedValue(DRAFT_PROC);
+    fetchProcedure.mockResolvedValue(DRAFT_NO_AI);
     const err = new Error('boom');
     err.status = 503;
     generateProcedureQuestions.mockRejectedValue(err);
@@ -109,6 +116,13 @@ describe('ProcedureDetailPage — questions editor', () => {
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith(m.errGenerateUnavailable),
     );
+  });
+
+  it('draft with an existing AI bank hides the generate button', async () => {
+    fetchProcedure.mockResolvedValue(DRAFT_PROC); // its question has source 'ai'
+    renderPage();
+    await screen.findByText('גוף הנוהל לבדיקה');
+    expect(screen.queryByTestId('generate-ai-btn')).toBeNull();
   });
 
   it('published procedure has no AI-generate button', async () => {

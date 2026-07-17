@@ -41,6 +41,7 @@ const DRAFT_PROC = {
   published_at: null,
   active_questions: 0,
   total_questions: 0,
+  has_ai_questions: false,
 };
 const PUBLISHED_PROC = {
   id: 'p2',
@@ -72,6 +73,13 @@ describe('ProceduresPage', () => {
     toast.success.mockReset();
     toast.error.mockReset();
     navigate.mockReset();
+  });
+
+  it('hides the generate button on a draft that already has an AI bank', async () => {
+    fetchProcedures.mockResolvedValue([{ ...DRAFT_PROC, has_ai_questions: true, total_questions: 20 }]);
+    renderPage();
+    await screen.findByText('נוהל תגובה לחריגת גדר');
+    expect(screen.queryByTestId('generate-p1')).toBeNull();
   });
 
   it('deletes a draft after a confirm', async () => {

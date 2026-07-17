@@ -74,6 +74,9 @@ class ProcedureService:
                     "is_default": p.is_default,
                     "active_questions": active,
                     "total_questions": total,
+                    # The UI hides the "generate with AI" button once a bank
+                    # exists (accidental regeneration guard).
+                    "has_ai_questions": (await self._questions.count_ai(p.id)) > 0,
                 }
             )
         return rows

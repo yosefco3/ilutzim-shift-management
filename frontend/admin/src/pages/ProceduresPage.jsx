@@ -256,7 +256,9 @@ function ProcedureRow({ proc, generating, publishing, error, onGenerate, onPubli
       <td>{proc.published_at ? formatDate(proc.published_at) : '—'}</td>
       <td>
         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-          {isDraft && (
+          {/* Hidden once an AI bank exists — regeneration would silently
+              replace unedited AI questions, so the UI stops offering it. */}
+          {isDraft && !proc.has_ai_questions && (
             <button
               className="btn btn-secondary btn-sm"
               onClick={onGenerate}

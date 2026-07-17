@@ -55,6 +55,22 @@ class QuizQuestionRepository(BaseRepository[QuizQuestion]):
         result = await self.session.execute(stmt)
         return int(result.scalar() or 0)
 
+    async def count_ai(self, procedure_id: uuid.UUID) -> int:
+        """Number of AI-generated questions for a procedure (any active state).
+
+        Used to hide the "generate with AI" button once a bank was already
+        generated — regeneration stays possible via the API, but the UI stops
+        inviting an accidental re-run.
+        """
+        from app.procedures.constants import QuestionSource
+
+        stmt = select(func.count()).select_from(QuizQuestion).where(
+            QuizQuestion.procedure_id == procedure_id,
+            QuizQuestion.source == QuestionSource.AI,
+        )
+        result = await self.session.execute(stmt)
+        return int(result.scalar() or 0)
+
     async def count_all(self, procedure_id: uuid.UUID) -> int:
         """Total questions for a procedure (active + disabled)."""
         stmt = select(func.count()).select_from(QuizQuestion).where(

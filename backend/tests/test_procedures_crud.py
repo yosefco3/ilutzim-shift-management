@@ -345,3 +345,27 @@ async def test_delete_unknown_procedure_404(db_session):
 
     with pytest.raises(UserNotFoundException):
         await _svc(db_session).delete(_uuid.uuid4())
+
+
+@pytest.mark.asyncio
+async def test_list_all_flags_has_ai_questions(db_session):
+    """list_all exposes has_ai_questions: True only when an AI question exists
+    (manual-only banks keep the generate button available in the UI)."""
+    from app.procedures.constants import QuestionSource
+
+    svc = _svc(db_session)
+    ai_proc = await svc.create("נוהל עם בנק AI", "תוכן")
+    manual_proc = await svc.create("נוהל ידני", "תוכן")
+    repo = QuizQuestionRepository(db_session)
+    await repo.create(
+        procedure_id=ai_proc.id, text="ש?", options=["א", "ב"], correct_index=0,
+        display_order=0, is_active=True, source=QuestionSource.AI,
+    )
+    await repo.create(
+        procedure_id=manual_proc.id, text="ש?", options=["א", "ב"], correct_index=0,
+        display_order=0, is_active=True, source=QuestionSource.MANUAL,
+    )
+
+    rows = {r["title"]: r["has_ai_questions"] for r in await svc.list_all()}
+    assert rows["נוהל עם בנק AI"] is True
+    assert rows["נוהל ידני"] is False
