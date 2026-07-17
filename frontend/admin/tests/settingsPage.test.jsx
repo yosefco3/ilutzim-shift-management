@@ -162,4 +162,27 @@ describe('SettingsPage', () => {
     render(<SettingsPage />);
     expect(screen.getByRole('switch')).toBeInTheDocument();
   });
+
+  it('renders the procedures section with Hebrew labels, not raw keys', () => {
+    mockHook({
+      settings: [
+        { key: 'procedure_pass_threshold', value: '80', description: null },
+        { key: 'procedure_quiz_size', value: '7', description: null },
+        { key: 'procedure_bank_size', value: '20', description: null },
+      ],
+      draft: {
+        procedure_pass_threshold: '80',
+        procedure_quiz_size: '7',
+        procedure_bank_size: '20',
+      },
+    });
+    render(<SettingsPage />);
+
+    expect(screen.getByText('נהלים (סד"פ)')).toBeInTheDocument();
+    expect(screen.getByText('אחוז עובר במבחן נהלים')).toBeInTheDocument();
+    expect(screen.getByText('מספר שאלות במבחן נהלים')).toBeInTheDocument();
+    expect(screen.getByText('גודל בנק השאלות להפקה')).toBeInTheDocument();
+    expect(screen.queryByText('procedure_bank_size')).not.toBeInTheDocument();
+    expect(screen.queryByText('procedure_pass_threshold')).not.toBeInTheDocument();
+  });
 });

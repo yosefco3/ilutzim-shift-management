@@ -377,6 +377,7 @@ function NewProcedureForm({ onSaved, onCancel }) {
           onChange={(e) => setBody(e.target.value)}
           data-testid="proc-body"
         />
+        <p className="page-subtitle" data-testid="proc-body-hint">{m.bodyBoldHint}</p>
         {sourceFilename && !extracting && (
           <p className="page-subtitle" data-testid="docx-extracted">
             {m.extractedChars(body.length)} · {sourceFilename}

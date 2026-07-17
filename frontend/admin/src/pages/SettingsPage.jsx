@@ -55,6 +55,9 @@ const FIELD_TYPES = {
   attendance_admin_alerts_enabled: 'bool',
   attendance_long_shift_hours: 'number',
   attendance_min_rest_hours: 'number',
+  procedure_pass_threshold: 'number',
+  procedure_quiz_size: 'number',
+  procedure_bank_size: 'number',
 };
 
 // Logical grouping for the page — each section renders only the keys that the
@@ -82,6 +85,10 @@ const GROUPS = [
   {
     title: 'נעילה אוטומטית של שבוע',
     keys: ['auto_lock_enabled', 'auto_lock_weekday', 'auto_lock_time'],
+  },
+  {
+    title: 'נהלים (סד"פ)',
+    keys: ['procedure_pass_threshold', 'procedure_quiz_size', 'procedure_bank_size'],
   },
   ...(ATTENDANCE_ENABLED ? [{ title: 'נוכחות', keys: ATTENDANCE_KEYS }] : []),
 ];

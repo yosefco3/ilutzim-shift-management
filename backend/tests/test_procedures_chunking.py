@@ -93,3 +93,144 @@ async def test_send_procedure_escapes_html_special_chars_in_body(monkeypatch):
     assert "&amp;" in flat
     # the escaped title is intact too
     assert "&lt;1&gt;" in flat
+
+
+# ── Bold markers → <b>, blockquote wrapping, chunk invariants ─────────────────
+
+
+def _sent_texts(fake_bot):
+    return [c.kwargs["text"] for c in fake_bot.send_message.call_args_list]
+
+
+def _assert_chunks_balanced_and_within_limit(chunks):
+    """Every chunk ≤4096 chars (incl. tags) with balanced <b> and <blockquote>."""
+    for chunk in chunks:
+        assert len(chunk) <= 4096, f"chunk over limit ({len(chunk)} chars)"
+        assert chunk.count("<b>") == chunk.count("</b>"), f"unbalanced <b>: {chunk!r}"
+        assert chunk.count(notif._BQ_OPEN) == chunk.count(notif._BQ_CLOSE), (
+            f"unbalanced blockquote: {chunk!r}"
+        )
+
+
+async def test_send_procedure_converts_bold_markers_to_html(monkeypatch):
+    """A *…* span becomes <b>…</b>; text inside AND outside it is escaped."""
+    fake_bot = MagicMock()
+    fake_bot.send_message = AsyncMock()
+    monkeypatch.setattr(notif, "get_bot", lambda: fake_bot)
+
+    body = "לפני *מודגש <בפנים>* וגם <בחוץ"
+    await notif.send_procedure(1, "כותרת", body)
+
+    sent = "\n".join(_sent_texts(fake_bot))
+    # the bold span is wrapped; its '<'/'>' escaped
+    assert "<b>מודגש &lt;בפנים&gt;</b>" in sent
+    # the '<' outside the bold span is escaped too — never raw
+    assert "&lt;בחוץ" in sent
+    assert "<בפנים" not in sent
+    assert "<בחוץ" not in sent
+
+
+async def test_send_procedure_odd_asterisk_is_literal(monkeypatch):
+    """A lone asterisk (no closing partner) stays literal — no <b> emitted."""
+    fake_bot = MagicMock()
+    fake_bot.send_message = AsyncMock()
+    monkeypatch.setattr(notif, "get_bot", lambda: fake_bot)
+
+    body = "מחיר 5* שקל"  # one asterisk → unpaired → literal
+    await notif.send_procedure(1, "כותרת", body)
+
+    sent = "\n".join(_sent_texts(fake_bot))
+    # the lone asterisk survived, and the only <b> is the title's
+    assert "5* שקל" in sent
+    assert sent.count("<b>") == 1  # title only — body has no bold tag
+
+
+async def test_send_procedure_wraps_body_in_blockquote_title_outside(monkeypatch):
+    """The body sits inside <blockquote expandable>; the bold title is outside."""
+    fake_bot = MagicMock()
+    fake_bot.send_message = AsyncMock()
+    monkeypatch.setattr(notif, "get_bot", lambda: fake_bot)
+
+    await notif.send_procedure(1, "הנוהל", "תוכן הנוהל")
+
+    chunks = _sent_texts(fake_bot)
+    assert len(chunks) == 1
+    assert chunks[0] == (
+        "📜 <b>הנוהל</b>\n\n<blockquote expandable>תוכן הנוהל</blockquote>"
+    )
+
+
+async def test_send_procedure_chunks_balanced_and_within_limit(monkeypatch):
+    """A long body with bold markers fans out to chunks that stay ≤4096 chars
+    with balanced tags (no <b>/<blockquote> ever split across a message)."""
+    fake_bot = MagicMock()
+    fake_bot.send_message = AsyncMock()
+    monkeypatch.setattr(notif, "get_bot", lambda: fake_bot)
+
+    para = "פסקה עם *מודגש* " + ("תוכן " * 200)
+    body = "\n".join([para] * 60)  # forces several chunks
+    await notif.send_procedure(1, "כותרת ארוכה", body)
+
+    chunks = _sent_texts(fake_bot)
+    assert len(chunks) > 1
+    _assert_chunks_balanced_and_within_limit(chunks)
+    # the bold marker survived into at least one chunk's body
+    assert any("<b>מודגש</b>" in c for c in chunks)
+
+
+async def test_send_procedure_overlong_paragraph_strips_bold_and_splits(monkeypatch):
+    """A single paragraph too long for a chunk falls back to plain hard-split
+    text: balanced, ≤limit, and its bold tags stripped (correctness over
+    formatting for the pathological case)."""
+    fake_bot = MagicMock()
+    fake_bot.send_message = AsyncMock()
+    monkeypatch.setattr(notif, "get_bot", lambda: fake_bot)
+
+    body = "*מודגש* " + ("תוכן " * 1500)  # one paragraph, well over 4096
+    await notif.send_procedure(1, "נוהל", body)
+
+    chunks = _sent_texts(fake_bot)
+    assert len(chunks) > 1
+    _assert_chunks_balanced_and_within_limit(chunks)
+    # the title is the only <b> — the overlong paragraph's bold was stripped
+    assert sum(c.count("<b>") for c in chunks) == 1
+
+
+async def test_send_procedure_keyboard_still_last_chunk_only(monkeypatch):
+    """The reply_markup still rides the final chunk only once the body is
+    blockquote-wrapped (regression guard for the new packing)."""
+    fake_bot = MagicMock()
+    fake_bot.send_message = AsyncMock()
+    monkeypatch.setattr(notif, "get_bot", lambda: fake_bot)
+
+    long_body = "\n".join([f"שורה מספר {i}" for i in range(500)])
+    kb = MagicMock(name="keyboard")
+    await notif.send_procedure(111, "כותרת", long_body, reply_markup=kb)
+
+    calls = fake_bot.send_message.call_args_list
+    assert calls[-1].kwargs["reply_markup"] is kb
+    for call in calls[:-1]:
+        assert call.kwargs.get("reply_markup") is None
+    _assert_chunks_balanced_and_within_limit(_sent_texts(fake_bot))
+
+
+async def test_send_procedure_plain_text_unchanged_just_collapsed(monkeypatch):
+    """A stored procedure with no markers renders as before (escaped), only now
+    collapsed inside a blockquote — no stray <b> in the body."""
+    fake_bot = MagicMock()
+    fake_bot.send_message = AsyncMock()
+    monkeypatch.setattr(notif, "get_bot", lambda: fake_bot)
+
+    body = "סעיף אחד\n\nסעיף שני עם < וגם & בפנים"
+    await notif.send_procedure(1, "נוהל", body)
+
+    chunks = _sent_texts(fake_bot)
+    assert len(chunks) == 1
+    chunk = chunks[0]
+    # body is escaped exactly as the old code escaped it, now collapsed in the quote
+    assert (
+        "<blockquote expandable>סעיף אחד\n\nסעיף שני עם &lt; וגם &amp; בפנים</blockquote>"
+        in chunk
+    )
+    assert "&lt;" in chunk and "&amp;" in chunk
+    assert chunk.count("<b>") == 1  # title only

@@ -181,7 +181,8 @@ async def generate_questions(
     if proc.status.value != "draft":
         raise HTTPException(status_code=409, detail="ניתן לחדש שאלות לנוהל טיוטה בלבד")
     model = str(await settings.get_setting("procedure_ai_model") or "claude-opus-4-8")
-    items = await gen_service.generate(proc.body_text, model)
+    bank_size = await settings.get_setting("procedure_bank_size")
+    items = await gen_service.generate(proc.body_text, model, bank_size=bank_size)
     created, _deleted = await question_service.regenerate(procedure_id, items)
     total = await question_repo.count_all(procedure_id)
     return GenerateOut(

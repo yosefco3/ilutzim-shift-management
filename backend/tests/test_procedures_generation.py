@@ -219,7 +219,15 @@ async def test_regenerate_only_while_draft(db_session):
 # ── Generate endpoint (controller wiring, all deps faked) ────────────────────
 
 
-def _client(*, procedure=None, generated=None, draft=True, regenerate=None):
+def _client(
+    *,
+    procedure=None,
+    generated=None,
+    draft=True,
+    regenerate=None,
+    settings=None,
+    gen_svc=None,
+):
     from app.dependencies import require_admin_role
     from app.procedures.dependencies import (
         get_generation_service,
@@ -241,8 +249,9 @@ def _client(*, procedure=None, generated=None, draft=True, regenerate=None):
     proc_svc = MagicMock()
     proc_svc.get = AsyncMock(return_value=proc)
 
-    gen_svc = MagicMock()
-    gen_svc.generate = AsyncMock(return_value=generated if generated is not None else [])
+    if gen_svc is None:
+        gen_svc = MagicMock()
+        gen_svc.generate = AsyncMock(return_value=generated if generated is not None else [])
 
     q_svc = MagicMock()
     q_svc.regenerate = AsyncMock(return_value=regenerate or (0, 0))
@@ -250,8 +259,9 @@ def _client(*, procedure=None, generated=None, draft=True, regenerate=None):
     q_repo = MagicMock()
     q_repo.count_all = AsyncMock(return_value=5)
 
-    settings = MagicMock()
-    settings.get_setting = AsyncMock(return_value="claude-opus-4-8")
+    if settings is None:
+        settings = MagicMock()
+        settings.get_setting = AsyncMock(return_value="claude-opus-4-8")
 
     app.dependency_overrides[get_procedure_service] = lambda: proc_svc
     app.dependency_overrides[get_generation_service] = lambda: gen_svc
@@ -277,3 +287,81 @@ def test_generate_endpoint_409_when_not_draft():
     client = _client(draft=False)
     res = client.post("/admin/procedures/00000000-0000-0000-0000-000000000001/generate")
     assert res.status_code == 409
+
+
+# ── Bank size: prompt + clamping + controller wiring ─────────────────────────
+
+
+def _prompt_passed_to(client):
+    """The user prompt the generation call sent to Claude."""
+    content = client.messages.parse.call_args.kwargs["messages"][0]["content"]
+    return content
+
+
+async def test_generate_prompt_asks_for_exact_bank_size(monkeypatch):
+    from app.procedures.services import question_generation_service as mod
+
+    monkeypatch.setattr(mod, "get_settings", lambda: _settings_with("k"))
+    client = _FakeClient(parsed_output=_bank(
+        {"text": "q", "options": ["a", "b", "c", "d"], "correct_index": 0},
+    ))
+    await QuestionGenerationService(client_factory=lambda _k: client).generate(
+        "body", "m", bank_size=12
+    )
+    prompt = _prompt_passed_to(client)
+    assert "בדיוק 12 שאלות" in prompt
+    assert "בין 15 ל-20" not in prompt  # the old hardcoded phrasing is gone
+
+
+async def test_generate_clamps_bank_size_into_prompt(monkeypatch):
+    from app.procedures.services import question_generation_service as mod
+
+    monkeypatch.setattr(mod, "get_settings", lambda: _settings_with("k"))
+    # (raw setting value → clamped count asserted in the prompt)
+    cases = [(100, "40"), (1, "5"), ("garbage", "20"), (None, "20"), (25, "25")]
+    for raw, expected in cases:
+        client = _FakeClient(parsed_output=_bank(
+            {"text": "q", "options": ["a", "b", "c", "d"], "correct_index": 0},
+        ))
+        await QuestionGenerationService(client_factory=lambda _k: client).generate(
+            "body", "m", bank_size=raw
+        )
+        assert f"בדיוק {expected} שאלות" in _prompt_passed_to(client)
+
+
+def test_coerce_bank_size_clamps_and_defaults():
+    from app.procedures.services.question_generation_service import _coerce_bank_size
+
+    assert _coerce_bank_size(100) == 40
+    assert _coerce_bank_size(1) == 5
+    assert _coerce_bank_size(40) == 40
+    assert _coerce_bank_size(5) == 5
+    assert _coerce_bank_size(20) == 20
+    assert _coerce_bank_size(25) == 25
+    assert _coerce_bank_size("30") == 30
+    assert _coerce_bank_size("garbage") == 20
+    assert _coerce_bank_size(None) == 20
+
+
+def test_generate_endpoint_passes_bank_size_setting():
+    """The controller reads procedure_bank_size and forwards it to generate()."""
+    async def fake_get(key):
+        if key == "procedure_ai_model":
+            return "claude-opus-4-8"
+        if key == "procedure_bank_size":
+            return 33
+        return None
+
+    settings = MagicMock()
+    settings.get_setting = AsyncMock(side_effect=fake_get)
+
+    gen_svc = MagicMock()
+    gen_svc.generate = AsyncMock(return_value=[
+        {"text": "q", "options": ["a", "b", "c", "d"], "correct_index": 0},
+    ])
+
+    client = _client(settings=settings, gen_svc=gen_svc, regenerate=(1, 0))
+    res = client.post("/admin/procedures/00000000-0000-0000-0000-000000000001/generate")
+    assert res.status_code == 200
+    gen_svc.generate.assert_awaited_once()
+    assert gen_svc.generate.call_args.kwargs["bank_size"] == 33

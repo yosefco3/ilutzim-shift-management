@@ -2,7 +2,9 @@
 Proactive notification helpers for the Telegram bot.
 """
 
+import html
 import logging
+import re
 from datetime import date, timedelta
 from itertools import groupby
 
@@ -18,6 +20,17 @@ _HE_DAYS = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "�
 # overlong paragraph). Defined locally so this Part-A module does not import
 # the procedures package.
 TG_MESSAGE_LIMIT = 4096
+
+# A paired ``*…*`` in a procedure body marks a bold span (the docx extractor
+# emits these from bold/heading/highlight runs). ``*`` with no partner is a
+# literal asterisk, not a tag.
+_BOLD_PAIR = re.compile(r"\*([^*]*)\*")
+
+# Procedure bodies ship collapsed: each chunk's body is wrapped in an
+# expandable blockquote (Telegram renders a "show more" quote the guard taps
+# to expand). The bold title line stays outside it.
+_BQ_OPEN = "<blockquote expandable>"
+_BQ_CLOSE = "</blockquote>"
 
 
 async def send_notification(telegram_id: int, text: str, reply_markup=None) -> bool:
@@ -389,18 +402,98 @@ def chunk_message(text: str, limit: int = TG_MESSAGE_LIMIT) -> list[str]:
     return chunks or [text[:limit].rstrip()]
 
 
+def _convert_paragraph_markers(paragraph: str) -> str:
+    """Convert ``*…*`` bold markers in ONE paragraph to Telegram HTML.
+
+    Every text segment is HTML-escaped (the bot parses each chunk as HTML, so a
+    raw ``<``/``&`` would 400 the send); each paired ``*…*`` becomes
+    ``<b>…</b>``. Asterisks with no matching partner (an odd count) are left as
+    literal text — escaped, no tag. Conversion runs per-paragraph so a bold
+    span never crosses a newline, which is what lets every chunk stay tag-
+    balanced after packing.
+    """
+    out: list[str] = []
+    last = 0
+    for m in _BOLD_PAIR.finditer(paragraph):
+        out.append(html.escape(paragraph[last:m.start()]))
+        out.append(f"<b>{html.escape(m.group(1))}</b>")
+        last = m.end()
+    out.append(html.escape(paragraph[last:]))
+    return "".join(out)
+
+
+def _wrap_procedure_chunk(title_block: str, body: str) -> str:
+    """Assemble one chunk: optional title line (chunk 0 only) outside a
+    blockquote that wraps the body."""
+    if title_block:
+        return f"{title_block}\n\n{_BQ_OPEN}{body}{_BQ_CLOSE}"
+    return f"{_BQ_OPEN}{body}{_BQ_CLOSE}"
+
+
+def _pack_procedure_chunks(
+    title_block: str, converted_paragraphs: list[str], limit: int
+) -> list[str]:
+    """Pack already-converted (HTML) paragraphs into ≤``limit``-char chunks.
+
+    Each chunk's body is wrapped in ``<blockquote expandable>…</blockquote>``;
+    ``title_block`` (the bold 📜 title line) prefixes the FIRST chunk only and
+    stays outside the blockquote. Paragraphs are packed whole, so no chunk ever
+    splits a ``<b>…</b>`` pair — every chunk is independently tag-balanced.
+
+    A single converted paragraph too long for a chunk even on its own falls
+    back to stripping its ``<b>`` tags and hard-splitting the plain escaped
+    text (the existing sentence/word fallback): correctness over formatting
+    for that pathological case. The blockquote + title overhead is reserved
+    out of the per-chunk budget so the wrapped result never exceeds ``limit``.
+    """
+    overhead = len(_BQ_OPEN) + len(_BQ_CLOSE)
+    chunks: list[str] = []
+    is_first = True
+    i = 0
+    n = len(converted_paragraphs)
+    while i < n:
+        prefix_len = len(title_block) + 2 if is_first else 0  # +2 for "\n\n"
+        budget = limit - overhead - prefix_len
+        if budget < 1:
+            budget = 1  # defensive: a pathologically huge title
+        piece = converted_paragraphs[i]
+        if len(piece) > budget:
+            # Overlong paragraph: drop bold tags, hard-split the escaped text.
+            plain = piece.replace("<b>", "").replace("</b>", "")
+            for part in _hard_split_paragraph(plain, budget):
+                chunks.append(_wrap_procedure_chunk(title_block if is_first else "", part))
+                is_first = False
+            i += 1
+            continue
+        # Fits alone — greedily add following paragraphs while they fit.
+        acc = piece
+        i += 1
+        while i < n and len(acc) + 1 + len(converted_paragraphs[i]) <= budget:
+            acc = acc + "\n" + converted_paragraphs[i]
+            i += 1
+        chunks.append(_wrap_procedure_chunk(title_block if is_first else "", acc))
+        is_first = False
+    if not chunks:
+        # No body — just the title (no empty blockquote).
+        chunks.append(title_block)
+    return chunks
+
+
 async def send_procedure(
     telegram_id, title: str, body_text: str, reply_markup=None
 ) -> bool:
     """Send a procedure (title + body) to one guard, chunked to ≤4096 chars.
 
-    Splits the body on paragraph boundaries (hard-split fallback for one
-    overlong paragraph) and attaches ``reply_markup`` (the start-quiz keyboard)
-    to the LAST chunk only. The body is HTML-escaped BEFORE chunking (the bot
-    parses every chunk as HTML, so a raw ``<``/``&`` would 400 the send);
-    escaping lengthens the text, so the 4096 chunking runs on the escaped
-    string. Mirrors ``send_notification``: never raises, returns success/failure
-    (a blocked bot logs and counts as a skipped send).
+    The body's ``*…*`` bold markers are converted to Telegram HTML
+    (``<b>…</b>``) per paragraph BEFORE packing, and each chunk's body is
+    wrapped in an expandable ``<blockquote>`` (collapsed until the guard taps
+    to expand); the bold title line stays outside the blockquote. Chunks pack
+    whole converted paragraphs so no ``<b>`` / ``<blockquote>`` tag is ever
+    split across a message (a single overlong paragraph falls back to plain
+    hard-split text). ``reply_markup`` (the start-quiz keyboard) attaches to
+    the LAST chunk only. All text is HTML-escaped (the bot parses every chunk
+    as HTML). Mirrors ``send_notification``: never raises, returns
+    success/failure (a blocked bot logs and counts as a skipped send).
     """
     try:
         bot = get_bot()
@@ -410,10 +503,11 @@ async def send_procedure(
                 telegram_id,
             )
             return False
-        import html as _html
 
-        full = f"📜 <b>{_html.escape(title)}</b>\n\n{_html.escape(body_text)}"
-        chunks = chunk_message(full, TG_MESSAGE_LIMIT)
+        title_block = f"📜 <b>{html.escape(title)}</b>"
+        paragraphs = body_text.split("\n")
+        converted = [_convert_paragraph_markers(p) for p in paragraphs]
+        chunks = _pack_procedure_chunks(title_block, converted, TG_MESSAGE_LIMIT)
         last = len(chunks) - 1
         for i, chunk in enumerate(chunks):
             markup = reply_markup if i == last else None

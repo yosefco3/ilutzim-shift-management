@@ -453,6 +453,9 @@ export default {
       attendance_long_shift_hours: 'התראה על משמרת ארוכה (שעות, 0=כבוי)',
       attendance_min_rest_hours: 'התראה על מנוחה קצרה (שעות, 0=כבוי)',
       company_name: 'שם החברה (בדוחות השכר)',
+      procedure_pass_threshold: 'אחוז עובר במבחן נהלים',
+      procedure_quiz_size: 'מספר שאלות במבחן נהלים',
+      procedure_bank_size: 'גודל בנק השאלות להפקה',
     },
     changePassword: {
       title: 'החלפת סיסמה',
@@ -660,6 +663,7 @@ export default {
     titlePlaceholder: 'למשל: נוהל תגובה לחריגת גדר',
     bodyField: 'גוף הנוהל',
     bodyPlaceholder: 'הדביקו את טקסט הנוהל כאן…',
+    bodyBoldHint: 'טקסט בין כוכביות (*כך*) יודגש בהודעת הטלגרם.',
     docxUpload: 'העלאת קובץ Word (.docx)',
     docxHint: 'הטקסט יופק מהקובץ ויופיע לעריכה לפני השמירה',
     docxPick: 'בחר קובץ…',

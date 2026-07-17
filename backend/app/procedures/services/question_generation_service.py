@@ -30,6 +30,25 @@ logger = logging.getLogger("ilutzim")
 
 GENERATE_MAX_TOKENS = 16000
 
+# The bank-size setting is clamped to this range; a value that can't be parsed
+# as an int (a bad setting) falls back to the default of 20.
+BANK_SIZE_DEFAULT = 20
+BANK_SIZE_MIN = 5
+BANK_SIZE_MAX = 40
+
+
+def _coerce_bank_size(value) -> int:
+    """Clamp the bank-size setting to ``[BANK_SIZE_MIN, BANK_SIZE_MAX]``.
+
+    A non-integer (or None) falls back to ``BANK_SIZE_DEFAULT`` — a bad setting
+    value must never crash generation or shrink the bank to the floor.
+    """
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return BANK_SIZE_DEFAULT
+    return max(BANK_SIZE_MIN, min(BANK_SIZE_MAX, n))
+
 
 class GenerationUnavailableException(AppBaseException):
     """Raised when question generation cannot run (no key, or API failure).
@@ -77,20 +96,23 @@ class QuestionGenerationService:
             return self._client_factory(api_key)
         return AsyncAnthropic(api_key=api_key)
 
-    async def generate(self, procedure_text: str, model: str) -> list[dict]:
+    async def generate(self, procedure_text: str, model: str, bank_size=20) -> list[dict]:
         """Generate a question bank from ``procedure_text``.
 
-        Returns a list of validated ``{text, options, correct_index}`` dicts
-        (options truncated to the Telegram limits). Raises
-        ``GenerationUnavailableException`` (503) if the key is missing or the
-        API call fails — never returns a partial/garbage bank.
+        ``bank_size`` is the exact number of questions to ask for (clamped to
+        5..40; a bad value falls back to 20). Returns a list of validated
+        ``{text, options, correct_index}`` dicts (options truncated to the
+        Telegram limits). Raises ``GenerationUnavailableException`` (503) if
+        the key is missing or the API call fails — never returns a
+        partial/garbage bank.
         """
         api_key = get_settings().ANTHROPIC_API_KEY
         if not api_key:
             logger.warning("Question generation requested with no ANTHROPIC_API_KEY")
             raise GenerationUnavailableException()
 
-        prompt = _build_prompt(procedure_text)
+        size = _coerce_bank_size(bank_size)
+        prompt = _build_prompt(procedure_text, size)
         try:
             client = self._client(api_key)
             response = await client.messages.parse(
@@ -113,14 +135,18 @@ class QuestionGenerationService:
         return _validate_bank(bank)
 
 
-def _build_prompt(procedure_text: str) -> str:
-    """The Hebrew generation prompt (grounded MCQs, Telegram-limit aware)."""
+def _build_prompt(procedure_text: str, bank_size: int) -> str:
+    """The Hebrew generation prompt (grounded MCQs, Telegram-limit aware).
+
+    ``bank_size`` is the exact number of questions requested for this procedure
+    (already clamped by the caller).
+    """
     return (
         "אתה יוצר בנק שאלות אמריקאיות למבחן הבקיאות של צוות אבטחה על נוהל ביטחון (סד\"פ).\n\n"
         "הנוהל:\n"
         f'"""\n{procedure_text}\n"""\n\n'
         "הוראות:\n"
-        "- צור בין 15 ל-20 שאלות אמריקאיות המבוססות אך ורק על תוכן הנוהל שלמעלה.\n"
+        f"- צור בדיוק {bank_size} שאלות אמריקאיות המבוססות אך ורק על תוכן הנוהל שלמעלה.\n"
         "- לכל שאלה בדיוק 4 תשובות; רק אחת נכונה.\n"
         f"- טקסט השאלה עד {MAX_QUESTION_CHARS} תווים; כל תשובה עד {MAX_OPTION_CHARS} תווים.\n"
         "- המסיחים צריכים להיות סבירים אך מוטעים בבירור על פי הנוהל.\n"

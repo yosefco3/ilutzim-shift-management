@@ -165,6 +165,14 @@ describe('ProceduresPage', () => {
     expect(screen.getByLabelText(m.bodyField)).toHaveValue(extracted);
   });
 
+  it('shows the bold-marker hint under the body textarea', async () => {
+    fetchProcedures.mockResolvedValue([]);
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: m.add }));
+
+    expect(await screen.findByTestId('proc-body-hint')).toHaveTextContent(m.bodyBoldHint);
+  });
+
   it('shows the generate spinner then a toast on success', async () => {
     fetchProcedures.mockResolvedValue([DRAFT_PROC]);
     generateProcedureQuestions.mockResolvedValue({ generated: 15, skipped: 0, total_questions: 15 });

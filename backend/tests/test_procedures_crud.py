@@ -153,6 +153,105 @@ def test_extract_text_includes_tables():
     assert "שעה" in text
 
 
+# ── docx extraction: bold markers ───────────────────────────────────────────
+
+
+def _save_docx(doc) -> bytes:
+    buf = BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
+def test_docx_bold_run_becomes_markers():
+    from docx import Document
+
+    doc = Document()
+    p = doc.add_paragraph()
+    p.add_run("מלל רגיל ")
+    bold = p.add_run("טקסט מודגש")
+    bold.bold = True
+    text = extract_text_from_docx(_save_docx(doc))
+    # the bold run is wrapped in *…*, the plain run is not
+    assert text == "מלל רגיל *טקסט מודגש*"
+
+
+def test_docx_adjacent_bold_runs_merge_into_one_span():
+    from docx import Document
+
+    doc = Document()
+    p = doc.add_paragraph()
+    r1 = p.add_run("אב")
+    r1.bold = True
+    r2 = p.add_run("גד")
+    r2.bold = True
+    text = extract_text_from_docx(_save_docx(doc))
+    # merged into a single *…* span — never *אב**גד*
+    assert text == "*אבגד*"
+    assert "**" not in text
+
+
+def test_docx_heading_style_marked_bold():
+    from docx import Document
+
+    doc = Document()
+    doc.add_heading("כותרת חשובה", level=1)
+    text = extract_text_from_docx(_save_docx(doc))
+    # a Heading-style paragraph is marked even if its runs don't set bold
+    assert text == "*כותרת חשובה*"
+
+
+def test_docx_highlighted_run_marked_bold():
+    from docx import Document
+    from docx.enum.text import WD_COLOR_INDEX
+
+    doc = Document()
+    p = doc.add_paragraph()
+    p.add_run("רגיל ")
+    hl = p.add_run("מודגש בצבע")
+    hl.font.highlight_color = WD_COLOR_INDEX.YELLOW
+    text = extract_text_from_docx(_save_docx(doc))
+    assert "*מודגש בצבע*" in text
+    assert text.startswith("רגיל ")  # the plain run is not wrapped
+
+
+def test_docx_plain_text_has_no_markers():
+    from docx import Document
+
+    doc = Document()
+    doc.add_paragraph("פסקה רגילה לחלוטין")
+    text = extract_text_from_docx(_save_docx(doc))
+    assert text == "פסקה רגילה לחלוטין"
+    assert "*" not in text
+
+
+def test_docx_whitespace_only_bold_run_gets_no_markers():
+    from docx import Document
+
+    doc = Document()
+    p = doc.add_paragraph()
+    r1 = p.add_run("לפני ")
+    r2 = p.add_run(" ")  # whitespace-only bold, surrounded by non-bold runs
+    r2.bold = True
+    r3 = p.add_run("אחרי")
+    text = extract_text_from_docx(_save_docx(doc))
+    # a whitespace-only bold run emits no markers
+    assert "*" not in text
+    assert "לפני" in text and "אחרי" in text
+
+
+def test_docx_markers_never_span_paragraphs():
+    from docx import Document
+
+    doc = Document()
+    p1 = doc.add_paragraph()
+    p1.add_run("התחלה").bold = True
+    p2 = doc.add_paragraph()
+    p2.add_run("סוף").bold = True
+    text = extract_text_from_docx(_save_docx(doc))
+    # two independent *…* spans separated by a paragraph break, not one span
+    assert text == "*התחלה*\n\n*סוף*"
+
+
 # ── Upload endpoint (10 MB cap + happy path) ─────────────────────────────────
 
 
