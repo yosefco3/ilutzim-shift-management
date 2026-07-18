@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
 /**
@@ -38,29 +38,37 @@ const proxy = {
     rewrite: (path) => path.replace(/^\/api/, ''),
   },
 };
-// Extra hosts (e.g. a cloudflared tunnel domain) come from the environment so
-// deployment-specific domains never live in the repo: VITE_EXTRA_ALLOWED_HOSTS=a.example.com,.example.com
-const allowedHosts = [
-  'localhost',
-  ...(process.env.VITE_EXTRA_ALLOWED_HOSTS?.split(',').map((h) => h.trim()).filter(Boolean) ?? []),
-];
+// Extra hosts (e.g. a cloudflared tunnel domain) come from the environment OR
+// the untracked .env/.env.local files, so deployment-specific domains never
+// live in the repo: VITE_EXTRA_ALLOWED_HOSTS=a.example.com,.example.com
+// (loadEnv is needed because Vite does NOT put .env values into process.env
+// during config evaluation — a shell-exported var still wins.)
+export default defineConfig(({ mode }) => {
+  const fileEnv = loadEnv(mode, __dirname, '');
+  const extraHosts =
+    process.env.VITE_EXTRA_ALLOWED_HOSTS ?? fileEnv.VITE_EXTRA_ALLOWED_HOSTS;
+  const allowedHosts = [
+    'localhost',
+    ...(extraHosts?.split(',').map((h) => h.trim()).filter(Boolean) ?? []),
+  ];
 
-export default defineConfig({
-  plugins: [react(), noCacheWebApp()],
-  // Bundle down to a syntax level old mobile WebViews (Telegram's in-app browser
-  // on older Android) can parse. The unbundled dev-server ESM graph was the
-  // suspected cause of the blank guard page; a single transpiled bundle avoids it.
-  build: {
-    target: 'es2018',
-  },
-  server: {
-    port: 3001,
-    allowedHosts,
-    proxy,
-  },
-  preview: {
-    port: 3001,
-    allowedHosts,
-    proxy,
-  },
+  return {
+    plugins: [react(), noCacheWebApp()],
+    // Bundle down to a syntax level old mobile WebViews (Telegram's in-app browser
+    // on older Android) can parse. The unbundled dev-server ESM graph was the
+    // suspected cause of the blank guard page; a single transpiled bundle avoids it.
+    build: {
+      target: 'es2018',
+    },
+    server: {
+      port: 3001,
+      allowedHosts,
+      proxy,
+    },
+    preview: {
+      port: 3001,
+      allowedHosts,
+      proxy,
+    },
+  };
 });

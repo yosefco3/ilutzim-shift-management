@@ -79,7 +79,7 @@ resync בלי restart) · sweep נוכחות יומי 04:30 · התראות נו
 | `ATTENDANCE_ENABLED` + `VITE_ATTENDANCE_ENABLED` | off | **on** (מאומת 2026-07-05) |
 | `ACTUAL_SCHEDULE_ENABLED` + `VITE_ACTUAL_SCHEDULE_ENABLED` | off | **on** (מאומת 2026-07-05) |
 | `pool_show_unsubmitted` (SystemSetting, לא env) | on | on |
-| `PROCEDURES_ENABLED` + `VITE_PROCEDURES_ENABLED` | **off** | off — הקוד בפרוד מאז 2026-07-18; הדלקה = 3 משתני Railway: `PROCEDURES_ENABLED=true`, `VITE_PROCEDURES_ENABLED=true`, `ANTHROPIC_API_KEY` |
+| `PROCEDURES_ENABLED` + `VITE_PROCEDURES_ENABLED` | **off** | **on** (אומת מול Railway ‏2026-07-18, כולל `ANTHROPIC_API_KEY`) — אבל webapp-view (קריאת נוהל בדף) יגיע לפרוד רק אחרי מיזוג `development → production` |
 
 ## דיפלוי
 - **Railway**, live מאז 2026-06-20 (דומיין הפרוד לא מתועד בריפו הציבורי — נמצא ב-Railway/cloudflared). ענף הדיפלוי: **`production`** (push = deploy).
