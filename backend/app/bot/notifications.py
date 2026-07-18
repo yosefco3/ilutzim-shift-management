@@ -46,17 +46,27 @@ async def notify_week_opened(week_start: date, week_end: date, telegram_ids: lis
     Uses DD/MM/YYYY date format and includes the webapp URL.
     Returns count of successfully notified guards.
     """
-    from app.bot.keyboards.inline_kb import submit_constraints_kb
+    from app.bot.keyboards.reply_kb import compose_reply_kb
+    from app.config import get_settings
 
     start_fmt = week_start.strftime("%d/%m/%Y")
     end_fmt = week_end.strftime("%d/%m/%Y")
 
     text = (
         "🔔 שבוע חדש נפתח להגשה!\n\n"
-        f"תאריכים: {start_fmt} - {end_fmt}"
+        f"תאריכים: {start_fmt} - {end_fmt}\n\n"
+        "📝 כפתור ההגשה מחכה למטה במקלדת הקבועה"
     )
+    # The composed BOTTOM keyboard replaces the old inline submit button: a
+    # message carries one markup kind, and the persistent bottom button (same
+    # web_app target) is what stays with the guard for the whole window.
     count = await broadcast_notifications(
-        telegram_ids, text, reply_markup=submit_constraints_kb()
+        telegram_ids,
+        text,
+        reply_markup=compose_reply_kb(
+            week_open=True,
+            attendance_enabled=get_settings().ATTENDANCE_ENABLED,
+        ),
     )
     logger.info("Week-opened notification sent to %d/%d users", count, len(telegram_ids))
     return count
@@ -77,6 +87,24 @@ async def notify_guard_welcome(telegram_id: int, first_name: str, last_name: str
     return await send_notification(telegram_id, text)
 
 
+def _closed_bottom_kb():
+    """The bottom keyboard for a message announcing the window is closed.
+
+    Punch-only when attendance is on; ``ReplyKeyboardRemove`` when composing
+    yields no rows, so a now-dead submit button never lingers on
+    attendance-off deployments (EDGE S3).
+    """
+    from aiogram.types import ReplyKeyboardRemove
+
+    from app.bot.keyboards.reply_kb import compose_reply_kb
+    from app.config import get_settings
+
+    kb = compose_reply_kb(
+        week_open=False, attendance_enabled=get_settings().ATTENDANCE_ENABLED
+    )
+    return kb if kb is not None else ReplyKeyboardRemove()
+
+
 async def notify_week_locked(week_start: date, week_end: date, telegram_ids: list[int]):
     """Notify users that a week was finalized (LOCKED) — no more edits.
 
@@ -87,7 +115,7 @@ async def notify_week_locked(week_start: date, week_end: date, telegram_ids: lis
     start_fmt = week_start.strftime("%d/%m/%Y")
     end_fmt = week_end.strftime("%d/%m/%Y")
     text = f"🔒 שבוע {start_fmt} - {end_fmt} ננעל — לא ניתן עוד לעדכן אילוצים"
-    count = await broadcast_notifications(telegram_ids, text)
+    count = await broadcast_notifications(telegram_ids, text, reply_markup=_closed_bottom_kb())
     logger.info("Week-locked notification sent to %d/%d users", count, len(telegram_ids))
     return count
 
@@ -108,7 +136,7 @@ async def notify_week_closed(week_start: date, week_end: date, telegram_ids: lis
         "לא ניתן עוד להגיש או לעדכן אילוצים.\n"
         "אם יש בעיה, אנא פנה לאחראי היחידה."
     )
-    count = await broadcast_notifications(telegram_ids, text)
+    count = await broadcast_notifications(telegram_ids, text, reply_markup=_closed_bottom_kb())
     logger.info("Week-closed notification sent to %d/%d users", count, len(telegram_ids))
     return count
 

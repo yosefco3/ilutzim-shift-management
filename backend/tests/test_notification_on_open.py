@@ -107,9 +107,13 @@ async def test_notification_message_format():
     # URL is now exposed through a WebApp button, not the message body
     assert "https://example.com/app" not in msg
 
+    # Since submit_reply_keyboard: the broadcast carries the composed BOTTOM
+    # keyboard (persistent reply keyboard), submit row first — not an inline kb.
+    from app.bot.keyboards.reply_kb import BTN_SUBMIT_CONSTRAINTS
+
     kb = captured[0]["reply_markup"]
-    button = kb.inline_keyboard[0][0]
-    assert button.text == "📅 הגשת אילוצים"
+    button = kb.keyboard[0][0]
+    assert button.text == BTN_SUBMIT_CONSTRAINTS
     # The WebApp URL carries a cache-busting version param so Telegram's WebView
     # never serves guards a stale build (see app.version / app.bot.webapp).
     assert button.web_app.url.startswith("https://example.com/app/submit?")

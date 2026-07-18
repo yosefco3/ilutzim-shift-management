@@ -84,3 +84,55 @@ async def test_main_reply_kb_db_failure_degrades_to_punch_only(monkeypatch):
         kb = await main_reply_kb()
     assert kb is not None
     assert _texts(kb) == [[BTN_PUNCH_IN, BTN_PUNCH_OUT]]
+
+
+# ── Step 02: the open/closed broadcasts carry the composed keyboard ─────────
+
+
+@pytest.mark.asyncio
+async def test_notify_week_closed_reverts_to_punch_only():
+    """EDGE S3 counterpart: the auto-lock broadcast drops the submit row."""
+    from datetime import date
+
+    from app.bot.notifications import notify_week_closed
+
+    captured = []
+    with patch("app.bot.notifications.get_bot") as bot_fn, patch(
+        "app.config.get_settings"
+    ) as gs:
+        gs.return_value.ATTENDANCE_ENABLED = True
+        bot = bot_fn.return_value
+
+        async def fake_send(**kwargs):
+            captured.append(kwargs)
+
+        bot.send_message = fake_send
+        await notify_week_closed(date(2026, 7, 12), date(2026, 7, 18), [111])
+
+    kb = captured[0]["reply_markup"]
+    assert _texts(kb) == [[BTN_PUNCH_IN, BTN_PUNCH_OUT]]
+
+
+@pytest.mark.asyncio
+async def test_notify_week_closed_removes_keyboard_when_attendance_off():
+    """EDGE S3: no punch row to fall back to → ReplyKeyboardRemove."""
+    from datetime import date
+
+    from aiogram.types import ReplyKeyboardRemove
+
+    from app.bot.notifications import notify_week_closed
+
+    captured = []
+    with patch("app.bot.notifications.get_bot") as bot_fn, patch(
+        "app.config.get_settings"
+    ) as gs:
+        gs.return_value.ATTENDANCE_ENABLED = False
+        bot = bot_fn.return_value
+
+        async def fake_send(**kwargs):
+            captured.append(kwargs)
+
+        bot.send_message = fake_send
+        await notify_week_closed(date(2026, 7, 12), date(2026, 7, 18), [111])
+
+    assert isinstance(captured[0]["reply_markup"], ReplyKeyboardRemove)
