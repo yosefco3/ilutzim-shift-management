@@ -294,18 +294,17 @@ async def _show_main_menu(message: Message, display_name: str):
 
         await message.answer(text, reply_markup=kb)
 
-        # Stage 3 — attendance: attach the persistent punch keyboard (a reply
-        # keyboard can't ride on the inline-menu message above, so it gets a
-        # short message of its own). Lazy, flag-gated import — same composition
-        # rule as main.py / bot_router.py.
-        from app.config import get_settings as _get_settings
+        # The composed persistent bottom keyboard: punch row (ATTENDANCE_ENABLED)
+        # + submit row (while a week is OPEN). A reply keyboard can't ride on
+        # the inline-menu message above, so it gets a short message of its own.
+        # Lazy import — same composition rule as main.py / bot_router.py.
+        from app.bot.keyboards.reply_kb import main_reply_kb
 
-        if _get_settings().ATTENDANCE_ENABLED:
-            from app.bot.keyboards.attendance import punch_reply_kb
-
+        bottom_kb = await main_reply_kb()
+        if bottom_kb is not None:
             await message.answer(
-                "🕐 החתמת נוכחות — בכפתורים הקבועים למטה",
-                reply_markup=punch_reply_kb(),
+                "⚡ פעולות מהירות — בכפתורים הקבועים למטה",
+                reply_markup=bottom_kb,
             )
     finally:
         try:

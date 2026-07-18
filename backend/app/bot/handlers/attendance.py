@@ -29,8 +29,8 @@ from app.bot.keyboards.attendance import (
     BTN_PUNCH_IN,
     BTN_PUNCH_OUT,
     location_request_kb,
-    punch_reply_kb,
 )
+from app.bot.keyboards.reply_kb import main_reply_kb
 from app.utils.date_utils import now_il
 
 logger = logging.getLogger("ilutzim")
@@ -110,7 +110,7 @@ async def on_consent_confirmed(callback: CallbackQuery) -> None:
             logger.info("GPS consent recorded for user %s", user.id)
 
         await callback.answer("ההסכמה נשמרה ✅")
-        await callback.message.answer(CONSENT_THANKS_TEXT, reply_markup=punch_reply_kb())
+        await callback.message.answer(CONSENT_THANKS_TEXT, reply_markup=await main_reply_kb())
     finally:
         await session.close()
 
@@ -235,7 +235,7 @@ async def on_punch_button(message: Message, state: FSMContext) -> None:
             await message.answer(
                 f"כבר נרשמה {_DIRECTION_LABEL[direction]} "
                 f"ב-{duplicate.punched_at.strftime('%H:%M')} ✔",
-                reply_markup=punch_reply_kb(),
+                reply_markup=await main_reply_kb(),
             )
             return
 
@@ -293,7 +293,7 @@ async def on_direction_confirmed(callback: CallbackQuery, state: FSMContext) -> 
             await callback.message.answer(
                 f"כבר נרשמה {_DIRECTION_LABEL[direction]} "
                 f"ב-{duplicate.punched_at.strftime('%H:%M')} ✔",
-                reply_markup=punch_reply_kb(),
+                reply_markup=await main_reply_kb(),
             )
             return
     finally:
@@ -307,7 +307,7 @@ async def on_direction_cancelled(callback: CallbackQuery, state: FSMContext) -> 
     """Cancel from the "did you mean" prompt — nothing recorded."""
     await callback.answer()
     await state.clear()
-    await callback.message.answer("ההחתמה בוטלה.", reply_markup=punch_reply_kb())
+    await callback.message.answer("ההחתמה בוטלה.", reply_markup=await main_reply_kb())
 
 
 @router.message(PunchFlow.waiting_for_location, F.location)
@@ -324,7 +324,7 @@ async def on_punch_location(message: Message, state: FSMContext) -> None:
         if user is None:
             await message.answer(
                 "לא מצאתי אותך במערכת — שלח /start כדי להירשם.",
-                reply_markup=punch_reply_kb(),
+                reply_markup=await main_reply_kb(),
             )
             return
 
@@ -345,7 +345,7 @@ async def on_punch_location(message: Message, state: FSMContext) -> None:
         logger.exception("Punch recording failed for tg=%s", message.from_user.id)
         await message.answer(
             "משהו השתבש ברישום ההחתמה 😕 נסה שוב, ואם זה חוזר — פנה למנהל.",
-            reply_markup=punch_reply_kb(),
+            reply_markup=await main_reply_kb(),
         )
         return
     finally:
@@ -354,7 +354,7 @@ async def on_punch_location(message: Message, state: FSMContext) -> None:
     hhmm = outcome.event.punched_at.strftime("%H:%M")
     if not outcome.created:
         await message.answer(
-            f"כבר נרשמה {label} ב-{hhmm} ✔", reply_markup=punch_reply_kb()
+            f"כבר נרשמה {label} ב-{hhmm} ✔", reply_markup=await main_reply_kb()
         )
         return
 
@@ -362,14 +362,14 @@ async def on_punch_location(message: Message, state: FSMContext) -> None:
     if outcome.event.out_of_radius:
         km = (outcome.event.distance_from_site_m or 0) / 1000
         text += f"\n⚠️ ההחתמה נקלטה מחוץ לטווח האתר ({km:.1f} ק\"מ) — היא נרשמה וסומנה."
-    await message.answer(text, reply_markup=punch_reply_kb())
+    await message.answer(text, reply_markup=await main_reply_kb())
 
 
 @router.message(PunchFlow.waiting_for_location, F.text == BTN_CANCEL)
 async def on_punch_cancel(message: Message, state: FSMContext) -> None:
     """Cancel → back to the persistent punch keyboard."""
     await state.clear()
-    await message.answer("ההחתמה בוטלה.", reply_markup=punch_reply_kb())
+    await message.answer("ההחתמה בוטלה.", reply_markup=await main_reply_kb())
 
 
 @router.message(PunchFlow.waiting_for_location)
