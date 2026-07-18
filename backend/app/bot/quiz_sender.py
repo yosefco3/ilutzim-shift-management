@@ -32,7 +32,13 @@ class StartOutcome:
 
 
 async def send_quiz_poll(telegram_id, question) -> str | None:
-    """Send one non-anonymous quiz poll; returns its Telegram poll id (or None)."""
+    """Send one non-anonymous quiz poll; returns its Telegram poll id (or None).
+
+    Every poll carries the '🚪 יציאה מהמבחן' inline button, so the way out of
+    an open quiz is always attached to the question the guard is stuck on.
+    """
+    from app.bot.keyboards.procedures import quiz_quit_kb
+
     try:
         bot = get_bot()
         if bot is None:
@@ -45,6 +51,7 @@ async def send_quiz_poll(telegram_id, question) -> str | None:
             type="quiz",
             correct_option_id=question.correct_option_id,
             is_anonymous=False,
+            reply_markup=quiz_quit_kb(),
         )
         return msg.poll.id if msg.poll else None
     except Exception as exc:

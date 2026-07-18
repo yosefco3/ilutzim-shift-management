@@ -26,6 +26,7 @@ from app.bot.keyboards.procedures import (
     PROC_LIST_PREFIX,
     PROC_MENU_CB,
     PROC_VIEW_PREFIX,
+    QUIZ_QUIT_CB,
     QUIZ_START_PREFIX,
     order_and_mark_procedures,
     procedure_view_kb,
@@ -180,6 +181,41 @@ async def on_start_quiz(callback: CallbackQuery, user=None) -> None:
 
     if not sent:
         logger.warning("procedure quiz: could not send a question to tg=%s", callback.from_user.id)
+
+
+# ── Quit quiz (the 🚪 button on every quiz poll) ────────────────────────────
+
+
+@router.callback_query(F.data == QUIZ_QUIT_CB)
+async def on_quiz_quit(callback: CallbackQuery, user=None) -> None:
+    """Exit the open quiz: abandon the guard's IN_PROGRESS attempt(s).
+
+    Idempotent — tapping the button on an old poll after the quiz already
+    ended/quit just answers "אין מבחן פתוח". Late answers to the now-abandoned
+    polls are ignored by ``record_answer``.
+    """
+    from app.procedures.repositories.attempt_repository import QuizAttemptRepository
+
+    if user is None:
+        user = await _callback_user(callback)
+    if user is None:
+        await callback.answer("משתמש לא זמין. שלח /start.", show_alert=True)
+        return
+
+    session = await _session()
+    try:
+        quit_count = await QuizAttemptRepository(session).abandon_all_in_progress(user.id)
+        await session.commit()
+    finally:
+        await session.close()
+
+    if quit_count == 0:
+        await callback.answer("אין מבחן פתוח")
+        return
+    await callback.answer("יצאת מהמבחן")
+    await callback.message.answer(
+        "🚪 יצאת מהמבחן. אפשר להתחיל אותו מחדש מתי שתרצה — מהכפתור בהודעת הנוהל."
+    )
 
 
 # ── Poll answer (quiz advance + scoring) ────────────────────────────────────

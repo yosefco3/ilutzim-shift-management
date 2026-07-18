@@ -361,12 +361,11 @@ async def guard_start_quiz(
         outcome = await start_and_send(
             telegram_id, user.id, procedure_id, quiz_service
         )
-    except ValidationException:
-        # Race: the bank emptied / status changed between the pre-checks and the
-        # start. Treat as "no questions available right now".
-        raise HTTPException(
-            status_code=409, detail="אין שאלות זמינות למבחן כרגע"
-        )
+    except ValidationException as exc:
+        # Either a race (bank emptied / status changed between the pre-checks
+        # and the start) or the one-quiz-at-a-time gate — surface the service's
+        # own Hebrew message so the page shows WHY the start was refused.
+        raise HTTPException(status_code=409, detail=exc.message)
 
     # Persist the attempt even if the poll send failed — a retry supersedes it
     # (matches the bot callback's commit-on-failure behavior, so the two paths

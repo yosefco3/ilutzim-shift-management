@@ -19,8 +19,22 @@ PROC_MENU_CB = "proc:menu"
 PROC_LIST_PREFIX = "proc:list:"
 PROC_VIEW_PREFIX = "proc:view:"
 QUIZ_START_PREFIX = "סדפ:quiz:"
+QUIZ_QUIT_CB = "סדפ:quiz_quit"
 
 PAGE_SIZE = 10
+
+
+def quiz_quit_kb() -> InlineKeyboardMarkup:
+    """The '🚪 יציאה מהמבחן' button attached to every quiz poll.
+
+    One handler abandons ALL of the guard's open attempts (there is at most one
+    — starts are blocked while a quiz is open), so the callback carries no id.
+    """
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🚪 יציאה מהמבחן", callback_data=QUIZ_QUIT_CB)]
+        ]
+    )
 
 
 def read_procedure_button(procedure_id) -> InlineKeyboardButton:

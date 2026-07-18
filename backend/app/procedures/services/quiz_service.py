@@ -126,6 +126,19 @@ class QuizService:
         if not active:
             raise ValidationException("בנק השאלות אינו זמין כעת")
 
+        # One quiz at a time: an open attempt on a DIFFERENT procedure blocks a
+        # new start (the guard finishes it or exits via the poll's exit button).
+        # A same-procedure open attempt keeps the existing behavior below —
+        # superseded by the fresh attempt (retake / walked-away restart).
+        open_attempt = await self._attempts.get_any_in_progress(user_id)
+        if open_attempt is not None and open_attempt.procedure_id != procedure_id:
+            blocking = await self._procedures.get_by_id(open_attempt.procedure_id)
+            blocking_title = blocking.title if blocking is not None else "נוהל אחר"
+            raise ValidationException(
+                f'יש לך מבחן פתוח על הנוהל "{blocking_title}" — '
+                "סיים אותו או צא ממנו (כפתור היציאה מוצמד לשאלה) לפני שמתחילים מבחן חדש"
+            )
+
         quiz_size = await _setting_int(self._settings, "procedure_quiz_size", 7)
         sample_size = min(quiz_size, len(active))
         sample = random.sample(active, sample_size)
@@ -234,6 +247,15 @@ class QuizService:
         return await self._attempts.get_by_id(attempt_id)
 
     # ── Answering ─────────────────────────────────────────────────────────
+
+    async def quit_attempt(self, user_id: uuid.UUID) -> bool:
+        """Exit the guard's open quiz: abandon ALL IN_PROGRESS attempts.
+
+        Returns True when something was abandoned (False → no open quiz).
+        Outstanding polls stay in the chat but their late answers are ignored
+        (``record_answer`` drops answers for non-IN_PROGRESS attempts).
+        """
+        return (await self._attempts.abandon_all_in_progress(user_id)) > 0
 
     async def record_answer(
         self, telegram_poll_id: str, chosen_shown_position: int

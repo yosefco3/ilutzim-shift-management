@@ -33,6 +33,40 @@ class QuizAttemptRepository(BaseRepository[QuizAttempt]):
         result = await self.session.execute(stmt)
         return result.scalars().first()
 
+    async def get_any_in_progress(self, user_id: uuid.UUID) -> QuizAttempt | None:
+        """The user's current IN_PROGRESS attempt across ALL procedures, if any.
+
+        One quiz at a time: a start on procedure B is refused while an attempt
+        on procedure A is open (the guard exits or finishes it first).
+        """
+        stmt = (
+            select(QuizAttempt)
+            .where(
+                QuizAttempt.user_id == user_id,
+                QuizAttempt.status == AttemptStatus.IN_PROGRESS,
+            )
+            .order_by(QuizAttempt.started_at.desc())
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().first()
+
+    async def abandon_all_in_progress(self, user_id: uuid.UUID) -> int:
+        """Flip ALL of the user's IN_PROGRESS attempts to ABANDONED (quiz exit).
+
+        Returns the count flipped (0 → the guard had no open quiz). Late poll
+        answers for an abandoned attempt are ignored by ``record_answer``.
+        """
+        stmt = (
+            sa_update(QuizAttempt)
+            .where(
+                QuizAttempt.user_id == user_id,
+                QuizAttempt.status == AttemptStatus.IN_PROGRESS,
+            )
+            .values(status=AttemptStatus.ABANDONED)
+        )
+        result = await self.session.execute(stmt)
+        return int(result.rowcount or 0)
+
     async def abandon_in_progress(
         self, user_id: uuid.UUID, procedure_id: uuid.UUID
     ) -> int:
