@@ -39,6 +39,7 @@ from app.procedures.models.quiz_question import QuizQuestion  # noqa: E402,F401
 from app.procedures.models.quiz_attempt import QuizAttempt  # noqa: E402,F401
 from app.procedures.models.quiz_poll_link import QuizPollLink  # noqa: E402,F401
 from app.procedures.models.procedure_reminder_sent import ProcedureReminderSent  # noqa: E402,F401
+from app.procedures.models.procedure_read_receipt import ProcedureReadReceipt  # noqa: E402,F401
 
 __all__ = [
     "Base",

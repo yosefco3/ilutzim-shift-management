@@ -5,17 +5,92 @@ Extracts the plain text of an uploaded Word document so the admin can review it
 before saving (tables are flattened to text; images/headers/footers are out of
 scope — accepted limitation, the admin edits the text before saving). Bold runs
 (plus Heading-style paragraphs and highlighted runs) are preserved as lightweight
-``*…*`` markers so the Telegram broadcast can render them bold (see
-``app.bot.notifications.send_procedure``); markers never span a paragraph.
+``*…*`` markers so the guard WebApp fallback renderer (``body_text`` → ``<strong>``)
+and the AI question generator can treat them as emphasis; markers never span a
+paragraph.
+
+``extract_html_from_docx`` produces the rich-HTML snapshot consumed by the guard
+WebApp reading page: mammoth converts the docx (headings/lists/tables/bold) and
+the result is sanitized server-side with nh3 (allowlist of structural tags;
+attributes stripped except colspan/rowspan; images dropped). It NEVER raises —
+the plain-text extractor stays the sole upload validity gate, so an exotic or
+image-only docx that fails HTML conversion still uploads exactly as today (the
+page then falls back to rendering ``body_text``).
 """
 
 import io
+
+import nh3
 
 from app.exceptions import ValidationException
 
 # Hard upload cap. Enforced in the controller before extraction so a huge upload
 # is rejected without being fully buffered.
 MAX_DOCX_BYTES = 10 * 1024 * 1024  # 10 MB
+
+# nh3 allowlist for the sanitized procedure HTML. Structural/formatting tags only
+# — no links, no images, no scripts. The frontend injects this field raw via
+# dangerouslySetInnerHTML, so it MUST be sanitized here first (see [EDGE D5]).
+_HTML_ALLOWED_TAGS = {
+    "p", "h1", "h2", "h3", "h4", "h5", "h6",
+    "strong", "b", "em", "i", "u", "s", "br",
+    "blockquote", "ol", "ul", "li",
+    "table", "thead", "tbody", "tr", "th", "td",
+}
+# Only colspan/rowspan survive on table cells; every other attribute is stripped.
+_HTML_ALLOWED_ATTRS = {
+    "td": {"colspan", "rowspan"},
+    "th": {"colspan", "rowspan"},
+}
+
+
+def _sanitize_procedure_html(html: str) -> str:
+    """Sanitize mammoth's HTML to the procedure allowlist (XSS hardening).
+
+    ``clean_content_tags`` drops ``<script>``/``<style>`` *content* entirely
+    (a stripped-but-not-content-cleaned script would leave its body as visible
+    text). Tags/attributes outside the allowlist are removed by nh3.
+    """
+    return nh3.clean(
+        html,
+        tags=_HTML_ALLOWED_TAGS,
+        attributes=_HTML_ALLOWED_ATTRS,
+        clean_content_tags={"script", "style"},
+    )
+
+
+def extract_html_from_docx(data: bytes) -> str | None:
+    """Convert a .docx byte string to sanitized HTML for the guard WebApp page.
+
+    mammoth's ``convert_to_html`` runs on the same bytes; images are ignored via
+    a no-op ``convert_image`` (images/headers/footers stay out of scope, matching
+    the text extractor's documented limitation), and the output is sanitized to
+    the procedure allowlist.
+
+    Returns the sanitized HTML, or ``None`` when conversion is impossible or
+    yields nothing meaningful (exotic docx, image-only document). NEVER raises —
+    the plain-text extractor (``extract_text_from_docx``) is the upload validity
+    gate, so a failed/empty HTML conversion leaves ``body_html`` NULL and the
+    page falls back to ``body_text`` (see [EDGE D4]).
+    """
+    try:
+        import mammoth  # lazy: keeps module import docx-light
+    except ImportError:  # pragma: no cover - dep is in requirements
+        return None
+
+    try:
+        result = mammoth.convert_to_html(io.BytesIO(data), convert_image=lambda _img: [])
+    except Exception:  # noqa: BLE001 — never raise (best-effort HTML snapshot)
+        return None
+
+    try:
+        sanitized = _sanitize_procedure_html(result.value or "")
+    except Exception:  # noqa: BLE001 — defensive: nh3 should not fail
+        return None
+    if not sanitized or not sanitized.strip():
+        return None
+    return sanitized
+
 
 
 def extract_text_from_docx(data: bytes) -> str:

@@ -50,6 +50,16 @@ export const messages = {
   WARN_MIN_NIGHTS: (got, min) => `סימנת ${got} לילות; המומלץ לפחות ${min}.`,
   WARN_MIN_EVENINGS: (got, min) => `סימנת ${got} ערבים; המומלץ לפחות ${min}.`,
   WARN_MAX_CONSEC: (got, max) => `סימנת ${got} ימים רצופים; המקסימום הוא ${max}.`,
+
+  // ── Procedure reading page (סד"פ WebApp) ───────────────────────────────
+  PROC_PASSED_BADGE: "✅ עברת את המבחן",
+  PROC_QUIZ_BTN: "▶️ התחל מבחן",
+  PROC_QUIZ_SENDING: "שולח...",
+  PROC_QUIZ_SENT: "המבחן נשלח לצ'אט",
+  // Status-specific screens (friendly Hebrew, never a raw error).
+  PROC_ERR_AUTH: "יש לפתוח את הנוהל מתוך הבוט בטלגרם", // 401 / missing initData
+  PROC_ERR_UNAVAILABLE: "הנוהל אינו זמין יותר", // 404 / not published
+  PROC_ERR_BOT_DOWN: "הבוט אינו זמין כרגע — נסו שוב בעוד רגע", // 503 on quiz start
 };
 
 /** Day names in order Sunday–Saturday */

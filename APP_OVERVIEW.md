@@ -46,7 +46,7 @@ Telegram Bot (aiogram, polling)     React 19 admin+guards (frontend/admin)
 
 **Stage 3:** `AttendanceEvent` (החתמה IN/OUT + GPS) · `AttendanceShift` (זיווג מול הסידור; violations) · `AttendanceAdjustment` (תיקון ידני, audit) · `AttendanceAlertSent` (מניעת כפל התראות).
 
-**Procedures (סד"פ) — `backend/app/procedures/`:** `Procedure` (title/body; DRAFT/PUBLISHED/ARCHIVED) · `QuizQuestion` (בנק MCQ; source AI/MANUAL + edited_at — ריג'נרציה מוחקת רק AI לא-ערוכות) · `QuizAttempt` (מדגם שאלות + תשובות snapshot; unique חלקי על IN_PROGRESS) · `QuizPollLink` (poll_id טלגרם → attempt/question + סדר תשובות מעורבב) · `ProcedureReminderSent` (תזכורת אחת per מאבטח+נוהל). ג'נרציית שאלות: Claude API (מודל בהגדרה `procedure_ai_model`, ברירת מחדל claude-opus-4-8; ANTHROPIC_API_KEY אופציונלי — בלעדיו generate מחזיר 503 והאפליקציה עולה רגיל). מבחן: quiz polls בבוט, מעבר ≥`procedure_pass_threshold` (80), מדגם `procedure_quiz_size` (7).
+**Procedures (סד"פ) — `backend/app/procedures/`:** `Procedure` (title/body; DRAFT/PUBLISHED/ARCHIVED; `body_text` טקסט שטוח עם סמני `*bold*` + `body_html` — snapshot HTML מחוטא מה-docx, mammoth→nh3, מאוכלס בהעלאה ונקרא בעמוד ה-WebApp; עריכת טקסט באדמין לא נוגעת ב-`body_html`) · `QuizQuestion` (בנק MCQ; source AI/MANUAL + edited_at — ריג'נרציה מוחקת רק AI לא-ערוכות) · `QuizAttempt` (מדגם שאלות + תשובות snapshot; unique חלקי על IN_PROGRESS) · `QuizPollLink` (poll_id טלגרם → attempt/question + סדר תשובות מעורבב) · `ProcedureReminderSent` (תזכורת אחת per מאבטח+נוהל) · `ProcedureReadReceipt` (חותמת פתיחה ראשונה של עמוד הקריאה; unique procedure+user, INSERT…ON CONFLICT DO NOTHING). ג'נרציית שאלות: Claude API (מודל בהגדרה `procedure_ai_model`, ברירת מחדל claude-opus-4-8; ANTHROPIC_API_KEY אופציונלי — בלעדיו generate מחזיר 503 והאפליקציה עולה רגיל). מבחן: quiz polls בבוט, מעבר ≥`procedure_pass_threshold` (80), מדגם `procedure_quiz_size` (7). **קריאה ב-WebApp** (לא בבוט): הבוט שולח כרטיס קצר (כותרת + כפתור `📖 קרא נוהל` מסוג web_app + `▶️ התחל מבחן`); העמוד `/procedure/:id` מרנדר `body_html` (או fallback ל-`body_text`), רושם read receipt, ויכול להתחיל מבחן (השאלון עצמו נשאר 100% ב-quiz polls של טלגרם). עוגנים: `bot/quiz_sender.py` (שולחי ה-poll המשותפים לבוט ול-WebApp), `bot/webapp.py:procedure_webapp_url` (cache-busting `v=`).
 
 ## Endpoints (קבוצות עיקריות)
 - `/auth` — התחברות אדמין · `/submissions` — הגשות מאבטח (Telegram initData)
@@ -54,7 +54,8 @@ Telegram Bot (aiogram, polling)     React 19 admin+guards (frontend/admin)
 - `/admin/builder/*` (Part B) — profiles / positions / attributes / board / **pool** / assignments / warnings / saved-schedules
 - `/admin/actual/*` — הסידור בפועל (עמדות, שיבוצים, מתגברים, ייצוא Excel/PNG, save-as-profile)
 - `/admin/attendance/*` — events / shifts / adjustments / comparison / דוחות שכר
-- `/admin/procedures/*` — נהלים (סד"פ): CRUD + upload docx + generate + questions + publish + results (תחת `PROCEDURES_ENABLED`)
+- `/admin/procedures/*` — נהלים (סד"פ): CRUD + upload docx (+ body_html snapshot) + generate + questions + publish + results (תחת `PROCEDURES_ENABLED`)
+- `/procedures/*` (guard, Telegram initData) — עמוד קריאת הנוהל: `GET /procedures/{id}` (PUBLISHED בלבד + read receipt) ו-`POST /procedures/{id}/quiz/start` (שולח את ה-poll הראשון לצ'אט)
 - `GET /health` — Railway healthcheck
 
 ## Workflow / Lifecycle
@@ -88,8 +89,8 @@ resync בלי restart) · sweep נוכחות יומי 04:30 · התראות נו
 - runbooks: `PROPAGATE_DEMO_PROD.md` (רענון דמו), `HANDOVER_OWNERSHIP.md` (העברת בעלות), `README.md` (showcase).
 
 ## טסטים
-- Backend: ~880 טסטים / 103 קבצים (`backend/tests/`, SQLite in-memory + fixtures ב-conftest).
-- Frontend: ~430 טסטים / 52 קבצים (`frontend/admin/tests/`, vitest+RTL).
+- Backend: ~1010 טסטים / 107 קבצים (`backend/tests/`, SQLite in-memory + fixtures ב-conftest).
+- Frontend: ~480 טסטים / 56 קבצים (`frontend/admin/tests/`, vitest+RTL).
 - CI: GitHub Actions (pytest + vitest) על כל push. `scripts/test_history.json` הוא הארטיפקט היחיד שנכנס לגיט.
 
 ## היסטוריית שינויים משמעותיים
@@ -109,3 +110,9 @@ resync בלי restart) · sweep נוכחות יומי 04:30 · התראות נו
 | 2026-07-17 | procedure_quiz בקאנד (סד"פ + מבחן AI בטלגרם) — 5 מודלים, ג'נרציה ב-Claude API, quiz polls, תזכורת; dark מאחורי `PROCEDURES_ENABLED=off` | `backend/app/procedures/`, `bot/handlers/procedures.py`, מיגרציה `f4a1c3e5b7d9` |
 | 2026-07-17 | procedure_quiz פרונטאנד אדמין — ProceduresPage (יצירה/העלאת docx/ג'נרציה) + ProcedureDetailPage (עורך שאלות, פרסום, תוצאות); `VITE_PROCEDURES_ENABLED` ברירת מחדל **off** (`=== 'true'`, בשונה משאר הדגלים) | `frontend/admin/src/pages/Procedure*.jsx`, `App.jsx`, `Navbar.jsx`, `adminApiClient.js` |
 | 2026-07-18 | נוהל ברירת-מחדל: `Procedure.is_default` (unique חלקי, אחד בלבד); כל פרסום/שידור-מחדש קובע אותו; תזכורות רק עליו; ⭐ ראשון בבוט; כפתורי פרסום פר-שורה + תג בטבלת האדמין | מיגרציה `a6c8e0f2b4d6`, `procedure_service.py`, `reminder_service.py`, `ProceduresPage.jsx` |
+| 2026-07-18 | procedure_webapp_view — קריאת נוהל עוברת ל-WebApp: `body_html` (mammoth→nh3, עמודת snapshot מחוטא בהעלאה); מיגרציה `c0a1e1f2a3b4` | `procedures/models/procedure.py`, `services/docx_service.py`, `controllers/procedure_controller.py`, `schemas/`, מיגרציה `c0a1e1f2a3b4` |
+| 2026-07-18 | procedure_webapp_view — read receipts + endpoint קריאה למאבטח: `ProcedureReadReceipt` (חותמת פתיחה ראשונה, ON CONFLICT DO NOTHING), `GET /procedures/{id}` (PUBLISHED בלבד, passed flag, best-effort receipt), עמודת "קרא" בתוצאות | מיגרציה `d0b2c3d4e5f6`, `models/procedure_read_receipt.py`, `repositories/read_receipt_repository.py`, `procedure_service.py` |
+| 2026-07-18 | procedure_webapp_view — התחלת מבחן מה-WebApp: חילוץ שולחי ה-poll ל-`bot/quiz_sender.py` (משותף לבוט ול-WebApp), `POST /procedures/{id}/quiz/start` (404/409/503) | `bot/quiz_sender.py`, `bot/handlers/procedures.py`, `controllers/procedure_controller.py` |
+| 2026-07-18 | procedure_webapp_view — כרטיס קצר במקום צ'אנקים: כל נקודת מגע (פרסום/צפייה/תזכורת) שולחת כרטיס אחד עם כפתור web_app `📖 קרא נוהל` + `▶️ התחל מבחן`; נמחקה מכונת הצ'אנקים ב-`notifications.py` | `bot/webapp.py`, `bot/keyboards/procedures.py`, `bot/notifications.py`, `publish_service.py`, `scheduler.py` |
+| 2026-07-18 | procedure_webapp_view — עמוד קריאה למאבטח `/procedure/:id` (RTL, body_html / fallback, read receipt, התחלת מבחן + סגירת WebApp, מסכי שגיאה עבריים) | `frontend/admin/src/pages/ProcedureViewPage.jsx`, `App.jsx`, `api/guardApiClient.js`, `styles/guard.css` |
+| 2026-07-18 | procedure_webapp_view — אדמין: `body_html` עובר ב-upload/create/update + רמז ליד עורך הטקסט; עמודת "קרא" בטבלת התוצאות | `adminApiClient.js`, `ProceduresPage.jsx`, `ProcedureDetailPage.jsx` |

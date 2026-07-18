@@ -13,7 +13,7 @@ attempt, so one handler covers both. A passed procedure shows a ✅ marker.
 
 import uuid
 
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 PROC_MENU_CB = "proc:menu"
 PROC_LIST_PREFIX = "proc:list:"
@@ -23,26 +23,46 @@ QUIZ_START_PREFIX = "סדפ:quiz:"
 PAGE_SIZE = 10
 
 
+def read_procedure_button(procedure_id) -> InlineKeyboardButton:
+    """The '📖 קרא נוהל' button — opens the guard WebApp reading page.
+
+    A ``web_app`` button (not a callback) so the page opens inside Telegram.
+    Built from ``procedure_webapp_url`` (cache-busted ``v=`` param). [EDGE I2]
+    """
+    from app.bot.webapp import procedure_webapp_url
+
+    return InlineKeyboardButton(
+        text="📖 קרא נוהל",
+        web_app=WebAppInfo(url=procedure_webapp_url(str(procedure_id))),
+    )
+
+
 def start_quiz_kb(procedure_id) -> InlineKeyboardMarkup:
-    """The 'start quiz' button (also used for retakes)."""
+    """The 'start quiz' button (also used for retakes), with the read button above it.
+
+    Callback prefixes are unchanged — old messages' quiz buttons keep working;
+    only NEW sends carry the read row. [EDGE B1]
+    """
     return InlineKeyboardMarkup(
         inline_keyboard=[
+            [read_procedure_button(procedure_id)],
             [InlineKeyboardButton(
                 text="▶️ התחל מבחן",
                 callback_data=f"{QUIZ_START_PREFIX}{procedure_id}",
-            )]
+            )],
         ]
     )
 
 
 def retake_kb(procedure_id) -> InlineKeyboardMarkup:
-    """The 'retake' button — same callback as start (a fresh attempt)."""
+    """The 'retake' button (same callback as start), with the read button above it."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
+            [read_procedure_button(procedure_id)],
             [InlineKeyboardButton(
                 text="🔁 מבחן חוזר",
                 callback_data=f"{QUIZ_START_PREFIX}{procedure_id}",
-            )]
+            )],
         ]
     )
 
@@ -101,10 +121,12 @@ def procedures_list_kb(
 
 
 def procedure_view_kb(procedure_id, *, passed: bool = False) -> InlineKeyboardMarkup:
-    """View-procedure keyboard: start-quiz button (+ ✅ marker if passed)."""
+    """View-procedure keyboard: read button (first row), start-quiz button
+    (+ ✅ marker if passed) second, list-back last. Callback prefixes unchanged. [EDGE B1]"""
     label = "✅ עברת — מבחן חוזר" if passed else "▶️ התחל מבחן"
     return InlineKeyboardMarkup(
         inline_keyboard=[
+            [read_procedure_button(procedure_id)],
             [InlineKeyboardButton(
                 text=label,
                 callback_data=f"{QUIZ_START_PREFIX}{procedure_id}",

@@ -293,17 +293,25 @@ export function fetchProcedure(id) {
   return request(`/admin/procedures/${id}`);
 }
 
-export function createProcedure({ title, body_text }) {
+export function createProcedure({ title, body_text, body_html }) {
+  const payload = { title, body_text };
+  // body_html is the sanitized docx snapshot from the upload response; pass it
+  // through only when present so the WebApp page renders the rich version.
+  if (body_html !== undefined) payload.body_html = body_html;
   return request('/admin/procedures', {
     method: 'POST',
-    body: JSON.stringify({ title, body_text }),
+    body: JSON.stringify(payload),
   });
 }
 
-export function updateProcedure(id, { title, body_text }) {
+export function updateProcedure(id, { title, body_text, body_html }) {
   const body = {};
   if (title !== undefined) body.title = title;
   if (body_text !== undefined) body.body_text = body_text;
+  // body_html passes through only when the caller supplies it (e.g. a re-upload);
+  // omitting it leaves the existing snapshot untouched (admin text edits don't
+  // clear it). [EDGE D3]
+  if (body_html !== undefined) body.body_html = body_html;
   return request(`/admin/procedures/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(body),

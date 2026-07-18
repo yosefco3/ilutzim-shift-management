@@ -23,3 +23,14 @@ def submit_webapp_url(tg_id: int | str | None = None) -> str:
         params.append(f"tg_id={tg_id}")
     params.append(f"v={APP_VERSION}")
     return f"{settings.APP_URL}/submit?" + "&".join(params)
+
+
+def procedure_webapp_url(procedure_id) -> str:
+    """Return the guard WebApp procedure-reading URL with a cache-busting version.
+
+    Mirrors ``submit_webapp_url``: the ``v={APP_VERSION}`` param defeats
+    Telegram's aggressive WebApp URL cache (a stale page after a deploy). [EDGE I2]
+    """
+    from app.config import settings
+
+    return f"{settings.APP_URL}/procedure/{procedure_id}?v={APP_VERSION}"

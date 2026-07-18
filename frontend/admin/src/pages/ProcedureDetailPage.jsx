@@ -565,6 +565,7 @@ function ResultsTab({ procedureId }) {
             <tr>
               <th>{m.resultGuard}</th>
               <th>{m.resultStatus}</th>
+              <th>{m.resultRead}</th>
               <th>{m.resultAttempts}</th>
               <th>{m.resultBest}</th>
             </tr>
@@ -583,6 +584,11 @@ function ResultsTab({ procedureId }) {
                   <td>
                     <span className={`badge ${meta.badge}`}>{meta.label}</span>
                   </td>
+                  <td data-testid={`read-cell-${row.user_id}`}>
+                    {row.read
+                      ? `${m.readYes} ${formatReadDate(row.first_read_at)}`
+                      : m.readNo}
+                  </td>
                   <td>{row.attempts ?? 0}</td>
                   <td>{row.best_score != null ? m.scorePercent(row.best_score) : m.noScore}</td>
                 </tr>
@@ -593,4 +599,12 @@ function ResultsTab({ procedureId }) {
       </div>
     </div>
   );
+}
+
+// ISO datetime → localized date for the "קרא" column. Tolerant of bad input.
+function formatReadDate(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('he-IL');
 }

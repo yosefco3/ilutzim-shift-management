@@ -282,3 +282,100 @@ select.hour-input {
 .guard-layout .success-edit-btn:active {
   opacity: 0.8;
 }
+
+/* ── Procedure reading page (סד"פ WebApp) ────────────────────
+   Reuses the guard tokens above; only reading-typography + a few extras.
+   All scoped under .guard-layout so it never leaks into the admin shell. */
+
+.guard-layout .procedure-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 4px 0 12px;
+  text-align: center;
+}
+
+.guard-layout .passed-badge {
+  display: block;
+  text-align: center;
+  background: #e8f5e9;
+  color: var(--tg-success);
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+
+/* Rich-HTML body (sanitized server-side). Comfortable line-length + height so
+   long procedures read well on a phone. */
+.guard-layout .procedure-body {
+  line-height: 1.7;
+  font-size: 1rem;
+}
+
+.guard-layout .procedure-body p {
+  margin: 0 0 12px;
+}
+
+.guard-layout .procedure-body h1,
+.guard-layout .procedure-body h2,
+.guard-layout .procedure-body h3,
+.guard-layout .procedure-body h4,
+.guard-layout .procedure-body h5,
+.guard-layout .procedure-body h6 {
+  margin: 18px 0 8px;
+  line-height: 1.3;
+}
+
+.guard-layout .procedure-body h1 { font-size: 1.3rem; }
+.guard-layout .procedure-body h2 { font-size: 1.2rem; }
+.guard-layout .procedure-body h3 { font-size: 1.1rem; }
+.guard-layout .procedure-body h4,
+.guard-layout .procedure-body h5,
+.guard-layout .procedure-body h6 { font-size: 1rem; }
+
+.guard-layout .procedure-body ul,
+.guard-layout .procedure-body ol {
+  margin: 0 0 12px;
+  padding-inline-start: 22px;
+}
+
+.guard-layout .procedure-body li {
+  margin-bottom: 4px;
+}
+
+.guard-layout .procedure-body blockquote {
+  margin: 0 0 12px;
+  padding: 6px 12px;
+  background: var(--tg-secondary);
+  border-inline-start: 3px solid var(--tg-hint);
+  border-radius: 6px;
+}
+
+.guard-layout .procedure-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+}
+
+.guard-layout .procedure-body th,
+.guard-layout .procedure-body td {
+  border: 1px solid #d0d0d0;
+  padding: 6px 8px;
+  text-align: start;
+  vertical-align: top;
+}
+
+.guard-layout .procedure-body th {
+  background: var(--tg-secondary);
+  font-weight: 700;
+}
+
+/* Quiz-start success line (after Telegram.WebApp.close() is called). */
+.guard-layout .quiz-sent {
+  text-align: center;
+  color: var(--tg-success);
+  font-weight: 700;
+  margin-top: 14px;
+}
+

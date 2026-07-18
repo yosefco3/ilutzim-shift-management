@@ -771,6 +771,7 @@ export default {
     noResults: 'אין עדיין תוצאות — הנוהל טרם פורסם או שאין נתונים',
     resultGuard: 'מאבטח',
     resultStatus: 'סטטוס',
+    resultRead: 'קרא',
     resultAttempts: 'ניסיונות',
     resultBest: 'ציון מיטבי',
     statusPassed: 'עבר',
@@ -779,6 +780,13 @@ export default {
     statusNotStarted: 'טרם התחיל',
     scorePercent: (n) => `${n}%`,
     noScore: '—',
+    readYes: '✓',
+    readNo: '—',
+
+    // ── body_html snapshot (WebApp reading view) ──
+    // Hint shown near the body editor only when an uploaded-docx HTML snapshot
+    // exists — editing the plain text here does not touch it. [EDGE D3]
+    bodyHtmlHint: 'תצוגת ה-WebApp מבוססת על קובץ ה-Word שהועלה; עריכת הטקסט כאן משנה רק את גרסת הטקסט.',
   },
 
   common: {

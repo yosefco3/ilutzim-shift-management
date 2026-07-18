@@ -16,7 +16,11 @@ from app.procedures.repositories import (
     QuizAttemptRepository,
     QuizQuestionRepository,
 )
-from app.procedures.services.docx_service import extract_text_from_docx
+from app.procedures.services.docx_service import (
+    _sanitize_procedure_html,
+    extract_html_from_docx,
+    extract_text_from_docx,
+)
 from app.procedures.services.procedure_service import ProcedureService
 from app.repositories.system_settings_repository import SystemSettingsRepository
 from app.repositories.user_repository import UserRepository
@@ -27,7 +31,7 @@ class _FakePublisher:
     def __init__(self):
         self.calls = []
 
-    async def broadcast(self, recipients, title, body_text, procedure_id):
+    async def broadcast(self, recipients, title, procedure_id):
         self.calls.append((list(recipients), title, procedure_id))
         return {"sent": len(recipients), "skipped": 0, "total": len(recipients)}
 
@@ -369,3 +373,123 @@ async def test_list_all_flags_has_ai_questions(db_session):
     rows = {r["title"]: r["has_ai_questions"] for r in await svc.list_all()}
     assert rows["נוהל עם בנק AI"] is True
     assert rows["נוהל ידני"] is False
+
+
+# ── docx → sanitized HTML extraction (body_html) ─────────────────────────────
+
+
+def _rich_docx_bytes() -> bytes:
+    """A docx with a heading, a bold run, a bullet list, and a table."""
+    from docx import Document
+
+    doc = Document()
+    doc.add_heading("כותרת ראשית", level=1)
+    p = doc.add_paragraph()
+    p.add_run("טקסט רגיל ")
+    bold = p.add_run("מילה מודגשת")
+    bold.bold = True
+    doc.add_paragraph("סעיף ראשון", style="List Bullet")
+    table = doc.add_table(rows=1, cols=2)
+    table.rows[0].cells[0].text = "עמודה א"
+    table.rows[0].cells[1].text = "עמודה ב"
+    buf = BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
+def test_extract_html_from_rich_docx_has_structure():
+    """mammoth converts heading/bold/list/table; sanitize keeps the tags. The
+    plain-text extraction is unaffected by the new HTML path."""
+    data = _rich_docx_bytes()
+    html = extract_html_from_docx(data)
+    assert html is not None
+    assert "<h1>" in html and "כותרת ראשית" in html
+    assert "<strong>" in html and "מילה מודגשת" in html
+    assert "<li>" in html and "סעיף ראשון" in html
+    assert "<td>" in html and "עמודה א" in html and "עמודה ב" in html
+    # text extraction still works on the same bytes (unchanged behavior)
+    text = extract_text_from_docx(data)
+    assert "כותרת ראשית" in text
+
+
+def test_extract_html_strips_xss_payloads():
+    """Sanitizer drops <script> (content too), onclick attrs, and <img>. [EDGE D5]"""
+    crafted = (
+        '<p>תוכן תקין</p>'
+        '<script>alert("xss")</script>'
+        '<p onclick="steal()">בוצע קליק</p>'
+        '<img src="x" onerror="alert(1)">'
+    )
+    sanitized = _sanitize_procedure_html(crafted)
+    assert "<script>" not in sanitized
+    assert "alert" not in sanitized  # script content removed, not just the tag
+    assert "onclick" not in sanitized
+    assert "<img" not in sanitized
+    # the legitimate text survives
+    assert "תוכן תקין" in sanitized
+    assert "בוצע קליק" in sanitized
+
+
+def test_extract_html_corrupt_docx_returns_none_without_raising():
+    """A non-docx payload: text extraction still raises (validity gate), HTML
+    conversion returns None and never raises. [EDGE D4]"""
+    bad = b"not a real docx file content"
+    with pytest.raises(ValidationException):
+        extract_text_from_docx(bad)
+    assert extract_html_from_docx(bad) is None
+
+
+def test_extract_html_empty_result_returns_none():
+    """A docx whose conversion yields only whitespace → None (fallback path)."""
+    # _sanitize_procedure_html on whitespace-only input → None at the extractor
+    # boundary (extract_html_from_docx treats empty/whitespace as None).
+    assert extract_html_from_docx(b"") is None
+
+
+@pytest.mark.asyncio
+async def test_create_persists_and_returns_body_html(db_session):
+    svc = _svc(db_session)
+    proc = await svc.create(
+        "נהל עם HTML", "תוכן", body_html="<p>סקירה</p>", source_filename="x.docx"
+    )
+    assert proc.body_html == "<p>סקירה</p>"
+    fetched = await svc.get(proc.id)
+    assert fetched.body_html == "<p>סקירה</p>"
+
+
+@pytest.mark.asyncio
+async def test_update_without_body_html_preserves_existing(db_session):
+    """Omitting body_html on update must NOT clear the existing snapshot. [EDGE D3]"""
+    svc = _svc(db_session)
+    proc = await svc.create("נהל", "תוכן", body_html="<p>ישן</p>")
+    await svc.update(proc.id, title="כותרת חדשה", body_text="תוכן חדש")
+    fetched = await svc.get(proc.id)
+    assert fetched.title == "כותרת חדשה"
+    assert fetched.body_text == "תוכן חדש"
+    # snapshot untouched by a text-only edit
+    assert fetched.body_html == "<p>ישן</p>"
+
+
+@pytest.mark.asyncio
+async def test_update_with_body_html_replaces_existing(db_session):
+    svc = _svc(db_session)
+    proc = await svc.create("נהל", "תוכן", body_html="<p>ישן</p>")
+    await svc.update(proc.id, title=None, body_text=None, body_html="<p>חדש</p>")
+    fetched = await svc.get(proc.id)
+    assert fetched.body_html == "<p>חדש</p>"
+
+
+def test_upload_docx_returns_body_html():
+    """The upload endpoint response carries the sanitized body_html snapshot."""
+    data = _rich_docx_bytes()
+    client = _client()
+    res = client.post(
+        "/admin/procedures/upload",
+        files={"file": ("proc.docx", data, "application/vnd.openxmlformats")},
+        data={"title": "נהל"},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["body_html"] is not None
+    assert "<h1>" in body["body_html"]
+    assert "<strong>" in body["body_html"]

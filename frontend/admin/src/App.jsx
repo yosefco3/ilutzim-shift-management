@@ -21,6 +21,7 @@ import ActualBoardPage from './pages/ActualBoardPage';
 import ReinforcementsReportPage from './pages/ReinforcementsReportPage';
 import ProceduresPage from './pages/ProceduresPage';
 import ProcedureDetailPage from './pages/ProcedureDetailPage';
+import ProcedureViewPage from './pages/ProcedureViewPage';
 import './styles/admin.css';
 
 // Part B (schedule builder + constraints import) is hidden in production via a
@@ -51,7 +52,14 @@ export default function App() {
 
 function AppContent() {
   const location = useLocation();
-  const hideNavbar = location.pathname === '/submit' || location.pathname === '/submit/success';
+  // Guard WebApp pages render standalone (no navbar) — they open inside Telegram.
+  // NOTE the trailing slash: '/procedure/' matches only the guard reading page
+  // (route '/procedure/:procedureId'); without it, '/procedure'.startsWith would
+  // also swallow the ADMIN routes '/procedures' and '/procedures/:id'.
+  const hideNavbar =
+    location.pathname === '/submit' ||
+    location.pathname === '/submit/success' ||
+    location.pathname.startsWith('/procedure/');
 
   return (
     <>
@@ -61,6 +69,8 @@ function AppContent() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/submit" element={<SubmitPage />} />
           <Route path="/submit/success" element={<SuccessPage />} />
+          {/* Guard WebApp — the procedure reading page (public, like /submit). */}
+          <Route path="/procedure/:procedureId" element={<ProcedureViewPage />} />
           <Route path="/guards" element={<ProtectedRoute><GuardsPage /></ProtectedRoute>} />
           <Route path="/guards/:guardId/constraints" element={<ProtectedRoute><AdminConstraintsPage /></ProtectedRoute>} />
           <Route path="/weeks" element={<ProtectedRoute><WeeksPage /></ProtectedRoute>} />

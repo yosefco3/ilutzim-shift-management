@@ -24,6 +24,13 @@ class Procedure(BaseModel):
 
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     body_text: Mapped[str] = mapped_column(Text, nullable=False)
+    # Sanitized HTML snapshot of the uploaded docx (mammoth → nh3), rendered by
+    # the guard WebApp reading page. NULL for plain-text-pasted procedures and
+    # for procedures created before this feature — the page then falls back to
+    # ``body_text``. It is a frozen snapshot: the admin plain-text editor edits
+    # only ``body_text``, so ``body_html`` stays in sync only with the uploaded
+    # docx (a re-upload replaces both).
+    body_html: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Original filename when the body was extracted from an uploaded docx
     # (None when the admin pasted the text directly).
     source_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)

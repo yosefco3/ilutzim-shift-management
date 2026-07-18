@@ -26,7 +26,7 @@ class _FakePublisher:
     def __init__(self):
         self.calls = []
 
-    async def broadcast(self, recipients, title, body_text, procedure_id):
+    async def broadcast(self, recipients, title, procedure_id):
         self.calls.append(list(recipients))
         return {"sent": len(recipients), "skipped": 0, "total": len(recipients)}
 

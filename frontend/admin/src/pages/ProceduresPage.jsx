@@ -329,6 +329,10 @@ function NewProcedureForm({ onSaved, onCancel }) {
   const toast = useToast();
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
+  // Sanitized docx→HTML snapshot from the upload response — sent on save so the
+  // WebApp reading page renders the rich version. Editing the plain body above
+  // does NOT touch it (the hint below tells the admin). A re-upload replaces it.
+  const [bodyHtml, setBodyHtml] = useState(null);
   const [sourceFilename, setSourceFilename] = useState('');
   const [extracting, setExtracting] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -358,6 +362,8 @@ function NewProcedureForm({ onSaved, onCancel }) {
       } else {
         setBody(text);
       }
+      // A re-upload replaces BOTH the text (above) and the HTML snapshot.
+      setBodyHtml(result.body_html ?? null);
       setSourceFilename(result.source_filename || file.name);
     } catch (err) {
       setFormError(err.message || messages.common.error);
@@ -376,7 +382,11 @@ function NewProcedureForm({ onSaved, onCancel }) {
     setSaving(true);
     setFormError('');
     try {
-      const proc = await createProcedure({ title: t, body_text: b });
+      // Only send body_html when an uploaded-docx snapshot exists — pasted-text
+      // procedures have none, so their payload stays { title, body_text }.
+      const payload = { title: t, body_text: b };
+      if (bodyHtml) payload.body_html = bodyHtml;
+      const proc = await createProcedure(payload);
       onSaved(proc);
     } catch (err) {
       setFormError(err.message || messages.common.error);
@@ -414,6 +424,9 @@ function NewProcedureForm({ onSaved, onCancel }) {
           data-testid="proc-body"
         />
         <p className="page-subtitle" data-testid="proc-body-hint">{m.bodyBoldHint}</p>
+        {bodyHtml && (
+          <p className="page-subtitle" data-testid="body-html-hint">{m.bodyHtmlHint}</p>
+        )}
         {sourceFilename && !extracting && (
           <p className="page-subtitle" data-testid="docx-extracted">
             {m.extractedChars(body.length)} · {sourceFilename}

@@ -12,6 +12,9 @@ from app.procedures.repositories.attempt_repository import QuizAttemptRepository
 from app.procedures.repositories.poll_link_repository import QuizPollLinkRepository
 from app.procedures.repositories.procedure_repository import ProcedureRepository
 from app.procedures.repositories.question_repository import QuizQuestionRepository
+from app.procedures.repositories.read_receipt_repository import (
+    ProcedureReadReceiptRepository,
+)
 from app.procedures.repositories.reminder_repository import (
     ProcedureReminderRepository,
 )
@@ -52,6 +55,12 @@ async def get_reminder_repo(
     return ProcedureReminderRepository(session)
 
 
+async def get_read_receipt_repo(
+    session=Depends(get_pool),
+) -> ProcedureReadReceiptRepository:
+    return ProcedureReadReceiptRepository(session)
+
+
 def _settings(session) -> SettingsService:
     return SettingsService(SystemSettingsRepository(session))
 
@@ -81,6 +90,7 @@ async def get_procedure_service(
         UserRepository(session),
         _settings(session),
         RealProcedurePublisher(keyboard_factory=_start_quiz_keyboard_factory()),
+        ProcedureReadReceiptRepository(session),
     )
 
 

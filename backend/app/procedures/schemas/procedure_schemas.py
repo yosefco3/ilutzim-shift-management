@@ -52,11 +52,19 @@ def _validate_correct(correct_index: int, options: list[str]) -> int:
 class ProcedureCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     body_text: str = Field(min_length=1)
+    # Sanitized HTML snapshot from the uploaded docx (optional — pasted-text
+    # procedures have none). Already sanitized by extract_html_from_docx; stored
+    # verbatim so the WebApp page can render it.
+    body_html: str | None = Field(default=None)
 
 
 class ProcedureUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=200)
     body_text: str | None = Field(default=None, min_length=1)
+    # Optional on update: OMITTING it leaves the existing snapshot untouched
+    # (admin text edits must not clear the docx snapshot — [EDGE D3]); sending
+    # it replaces it.
+    body_html: str | None = Field(default=None)
 
 
 class QuestionOut(BaseModel):
@@ -78,6 +86,7 @@ class ProcedureOut(BaseModel):
     id: uuid.UUID
     title: str
     body_text: str
+    body_html: str | None = None
     source_filename: str | None = None
     status: str
     created_at: datetime
@@ -160,6 +169,9 @@ class DocxUploadOut(BaseModel):
     text: str
     source_filename: str
     char_count: int
+    # Sanitized rich-HTML snapshot of the uploaded docx (None when conversion is
+    # impossible/empty — the page then falls back to the text). [EDGE D4]
+    body_html: str | None = None
 
 
 class GenerateOut(BaseModel):
@@ -189,3 +201,24 @@ class ResultRow(BaseModel):
     attempts: int
     best_score: int | None = None  # percent, only for passed/failed
     passed: bool | None = None
+    # Whether the guard opened the WebApp reading page (read receipt). The
+    # frontend results table shows a "קרא" column from these fields.
+    read: bool = False
+    first_read_at: datetime | None = None
+
+
+class GuardProcedureOut(BaseModel):
+    """The procedure a guard reads in the WebApp page (guard GET endpoint).
+
+    PUBLISHED only. ``body_html`` (sanitized docx snapshot) is preferred by the
+    page; ``body_text`` is the fallback. ``passed`` toggles the success badge.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    title: str
+    body_html: str | None = None
+    body_text: str
+    is_default: bool = False
+    passed: bool = False

@@ -160,17 +160,25 @@ async def run_procedure_reminders() -> None:
     Own committed session; idempotent via the ``ProcedureReminderSent`` ledger;
     failures are logged and swallowed. Only runs when PROCEDURES_ENABLED."""
     try:
-        from app.bot.notifications import send_notification
         from app.database import get_session
         from app.procedures.dependencies import build_reminder_service
         from app.utils.date_utils import now_il
 
         async def _send(telegram_id, procedure_id, title):
-            from app.bot.keyboards.procedures import start_quiz_kb
+            import html as _html
 
+            from app.bot.keyboards.procedures import start_quiz_kb
+            from app.bot.notifications import send_notification
+
+            # Reminder-specific framing (NOT the generic publish card) — a guard
+            # must be able to tell this is a nudge about an UNFINISHED quiz. The
+            # keyboard carries the read (web_app) + start-quiz buttons (the "card
+            # + keyboard" intent for reminders). Title is HTML-escaped: the bot
+            # parses the message as HTML, so a literal '<'/'&' in the title would
+            # break the send (the original left it unescaped).
             text = (
-                f"⏰ <b>תזכורת מבחן נוהל</b>\n\n"
-                f"טרם השלמת את המבחן על הנוהל:\n<b>{title}</b>\n\n"
+                "⏰ <b>תזכורת מבחן נוהל</b>\n\n"
+                f"טרם השלמת את המבחן על הנוהל:\n<b>{_html.escape(title)}</b>\n\n"
                 "נא להשלים את המבחן בהקדם."
             )
             return await send_notification(

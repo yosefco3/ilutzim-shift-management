@@ -21,7 +21,6 @@ import uuid
 from aiogram import F, Router
 from aiogram.types import CallbackQuery, PollAnswer
 
-from app.bot.bot_instance import get_bot
 from app.bot.keyboards.procedures import (
     PAGE_SIZE,
     PROC_LIST_PREFIX,
@@ -31,9 +30,9 @@ from app.bot.keyboards.procedures import (
     order_and_mark_procedures,
     procedure_view_kb,
     procedures_list_kb,
-    retake_kb,
 )
-from app.bot.notifications import send_notification, send_procedure
+from app.bot.notifications import send_procedure_card
+from app.bot.quiz_sender import send_current_question, send_result, start_and_send
 from app.exceptions import ValidationException
 
 logger = logging.getLogger("ilutzim")
@@ -126,10 +125,9 @@ async def on_view(callback: CallbackQuery) -> None:
     finally:
         await session.close()
 
-    await send_procedure(
+    await send_procedure_card(
         callback.from_user.id,
         proc.title,
-        proc.body_text,
         reply_markup=procedure_view_kb(procedure_id, passed=passed),
     )
     await callback.answer()
@@ -140,7 +138,11 @@ async def on_view(callback: CallbackQuery) -> None:
 
 @router.callback_query(F.data.startswith(QUIZ_START_PREFIX))
 async def on_start_quiz(callback: CallbackQuery, user=None) -> None:
-    """Start (or retake) a quiz — both create a fresh sampled attempt."""
+    """Start (or retake) a quiz — both create a fresh sampled attempt.
+
+    Reroutes through the shared ``start_and_send`` (same path the WebApp
+    "start quiz" endpoint uses) so bot and web starts cannot drift.
+    """
     if user is None:
         # AuthMiddleware provides `user` for callback_query; defend anyway.
         user = await _callback_user(callback)
@@ -156,24 +158,22 @@ async def on_start_quiz(callback: CallbackQuery, user=None) -> None:
     try:
         quiz_service = build_quiz_service(session)
         try:
-            start = await quiz_service.start_attempt(user.id, uuid.UUID(procedure_id))
+            outcome = await start_and_send(
+                callback.from_user.id, user.id, uuid.UUID(procedure_id), quiz_service
+            )
         except ValidationException as exc:
             await callback.answer(exc.message, show_alert=True)
             return
 
-        if start.created:
+        # Preserve the original callback-answer UX:
+        # - created attempt → "המבחן מתחיל"
+        # - reused attempt with an outstanding poll → silent ack
+        # - reused attempt, poll resent → no special message
+        if outcome.created:
             await callback.answer("המבחן מתחיל 📝")
-            sent = await _send_current_question(
-                callback.from_user.id, start.attempt, quiz_service
-            )
-        else:
-            # Race / rejoin: only resend if no poll is already outstanding.
-            if await quiz_service.has_outstanding_poll(start.attempt):
-                await callback.answer()
-            else:
-                sent = await _send_current_question(
-                    callback.from_user.id, start.attempt, quiz_service
-                )
+        elif not outcome.sent:
+            await callback.answer()
+        sent = outcome.sent
         await session.commit()
     finally:
         await session.close()
@@ -213,77 +213,21 @@ async def on_poll_answer(poll_answer: PollAnswer) -> None:
             return  # stale/unknown poll or duplicate → ignore silently
 
         if outcome.finished:
-            await _send_result(tg_id, outcome)
+            await send_result(tg_id, outcome)
         else:
             attempt = await quiz_service.next_question_attempt(outcome.attempt_id)
             if attempt is not None:
-                await _send_current_question(tg_id, attempt, quiz_service)
+                await send_current_question(tg_id, attempt, quiz_service)
         await session.commit()
     finally:
         await session.close()
 
 
-# ── Send helpers (aiogram sends; state via QuizService) ─────────────────────
-
-
-async def _send_current_question(telegram_id, attempt, quiz_service) -> bool:
-    """Prepare + send the attempt's current question and record its poll link."""
-    q = await quiz_service.current_question(attempt)
-    if q is None:
-        return False
-    poll_id = await _send_quiz_poll(telegram_id, q)
-    if poll_id is None:
-        return False
-    await quiz_service.record_poll_link(
-        attempt_id=attempt.id,
-        question_id=q.question_id,
-        telegram_poll_id=poll_id,
-        option_order=q.option_order,
-        correct_option_id=q.correct_option_id,
-    )
-    return True
-
-
-async def _send_quiz_poll(telegram_id, question) -> str | None:
-    """Send one non-anonymous quiz poll; returns its Telegram poll id (or None)."""
-    try:
-        bot = get_bot()
-        if bot is None:
-            logger.error("send_quiz_poll: bot is None")
-            return None
-        msg = await bot.send_poll(
-            chat_id=telegram_id,
-            question=question.text,
-            options=question.options,
-            type="quiz",
-            correct_option_id=question.correct_option_id,
-            is_anonymous=False,
-        )
-        return msg.poll.id if msg.poll else None
-    except Exception as exc:
-        logger.error("send_quiz_poll: FAILED for tg=%s — %s", telegram_id, exc)
-        return None
-
-
-async def _send_result(telegram_id, outcome) -> None:
-    """Pass → success message; fail → score + retake button."""
-    if outcome.passed:
-        text = (
-            "✅ <b>עברת את המבחן!</b>\n\n"
-            f"ציון: {outcome.score_pct}% ({outcome.correct_count}/{outcome.total_count})"
-        )
-        await send_notification(telegram_id, text)
-        return
-
-    text = (
-        "❌ <b>לא עברת את המבחן</b>\n\n"
-        f"ציון: {outcome.score_pct}% ({outcome.correct_count}/{outcome.total_count})\n"
-        f"יש להגיע לפחות ל-{outcome.threshold}% כדי לעבור.\n\n"
-        "רוצה לנסות שוב?"
-    )
-    await send_notification(
-        telegram_id, text, reply_markup=retake_kb(outcome.procedure_id)
-    )
+# ── Send helpers ─────────────────────────────────────────────────────────────
+#
+# The quiz-poll / result senders live in ``app.bot.quiz_sender`` (extracted so
+# the WebApp "start quiz" HTTP endpoint can share them). ``send_current_question``,
+# ``send_result`` and ``start_and_send`` are imported at the top of this module.
 
 
 async def _callback_user(callback: CallbackQuery):

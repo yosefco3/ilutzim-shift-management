@@ -204,6 +204,69 @@ describe('ProceduresPage', () => {
     expect(screen.getByLabelText(m.bodyField)).toHaveValue(extracted);
   });
 
+  it('passes the uploaded body_html through to createProcedure', async () => {
+    // Upload → create round-trip keeps the sanitized HTML snapshot in the payload.
+    const extracted = 'גוף הנוהל';
+    const html = '<h1>כותרת</h1><p>גוף <strong>מודגש</strong></p>';
+    fetchProcedures.mockResolvedValue([]);
+    uploadProcedureDocx.mockResolvedValue({
+      text: extracted,
+      body_html: html,
+      source_filename: 'procedure.docx',
+      char_count: extracted.length,
+    });
+    createProcedure.mockResolvedValue({ id: 'new-1', title: 't', status: 'draft' });
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: m.add }));
+    fireEvent.change(screen.getByLabelText(m.titleField), { target: { value: 'נוהל' } });
+
+    const file = new File(['docx-bytes'], 'procedure.docx', {
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    });
+    fireEvent.change(screen.getByTestId('docx-input'), { target: { files: [file] } });
+    await waitFor(() => expect(uploadProcedureDocx).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByTestId('save-draft'));
+    await waitFor(() =>
+      expect(createProcedure).toHaveBeenCalledWith({
+        title: 'נוהל',
+        body_text: extracted,
+        body_html: html,
+      }),
+    );
+  });
+
+  it('shows the body_html hint only when a docx snapshot exists', async () => {
+    fetchProcedures.mockResolvedValue([]);
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: m.add }));
+    // Before any upload: no snapshot hint.
+    expect(screen.queryByTestId('body-html-hint')).toBeNull();
+
+    // Upload WITHOUT a body_html (e.g. exotic docx) → still no hint.
+    uploadProcedureDocx.mockResolvedValue({
+      text: 'גוף',
+      body_html: null,
+      source_filename: 'procedure.docx',
+      char_count: 4,
+    });
+    fireEvent.change(screen.getByLabelText(m.titleField), { target: { value: 'נוהל' } });
+    const file = new File(['x'], 'procedure.docx');
+    fireEvent.change(screen.getByTestId('docx-input'), { target: { files: [file] } });
+    await waitFor(() => expect(uploadProcedureDocx).toHaveBeenCalled());
+    expect(screen.queryByTestId('body-html-hint')).toBeNull();
+
+    // Re-upload WITH a body_html → hint appears.
+    uploadProcedureDocx.mockResolvedValue({
+      text: 'גוף',
+      body_html: '<p>html</p>',
+      source_filename: 'procedure.docx',
+      char_count: 4,
+    });
+    fireEvent.change(screen.getByTestId('docx-input'), { target: { files: [file] } });
+    expect(await screen.findByTestId('body-html-hint')).toHaveTextContent(m.bodyHtmlHint);
+  });
+
   it('shows the bold-marker hint under the body textarea', async () => {
     fetchProcedures.mockResolvedValue([]);
     renderPage();

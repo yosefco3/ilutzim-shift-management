@@ -21,7 +21,7 @@ from app.services.settings_service import SettingsService
 
 
 class _Pub:
-    async def broadcast(self, recipients, title, body_text, procedure_id):
+    async def broadcast(self, recipients, title, procedure_id):
         return {"sent": 0, "skipped": 0, "total": 0}
 
 

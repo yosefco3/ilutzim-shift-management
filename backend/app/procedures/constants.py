@@ -15,10 +15,6 @@ MAX_OPTION_CHARS = 100
 MIN_OPTIONS = 2
 MAX_OPTIONS = 4
 
-# A single Telegram message caps at 4096 chars — long procedure bodies are
-# chunked on paragraph boundaries (see app.bot.notifications.send_procedure).
-TG_MESSAGE_LIMIT = 4096
-
 # A published procedure older than this (hours) becomes eligible for the
 # one-time "you haven't done the quiz yet" reminder.
 REMINDER_AGE_HOURS = 48

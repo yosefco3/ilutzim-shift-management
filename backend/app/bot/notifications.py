@@ -4,7 +4,6 @@ Proactive notification helpers for the Telegram bot.
 
 import html
 import logging
-import re
 from datetime import date, timedelta
 from itertools import groupby
 
@@ -14,18 +13,6 @@ logger = logging.getLogger("ilutzim")
 
 # Hebrew weekday names, Sunday=0 … Saturday=6 (matches day_index everywhere).
 _HE_DAYS = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"]
-
-# A single Telegram message caps at 4096 chars. Long procedure bodies are
-# chunked on paragraph boundaries (with a hard-split fallback for one
-# overlong paragraph). Defined locally so this Part-A module does not import
-# the procedures package.
-TG_MESSAGE_LIMIT = 4096
-
-# A paired ``*…*`` in a procedure body marks a bold span (the docx extractor
-# emits these from bold/heading/highlight runs). ``*`` with no partner is a
-# literal asterisk, not a tag.
-_BOLD_PAIR = re.compile(r"\*([^*]*)\*")
-
 
 
 async def send_notification(telegram_id: int, text: str, reply_markup=None) -> bool:
@@ -345,182 +332,39 @@ async def send_photo(
         return False
 
 
-# ── Procedure broadcast (chunked) ────────────────────────────────────────────
+# ── Procedure card (the short WebApp-pointer message) ────────────────────────
 
 
-def _hard_split_paragraph(text: str, limit: int) -> list[str]:
-    """Split a single paragraph longer than ``limit`` on sentence then word
-    boundaries (last resort: a hard cut). Returns the pieces in order."""
-    pieces: list[str] = []
-    remaining = text
-    while len(remaining) > limit:
-        cut = 0
-        for sep in (". ", "! ", "? "):  # sentence boundary
-            idx = remaining.rfind(sep, 0, limit)
-            if idx > cut:
-                cut = idx + len(sep)
-        if cut == 0:  # word boundary
-            idx = remaining.rfind(" ", 0, limit)
-            if idx > 0:
-                cut = idx
-        if cut == 0:
-            cut = limit
-        pieces.append(remaining[:cut].rstrip())
-        remaining = remaining[cut:].lstrip()
-    if remaining:
-        pieces.append(remaining)
-    return pieces
-
-
-def chunk_message(text: str, limit: int = TG_MESSAGE_LIMIT) -> list[str]:
-    """Split ``text`` into ≤ ``limit``-char chunks on paragraph (newline)
-    boundaries, with a hard-split fallback for any single overlong paragraph."""
-    paragraphs = text.split("\n")
-    chunks: list[str] = []
-    current = ""
-    for para in paragraphs:
-        candidate = para if not current else current + "\n" + para
-        if len(candidate) <= limit:
-            current = candidate
-            continue
-        if current:  # flush the accumulated chunk
-            chunks.append(current)
-            current = ""
-        if len(para) <= limit:
-            current = para
-        else:
-            pieces = _hard_split_paragraph(para, limit)
-            chunks.extend(pieces[:-1])
-            current = pieces[-1]
-    if current:
-        chunks.append(current)
-    return chunks or [text[:limit].rstrip()]
-
-
-def _convert_paragraph_markers(paragraph: str) -> str:
-    """Convert ``*…*`` bold markers in ONE paragraph to Telegram HTML.
-
-    Every text segment is HTML-escaped (the bot parses each chunk as HTML, so a
-    raw ``<``/``&`` would 400 the send); each paired ``*…*`` becomes
-    ``<b>…</b>``. Asterisks with no matching partner (an odd count) are left as
-    literal text — escaped, no tag. Conversion runs per-paragraph so a bold
-    span never crosses a newline, which is what lets every chunk stay tag-
-    balanced after packing.
-    """
-    out: list[str] = []
-    last = 0
-    for m in _BOLD_PAIR.finditer(paragraph):
-        out.append(html.escape(paragraph[last:m.start()]))
-        out.append(f"<b>{html.escape(m.group(1))}</b>")
-        last = m.end()
-    out.append(html.escape(paragraph[last:]))
-    return "".join(out)
-
-
-def _wrap_procedure_chunk(title_block: str, body: str) -> str:
-    """Assemble one chunk: optional title line (chunk 0 only) above the body.
-
-    Plain message, no blockquote — the collapsed-quote experiment (2026-07-18)
-    was reverted per user feedback: Telegram renders blockquote text in a
-    smaller font, which hurt readability for procedure bodies.
-    """
-    if title_block:
-        return f"{title_block}\n\n{body}"
-    return body
-
-
-def _pack_procedure_chunks(
-    title_block: str, converted_paragraphs: list[str], limit: int
-) -> list[str]:
-    """Pack already-converted (HTML) paragraphs into ≤``limit``-char chunks.
-
-    ``title_block`` (the bold 📜 title line) prefixes the FIRST chunk only.
-    Paragraphs are packed whole, so no chunk ever splits a ``<b>…</b>`` pair —
-    every chunk is independently tag-balanced.
-
-    A single converted paragraph too long for a chunk even on its own falls
-    back to stripping its ``<b>`` tags and hard-splitting the plain escaped
-    text (the existing sentence/word fallback): correctness over formatting
-    for that pathological case. The title overhead is reserved out of the
-    per-chunk budget so the assembled result never exceeds ``limit``.
-    """
-    overhead = 0
-    chunks: list[str] = []
-    is_first = True
-    i = 0
-    n = len(converted_paragraphs)
-    while i < n:
-        prefix_len = len(title_block) + 2 if is_first else 0  # +2 for "\n\n"
-        budget = limit - overhead - prefix_len
-        if budget < 1:
-            budget = 1  # defensive: a pathologically huge title
-        piece = converted_paragraphs[i]
-        if len(piece) > budget:
-            # Overlong paragraph: drop bold tags, hard-split the escaped text.
-            plain = piece.replace("<b>", "").replace("</b>", "")
-            for part in _hard_split_paragraph(plain, budget):
-                chunks.append(_wrap_procedure_chunk(title_block if is_first else "", part))
-                is_first = False
-            i += 1
-            continue
-        # Fits alone — greedily add following paragraphs while they fit.
-        acc = piece
-        i += 1
-        while i < n and len(acc) + 1 + len(converted_paragraphs[i]) <= budget:
-            acc = acc + "\n" + converted_paragraphs[i]
-            i += 1
-        chunks.append(_wrap_procedure_chunk(title_block if is_first else "", acc))
-        is_first = False
-    if not chunks:
-        # No body — just the title.
-        chunks.append(title_block)
-    return chunks
-
-
-async def send_procedure(
-    telegram_id, title: str, body_text: str, reply_markup=None
+async def send_procedure_card(
+    telegram_id, title: str, reply_markup=None
 ) -> bool:
-    """Send a procedure (title + body) to one guard, chunked to ≤4096 chars.
+    """Send ONE short procedure card to a guard: the bold title + a one-line
+    prompt, with the read (web_app) + start-quiz buttons as ``reply_markup``.
 
-    The body's ``*…*`` bold markers are converted to Telegram HTML
-    (``<b>…</b>``) per paragraph BEFORE packing; the bold title line leads the
-    first chunk. Chunks pack whole converted paragraphs so no ``<b>`` tag is
-    ever split across a message (a single overlong paragraph falls back to
-    plain hard-split text). ``reply_markup`` (the start-quiz keyboard) attaches
-    to the LAST chunk only. All text is HTML-escaped (the bot parses every
-    chunk as HTML). Mirrors ``send_notification``: never raises, returns
-    success/failure (a blocked bot logs and counts as a skipped send).
-
-    Note: a collapsed ``<blockquote expandable>`` body was tried (2026-07-18)
-    and reverted — Telegram renders quote text smaller, hurting readability.
+    The full procedure body lives in the WebApp reading page now — this card is
+    intentionally tiny (no chunking). Same never-raise/bool contract as
+    ``send_notification`` (a blocked bot logs and counts as a skipped send).
     """
     try:
         bot = get_bot()
         if bot is None:
             logger.error(
-                "send_procedure: bot is None — cannot send to telegram_id=%s",
+                "send_procedure_card: bot is None — cannot send to telegram_id=%s",
                 telegram_id,
             )
             return False
-
-        title_block = f"📜 <b>{html.escape(title)}</b>"
-        paragraphs = body_text.split("\n")
-        converted = [_convert_paragraph_markers(p) for p in paragraphs]
-        chunks = _pack_procedure_chunks(title_block, converted, TG_MESSAGE_LIMIT)
-        last = len(chunks) - 1
-        for i, chunk in enumerate(chunks):
-            markup = reply_markup if i == last else None
-            await bot.send_message(
-                chat_id=telegram_id, text=chunk, reply_markup=markup
-            )
-        logger.info(
-            "send_procedure: SUCCESS for telegram_id=%s (%d chunks)",
-            telegram_id, len(chunks),
+        text = (
+            f"📜 <b>{html.escape(title)}</b>\n\n"
+            "לחצו על ״📖 קרא נוהל״ לקריאת הנוהל המלא, ולאחר מכן ״▶️ התחל מבחן״."
         )
+        await bot.send_message(
+            chat_id=telegram_id, text=text, reply_markup=reply_markup
+        )
+        logger.info("send_procedure_card: SUCCESS for telegram_id=%s", telegram_id)
         return True
     except Exception as exc:
         logger.error(
-            "send_procedure: FAILED for telegram_id=%s — %s",
+            "send_procedure_card: FAILED for telegram_id=%s — %s",
             telegram_id, exc, exc_info=True,
         )
         return False

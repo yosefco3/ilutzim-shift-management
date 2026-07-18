@@ -11,9 +11,12 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import JSONResponse
 
-from app.dependencies import require_admin_role
+from app.dependencies import get_current_user, require_admin_role
+from app.procedures.constants import ProcedureStatus
 from app.procedures.dependencies import (
+    build_quiz_service,
     get_generation_service,
     get_procedure_service,
     get_question_repo,
@@ -25,6 +28,7 @@ from app.procedures.repositories.question_repository import QuizQuestionReposito
 from app.procedures.schemas import (
     DocxUploadOut,
     GenerateOut,
+    GuardProcedureOut,
     ProcedureCreate,
     ProcedureListItem,
     ProcedureOut,
@@ -35,13 +39,19 @@ from app.procedures.schemas import (
     QuestionUpdate,
     ResultRow,
 )
-from app.procedures.services.docx_service import MAX_DOCX_BYTES, extract_text_from_docx
+from app.procedures.services.docx_service import (
+    MAX_DOCX_BYTES,
+    extract_html_from_docx,
+    extract_text_from_docx,
+)
 from app.procedures.services.procedure_service import ProcedureService
 from app.procedures.services.question_generation_service import (
     QuestionGenerationService,
 )
 from app.procedures.services.question_service import QuizQuestionService
 from app.services.settings_service import SettingsService
+from app.database import get_pool
+from app.exceptions import ValidationException
 
 logger = logging.getLogger("ilutzim")
 
@@ -49,6 +59,15 @@ router = APIRouter(
     prefix="/admin/procedures",
     tags=["Admin – Procedures"],
     dependencies=[Depends(require_admin_role)],
+)
+
+
+# Guard-facing router (סד"פ WebApp reading page). Same PROCEDURES_ENABLED gate
+# at registration (main.py) — with the flag off every path here 404s. Auth is the
+# guard initData dependency (incl. the __DEV_MODE__ dev bypass). [EDGE A1–A3, B2]
+guard_router = APIRouter(
+    prefix="/procedures",
+    tags=["Guard – Procedures"],
 )
 
 
@@ -70,6 +89,7 @@ def _procedure_out(proc) -> ProcedureOut:
         id=proc.id,
         title=proc.title,
         body_text=proc.body_text,
+        body_html=proc.body_html,
         source_filename=proc.source_filename,
         status=proc.status.value,
         created_at=proc.created_at,
@@ -90,9 +110,12 @@ async def create_procedure(
     body: ProcedureCreate,
     service: ProcedureService = Depends(get_procedure_service),
 ) -> ProcedureOut:
-    """Create a draft procedure from pasted title + text."""
+    """Create a draft procedure from pasted title + text (+ optional body_html)."""
     proc = await service.create(
-        title=body.title, body_text=body.body_text, source_filename=None
+        title=body.title,
+        body_text=body.body_text,
+        body_html=body.body_html,
+        source_filename=None,
     )
     # Re-fetch with the questions relationship eager-loaded (same as the
     # update/archive handlers): serializing the freshly-created instance would
@@ -110,7 +133,11 @@ async def upload_docx(
     """Extract text from an uploaded .docx for admin review (does NOT save).
 
     Enforces a 10 MB cap; returns the extracted text so the admin can edit it
-    before creating the procedure.
+    before creating the procedure. Also returns the sanitized rich-HTML snapshot
+    (``body_html``) for the guard WebApp reading page — None when conversion is
+    impossible/empty, so the page falls back to ``body_text``. Text extraction
+    remains the validity gate, so a failed/empty HTML conversion never breaks
+    the upload.
     """
     data = await file.read(MAX_DOCX_BYTES + 1)
     if len(data) > MAX_DOCX_BYTES:
@@ -119,8 +146,11 @@ async def upload_docx(
             detail=f"הקובץ חורג ממגבלת ה-{MAX_DOCX_BYTES // (1024 * 1024)} מ\"ב",
         )
     text = extract_text_from_docx(data)
+    # Best-effort: a failed/empty HTML snapshot leaves body_html=None (fallback).
+    body_html = extract_html_from_docx(data)
     return DocxUploadOut(
         text=text,
+        body_html=body_html,
         source_filename=file.filename or "upload.docx",
         char_count=len(text),
     )
@@ -150,7 +180,10 @@ async def update_procedure(
     service: ProcedureService = Depends(get_procedure_service),
 ) -> ProcedureOut:
     proc = await service.update(
-        procedure_id, title=body.title, body_text=body.body_text
+        procedure_id,
+        title=body.title,
+        body_text=body.body_text,
+        body_html=body.body_html,
     )
     # refresh questions for the response
     full = await service.get(procedure_id)
@@ -266,3 +299,84 @@ async def procedure_results(
 ) -> list[ResultRow]:
     rows = await service.results(procedure_id)
     return [ResultRow(**r) for r in rows]
+
+
+# ── Guard WebApp (reading page) ─────────────────────────────────────────────
+
+
+@guard_router.get("/{procedure_id}", response_model=GuardProcedureOut)
+async def guard_get_procedure(
+    procedure_id: uuid.UUID,
+    user=Depends(get_current_user),
+    service: ProcedureService = Depends(get_procedure_service),
+) -> GuardProcedureOut:
+    """Return one PUBLISHED procedure for the guard reading page.
+
+    PUBLISHED only (DRAFT/ARCHIVED/unknown → 404). Records the first-open read
+    receipt best-effort. [EDGE A1–A3, C1, D1]
+    """
+    view = await service.guard_view(procedure_id, user)
+    return GuardProcedureOut(**view)
+
+
+@guard_router.post("/{procedure_id}/quiz/start")
+async def guard_start_quiz(
+    procedure_id: uuid.UUID,
+    user=Depends(get_current_user),
+    session=Depends(get_pool),
+):
+    """Start the quiz from the WebApp reading page.
+
+    Opens a sampled attempt (superseding any stale one — a double-tap is safe,
+    [EDGE C2]) and sends the first question to the guard's Telegram chat as a
+    quiz poll, then the page closes itself. PUBLISHED only → 404; an empty
+    active-question bank → 409; the bot unavailable / send failed → 503 (the
+    attempt is still persisted, so a later retry safely supersedes it).
+    [EDGE D1, I1]
+    """
+    procedure_repo = ProcedureRepository(session)
+    proc = await procedure_repo.get_by_id(procedure_id)
+    if proc is None or proc.status != ProcedureStatus.PUBLISHED:
+        raise HTTPException(status_code=404, detail="הנוהל אינו זמין יותר")
+    if not await QuizQuestionRepository(session).list_active(procedure_id):
+        raise HTTPException(
+            status_code=409, detail="אין שאלות זמינות למבחן כרגע"
+        )
+
+    try:
+        telegram_id = int(user.telegram_id)
+    except (TypeError, ValueError):
+        # No resolvable chat id → cannot deliver a poll.
+        raise HTTPException(
+            status_code=503,
+            detail="הבוט אינו זמין כרגע — נסה שוב מאוחר יותר",
+        )
+
+    quiz_service = build_quiz_service(session)
+    try:
+        # Lazy import: the controllers package must not import the bot at load
+        # (layering — procedures may import part A; nothing imports back).
+        from app.bot.quiz_sender import start_and_send
+
+        outcome = await start_and_send(
+            telegram_id, user.id, procedure_id, quiz_service
+        )
+    except ValidationException:
+        # Race: the bank emptied / status changed between the pre-checks and the
+        # start. Treat as "no questions available right now".
+        raise HTTPException(
+            status_code=409, detail="אין שאלות זמינות למבחן כרגע"
+        )
+
+    # Persist the attempt even if the poll send failed — a retry supersedes it
+    # (matches the bot callback's commit-on-failure behavior, so the two paths
+    # cannot drift). [EDGE I1]
+    await session.commit()
+    if not outcome.sent:
+        # A 503 (not a raised 503) so the attempt commit above is not rolled
+        # back by the get_pool error path.
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "הבוט אינו זמין כרגע — נסה שוב מאוחר יותר"},
+        )
+    return {"started": True}

@@ -203,9 +203,15 @@ def create_app() -> FastAPI:
     # reminder scheduler job are likewise gated on the flag (see bot_router /
     # scheduler). Nothing new runs until the flag is flipped on.
     if settings.PROCEDURES_ENABLED:
-        from app.procedures.controllers import procedures_router
+        from app.procedures.controllers import (
+            procedures_guard_router,
+            procedures_router,
+        )
 
         app.include_router(procedures_router)
+        # Guard-facing WebApp router (the reading page + quiz-start). Same flag,
+        # same gate — with the flag off every /procedures/* guard path 404s.
+        app.include_router(procedures_guard_router)
 
     # Health check endpoint
     @app.get("/health")

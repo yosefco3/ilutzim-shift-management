@@ -3,6 +3,7 @@
 from app.procedures.schemas.procedure_schemas import (
     DocxUploadOut,
     GenerateOut,
+    GuardProcedureOut,
     ProcedureCreate,
     ProcedureListItem,
     ProcedureOut,
@@ -19,6 +20,7 @@ __all__ = [
     "ProcedureUpdate",
     "ProcedureOut",
     "ProcedureListItem",
+    "GuardProcedureOut",
     "QuestionOut",
     "QuestionCreate",
     "QuestionUpdate",

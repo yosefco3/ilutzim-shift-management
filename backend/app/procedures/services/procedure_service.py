@@ -14,6 +14,9 @@ from app.procedures.constants import ProcedureStatus
 from app.procedures.repositories.attempt_repository import QuizAttemptRepository
 from app.procedures.repositories.procedure_repository import ProcedureRepository
 from app.procedures.repositories.question_repository import QuizQuestionRepository
+from app.procedures.repositories.read_receipt_repository import (
+    ProcedureReadReceiptRepository,
+)
 from app.procedures.services.publish_service import ProcedurePublisher
 from app.repositories.user_repository import UserRepository
 from app.services.settings_service import SettingsService
@@ -37,6 +40,7 @@ class ProcedureService:
         user_repo: UserRepository,
         settings: SettingsService,
         publisher: ProcedurePublisher,
+        read_receipt_repo: ProcedureReadReceiptRepository | None = None,
     ) -> None:
         self._procedures = procedure_repo
         self._questions = question_repo
@@ -44,13 +48,21 @@ class ProcedureService:
         self._users = user_repo
         self._settings = settings
         self._publisher = publisher
+        self._read_receipts = read_receipt_repo
 
     # ── CRUD ──────────────────────────────────────────────────────────────
 
-    async def create(self, title: str, body_text: str, source_filename: str | None = None):
+    async def create(
+        self,
+        title: str,
+        body_text: str,
+        source_filename: str | None = None,
+        body_html: str | None = None,
+    ):
         proc = await self._procedures.create(
             title=title.strip(),
             body_text=body_text,
+            body_html=body_html,
             source_filename=source_filename,
             status=ProcedureStatus.DRAFT,
         )
@@ -87,8 +99,57 @@ class ProcedureService:
             raise UserNotFoundException("הנוהל לא נמצא")
         return proc
 
-    async def update(self, procedure_id: uuid.UUID, *, title: str | None, body_text: str | None):
-        """Edit title/body — allowed only while DRAFT (pre-publish)."""
+    # ── Guard WebApp view ─────────────────────────────────────────────
+
+    async def guard_view(self, procedure_id: uuid.UUID, user) -> dict:
+        """Return the procedure a guard reads in the WebApp page.
+
+        PUBLISHED only — DRAFT / ARCHIVED / unknown id → 404 (no leak that a
+        non-published procedure exists). Includes ``passed`` from the attempt
+        repo and records the first-open read receipt **best-effort** (a receipt
+        failure is logged and never breaks the view). [EDGE C1, D1]
+        """
+        proc = await self._procedures.get_by_id(procedure_id)
+        if proc is None or proc.status != ProcedureStatus.PUBLISHED:
+            raise UserNotFoundException("הנוהל אינו זמין יותר")
+
+        passed = await self._attempts.has_passed(user.id, procedure_id)
+
+        if self._read_receipts is not None:
+            try:
+                await self._read_receipts.record_first_read(
+                    procedure_id, user.id, _now_naive()
+                )
+            except Exception as exc:  # noqa: BLE001 — best-effort: never fail the GET
+                logger.warning(
+                    "guard_view: read receipt failed for proc=%s user=%s — %s",
+                    procedure_id, user.id, exc,
+                )
+
+        return {
+            "id": proc.id,
+            "title": proc.title,
+            "body_html": proc.body_html,
+            "body_text": proc.body_text,
+            "is_default": proc.is_default,
+            "passed": passed,
+        }
+
+    async def update(
+        self,
+        procedure_id: uuid.UUID,
+        *,
+        title: str | None,
+        body_text: str | None,
+        body_html: str | None = None,
+    ):
+        """Edit title/body (+ optional body_html snapshot) — DRAFT only.
+
+        Omitting ``body_html`` (None) leaves the existing docx snapshot untouched
+        — the admin plain-text editor edits only ``body_text`` and must not clear
+        the snapshot ([EDGE D3]). Sending a new ``body_html`` (a re-upload)
+        replaces it.
+        """
         proc = await self._get_or_404(procedure_id)
         if proc.status != ProcedureStatus.DRAFT:
             raise ConflictException("ניתן לערוך נוהל טיוטה בלבד")
@@ -97,6 +158,8 @@ class ProcedureService:
             fields["title"] = title.strip()
         if body_text is not None:
             fields["body_text"] = body_text
+        if body_html is not None:
+            fields["body_html"] = body_html
         if fields:
             return await self._procedures.update(procedure_id, **fields)
         return proc
@@ -173,7 +236,7 @@ class ProcedureService:
         proc = await self._procedures.set_as_default(procedure_id)
 
         summary = await self._publisher.broadcast(
-            recipients, proc.title, proc.body_text, procedure_id
+            recipients, proc.title, procedure_id
         )
         return {**summary, "republished": republished}
 
@@ -209,10 +272,23 @@ class ProcedureService:
         for a in attempts:
             by_user.setdefault(a.user_id, []).append(a)
 
+        # Per-guard read receipts: {user_id: first_read_at}. None when the repo
+        # isn't wired (e.g. legacy tests) → every guard reports unread.
+        read_map: dict = {}
+        if self._read_receipts is not None:
+            try:
+                read_map = await self._read_receipts.read_map(procedure_id)
+            except Exception as exc:  # noqa: BLE001 — defensive
+                logger.warning("results: read_map failed for proc=%s — %s", procedure_id, exc)
+                read_map = {}
+
         rows = []
         for u in users:
-            user_attempts = by_user.get(u.id, [])
-            rows.append(self._result_row(u, user_attempts))
+            row = self._result_row(u, by_user.get(u.id, []))
+            first_read_at = read_map.get(u.id)
+            row["read"] = first_read_at is not None
+            row["first_read_at"] = first_read_at
+            rows.append(row)
         return rows
 
     @staticmethod

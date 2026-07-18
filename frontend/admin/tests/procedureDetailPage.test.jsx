@@ -377,4 +377,24 @@ describe('ProcedureDetailPage — results', () => {
     fireEvent.click(screen.getByRole('button', { name: new RegExp(m.tabsResults) }));
     expect(await screen.findByText(m.noResults)).toBeInTheDocument();
   });
+
+  it('renders the קרא column: ✓+date when read, — when not', async () => {
+    fetchProcedure.mockResolvedValue(PUBLISHED_PROC);
+    fetchProcedureResults.mockResolvedValue([
+      { user_id: 'u1', user_name: 'דנה', status: 'passed', attempts: 1, best_score: 90, passed: true,
+        read: true, first_read_at: '2026-07-18T09:30:00' },
+      { user_id: 'u2', user_name: 'אבי', status: 'not_started', attempts: 0, best_score: null, passed: null,
+        read: false, first_read_at: null },
+    ]);
+    renderPage();
+    await screen.findByText('נוהל מפורסם');
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(m.tabsResults) }));
+    await screen.findByTestId('results-table');
+
+    const readCell = screen.getByTestId('read-cell-u1');
+    expect(readCell.textContent).toContain(m.readYes); // ✓
+    // unread guard → dash
+    expect(screen.getByTestId('read-cell-u2').textContent.trim()).toBe(m.readNo);
+  });
 });
+
