@@ -40,6 +40,14 @@ const ACTUAL_SCHEDULE_ENABLED = import.meta.env.VITE_ACTUAL_SCHEDULE_ENABLED !==
 // this flag unset, so the routes/nav entry are absent for end users).
 const PROCEDURES_ENABLED = import.meta.env.VITE_PROCEDURES_ENABLED === 'true';
 
+// DEV visual marker: `vite dev` (local + the dev tunnel) tints the app
+// background so dev is never mistaken for prod. import.meta.env.DEV is false
+// in the production build (`vite build` in the Docker image), so prod keeps
+// the standard background.
+if (import.meta.env.DEV) {
+  document.body.classList.add('dev-env');
+}
+
 export default function App() {
   return (
     <BrowserRouter>

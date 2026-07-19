@@ -64,6 +64,14 @@
 
 html { color-scheme: dark; }
 
+/* DEV marker — App.jsx adds .dev-env on <body> only under `vite dev`: the app
+   background + navbar get a subtle green tint so a dev window is instantly
+   distinguishable from production (which never gets the class). */
+body.dev-env {
+  --bg:        #0d1712;
+  --navbar-bg: #0f1c14;
+}
+
 body {
   font-family: 'Heebo', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   direction: rtl;
