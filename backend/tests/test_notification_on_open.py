@@ -114,10 +114,10 @@ async def test_notification_message_format():
     kb = captured[0]["reply_markup"]
     button = kb.keyboard[0][0]
     assert button.text == BTN_SUBMIT_CONSTRAINTS
-    # The WebApp URL carries a cache-busting version param so Telegram's WebView
-    # never serves guards a stale build (see app.version / app.bot.webapp).
-    assert button.web_app.url.startswith("https://example.com/app/submit?")
-    assert "v=" in button.web_app.url
+    # Step 03: plain TEXT button — a keyboard-button web_app gets NO initData
+    # from Telegram, so the tap is answered by handlers.submit_button with an
+    # inline web_app button instead.
+    assert button.web_app is None
 
 
 # ===========================================================================

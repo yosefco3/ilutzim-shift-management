@@ -2,22 +2,28 @@
 The composed persistent bottom keyboard (reply keyboard) for guards.
 
 Two possible rows, each independently present:
-- "📝 הגשת/עריכת אילוצים" — a ``web_app`` button straight to the ``/submit``
-  form. Shown ONLY while a week is OPEN, so the keyboard mirrors whether
-  submitting is currently possible.
+- "📝 הגשת/עריכת אילוצים" — a plain TEXT button. Shown ONLY while a week is
+  OPEN, so the keyboard mirrors whether submitting is currently possible.
+  It must NOT be a ``web_app`` KeyboardButton: Telegram sends EMPTY
+  ``initData`` to Mini Apps launched from a reply-keyboard button (Bot API:
+  WebAppInitData "is empty if the Mini App was launched from a keyboard
+  button"), so the form cannot authenticate — prod 401s, dev silently
+  authenticates as the wrong user via the __DEV_MODE__ bypass. Instead the
+  tap is answered by ``handlers.submit_button`` with an INLINE web_app
+  button, which does carry signed initData.
 - The attendance punch row (🟢/🔴) — shown while ``ATTENDANCE_ENABLED``.
 
 Telegram can only swap a reply keyboard by sending a message, so every bot
 reply re-attaches the freshly-composed keyboard (see the attendance handlers
 and /start), and the week-opened/locked broadcasts carry it too. After the
 SILENT Sunday rollover the submit button lingers until the guard's next
-interaction — accepted: a stale tap opens the form, which shows
-"אין שבוע פתוח כרגע" (see features-prompts/submit_reply_keyboard/EDGE_CASES).
+interaction — accepted: a stale tap is answered with "אין שבוע פתוח" and a
+keyboard refresh (see features-prompts/submit_reply_keyboard/EDGE_CASES).
 """
 
 import logging
 
-from aiogram.types import KeyboardButton, ReplyKeyboardMarkup, WebAppInfo
+from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 
 from app.bot.keyboards.attendance import BTN_PUNCH_IN, BTN_PUNCH_OUT
 
@@ -38,16 +44,10 @@ def compose_reply_kb(
     """
     rows: list[list[KeyboardButton]] = []
     if week_open:
-        # Lazy import (matching the other bot keyboards) so the current settings
-        # object is read at call time.
-        from app.bot.webapp import submit_webapp_url
-
-        rows.append([
-            KeyboardButton(
-                text=BTN_SUBMIT_CONSTRAINTS,
-                web_app=WebAppInfo(url=submit_webapp_url()),
-            )
-        ])
+        # Plain text button — answered by handlers.submit_button with an inline
+        # web_app button (a keyboard-button web_app gets no initData; see the
+        # module docstring).
+        rows.append([KeyboardButton(text=BTN_SUBMIT_CONSTRAINTS)])
     if attendance_enabled:
         rows.append(
             [KeyboardButton(text=BTN_PUNCH_IN), KeyboardButton(text=BTN_PUNCH_OUT)]

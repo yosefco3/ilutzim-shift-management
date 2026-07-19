@@ -51,6 +51,13 @@ def get_dispatcher() -> Dispatcher:
 
         dp.include_router(procedures_router)
 
+    # Bottom-keyboard submit button (text → inline web_app answer). Always on
+    # (the button rides the composed keyboard whenever a week is OPEN), and
+    # MUST precede main_router for the same catch-all reason as above.
+    from app.bot.handlers.submit_button import build_router as build_submit_router
+
+    dp.include_router(build_submit_router())
+
     dp.include_router(main_router)
 
     _dispatcher = dp
