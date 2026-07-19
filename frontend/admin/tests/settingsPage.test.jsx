@@ -51,6 +51,18 @@ describe('SettingsPage', () => {
     expect(screen.queryByText('procedure_quiz_window_days')).not.toBeInTheDocument();
   });
 
+  it('renders the AI-model setting with a Hebrew label inside the procedures group (not "נוספות")', () => {
+    mockHook({
+      settings: [{ key: 'procedure_ai_model', value: 'claude-opus-4-8', description: null }],
+      draft: { procedure_ai_model: 'claude-opus-4-8' },
+    });
+    render(<SettingsPage />);
+    expect(screen.getByText('מודל ה-AI להפקת שאלות המבחן')).toBeInTheDocument();
+    expect(screen.queryByText('procedure_ai_model')).not.toBeInTheDocument();
+    expect(screen.getByText('נהלים (סד"פ)')).toBeInTheDocument();
+    expect(screen.queryByText('נוספות')).not.toBeInTheDocument();
+  });
+
   it('does not render any telegram bot token field', () => {
     render(<SettingsPage />);
     expect(screen.queryByText('בוט טלגרם')).not.toBeInTheDocument();

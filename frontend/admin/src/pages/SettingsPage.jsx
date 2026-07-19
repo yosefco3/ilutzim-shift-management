@@ -94,6 +94,7 @@ const GROUPS = [
       'procedure_quiz_size',
       'procedure_bank_size',
       'procedure_quiz_window_days',
+      'procedure_ai_model',
     ],
   },
   ...(ATTENDANCE_ENABLED ? [{ title: 'נוכחות', keys: ATTENDANCE_KEYS }] : []),

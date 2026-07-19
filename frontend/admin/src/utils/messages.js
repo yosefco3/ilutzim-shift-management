@@ -457,6 +457,7 @@ export default {
       procedure_quiz_size: 'מספר שאלות במבחן נהלים',
       procedure_bank_size: 'גודל בנק השאלות להפקה',
       procedure_quiz_window_days: 'חלון זמינות המבחן (ימים, 0 = ללא הגבלה)',
+      procedure_ai_model: 'מודל ה-AI להפקת שאלות המבחן',
     },
     changePassword: {
       title: 'החלפת סיסמה',
