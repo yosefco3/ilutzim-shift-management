@@ -15,6 +15,7 @@ import logging
 from datetime import datetime, timedelta
 
 from app.procedures.constants import ProcedureStatus, REMINDER_AGE_HOURS
+from app.procedures.services.quiz_window import is_quiz_open
 from app.procedures.repositories.attempt_repository import QuizAttemptRepository
 from app.procedures.repositories.procedure_repository import ProcedureRepository
 from app.procedures.repositories.reminder_repository import ProcedureReminderRepository
@@ -40,17 +41,24 @@ class ProcedureReminderService:
         self._users = user_repo
         self._send = send  # send(telegram_id, procedure_id, title) -> bool
 
-    async def run(self, now: datetime) -> int:
-        """Send reminders due as of ``now``. Returns the number sent."""
+    async def run(self, now: datetime, window_days: int = 0) -> int:
+        """Send reminders due as of ``now``. Returns the number sent.
+
+        ``window_days`` is the current ``procedure_quiz_window_days`` setting
+        (0 = unlimited) — an expired quiz gets no "go take the quiz" nudge.
+        [EDGE D3]
+        """
         cutoff = now - timedelta(hours=REMINDER_AGE_HOURS)
         proc = await self._procedures.get_default()
         # No default, or the default isn't a live published procedure older than
-        # the age gate → nothing to remind about.
+        # the age gate, or its availability window already closed → nothing to
+        # remind about.
         if (
             proc is None
             or proc.status != ProcedureStatus.PUBLISHED
             or proc.published_at is None
             or proc.published_at > cutoff
+            or not is_quiz_open(proc, window_days, now)
         ):
             return 0
 

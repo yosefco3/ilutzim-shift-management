@@ -187,7 +187,23 @@ async def run_procedure_reminders() -> None:
 
         async with get_session() as session:
             service = build_reminder_service(session, send=_send)
-            await service.run(now=now_il().replace(tzinfo=None))
+            # Availability window: an expired quiz gets no reminder. Tolerant
+            # parse — a malformed setting falls back to 0 (unlimited).
+            from app.repositories.system_settings_repository import (
+                SystemSettingsRepository,
+            )
+            from app.services.settings_service import SettingsService
+
+            try:
+                settings = SettingsService(SystemSettingsRepository(session))
+                window_days = int(
+                    await settings.get_setting("procedure_quiz_window_days")
+                )
+            except Exception:  # noqa: BLE001 — a failed read must not kill the job
+                window_days = 0
+            await service.run(
+                now=now_il().replace(tzinfo=None), window_days=window_days
+            )
     except Exception as exc:
         logger.warning("Procedure reminders job failed: %s", exc)
 

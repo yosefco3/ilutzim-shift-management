@@ -27,6 +27,7 @@ from app.procedures.repositories.attempt_repository import QuizAttemptRepository
 from app.procedures.repositories.poll_link_repository import QuizPollLinkRepository
 from app.procedures.repositories.procedure_repository import ProcedureRepository
 from app.procedures.repositories.question_repository import QuizQuestionRepository
+from app.procedures.services.quiz_window import is_quiz_open
 from app.services.settings_service import SettingsService
 from app.utils.date_utils import now_il
 
@@ -121,6 +122,18 @@ class QuizService:
             raise UserNotFoundException("הנוהל לא נמצא")
         if proc.status != ProcedureStatus.PUBLISHED:
             raise ValidationException("המבחן כבר אינו פעיל")
+
+        # Availability window: the SINGLE gate for both entry points (the bot
+        # callback and the WebApp start endpoint both surface this message).
+        # Start-only — an attempt already in progress may finish. [EDGE C1, T3]
+        window_days = await _setting_int(
+            self._settings, "procedure_quiz_window_days", 0
+        )
+        if not is_quiz_open(proc, window_days, _now_naive()):
+            raise ValidationException(
+                "המבחן כבר לא זמין — חלון הזמן לביצועו הסתיים. "
+                "המנהל יכול לפרסם אותו מחדש."
+            )
 
         active = await self._questions.list_active(procedure_id)
         if not active:

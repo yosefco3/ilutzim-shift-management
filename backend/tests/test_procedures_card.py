@@ -251,7 +251,7 @@ async def test_reminder_send_uses_reminder_text_with_keyboard(monkeypatch):
         captured["send"] = send
 
         class _Svc:
-            async def run(self, now):
+            async def run(self, now, window_days=0):
                 ok = await send("111", "proc-uuid", "נהל חירום <x>")
                 return 1 if ok else 0
 
