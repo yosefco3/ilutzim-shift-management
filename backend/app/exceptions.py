@@ -99,6 +99,13 @@ class PasswordChangeException(AppBaseException):
     message = "שינוי סיסמה נכשל"
 
 
+class AdminManagementException(AppBaseException):
+    """Raised when an admin-management guard rail blocks the operation
+    (self-deactivation, deactivating a super admin, self password reset)."""
+    status_code = 400
+    message = "פעולת ניהול אדמינים נדחתה"
+
+
 # ── Part B — schedule builder ─────────────────────────────────────────
 
 class ProfileNotFoundException(AppBaseException):

@@ -4,7 +4,7 @@ import re
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from app.constants import ShiftType, UserRole
 from app.messages import Messages
@@ -147,3 +147,38 @@ class ChangePasswordRequest(BaseModel):
     """Schema for admin self-service password change."""
     current_password: str
     new_password: str
+
+
+# ── Admin management schemas (SUPER_ADMIN only) ───────────────────────────────
+
+
+class AdminCreateRequest(BaseModel):
+    """Create a new dashboard admin (role is always ADMIN — hierarchy model)."""
+    email: EmailStr
+    full_name: str = Field(min_length=1, max_length=100)
+    password: str
+
+
+class AdminSetActiveRequest(BaseModel):
+    """Activate/deactivate an admin account."""
+    active: bool
+
+
+class AdminResetPasswordRequest(BaseModel):
+    """Set a new password for another admin."""
+    new_password: str
+
+
+class AdminResponse(BaseModel):
+    """Admin account as exposed to the management UI — never the hash."""
+    id: int
+    email: str
+    full_name: str
+    role: str
+    is_active: bool
+    created_at: datetime | None = None
+
+
+class AdminListResponse(BaseModel):
+    admins: list[AdminResponse]
+    count: int
