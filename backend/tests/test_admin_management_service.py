@@ -96,6 +96,54 @@ async def test_create_admin_integrity_race_maps_to_conflict(service_factory, mon
         await service.create_admin("race@a.com", "דוד", "abcd123456")
 
 
+@pytest.mark.asyncio
+async def test_create_admin_with_viewer_role(service_factory):
+    _, service = service_factory
+    created = await service.create_admin("v@a.com", "צופה", "abcd123456", role="viewer")
+    assert created["role"] == AdminRole.VIEWER.value
+
+
+@pytest.mark.asyncio
+async def test_create_admin_super_admin_role_rejected(service_factory):
+    """SUPER_ADMIN is never assignable — the hierarchy keeps one super admin."""
+    _, service = service_factory
+    with pytest.raises(ValidationException):
+        await service.create_admin("x@a.com", "x", "abcd123456", role="super_admin")
+    with pytest.raises(ValidationException):
+        await service.create_admin("x@a.com", "x", "abcd123456", role="nonsense")
+
+
+# ── change_role ───────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_change_role_admin_to_viewer_and_back(service_factory):
+    repo, service = service_factory
+    boss = await _add_admin(repo, "boss@a.com", role=AdminRole.SUPER_ADMIN)
+    admin = await _add_admin(repo, "second@a.com")
+
+    updated = await service.change_role(boss.id, admin.id, "viewer")
+    assert updated["role"] == AdminRole.VIEWER.value
+    updated = await service.change_role(boss.id, admin.id, "admin")
+    assert updated["role"] == AdminRole.ADMIN.value
+
+
+@pytest.mark.asyncio
+async def test_change_role_guard_rails(service_factory):
+    repo, service = service_factory
+    boss = await _add_admin(repo, "boss@a.com", role=AdminRole.SUPER_ADMIN)
+    other_super = await _add_admin(repo, "other@a.com", role=AdminRole.SUPER_ADMIN)
+    admin = await _add_admin(repo, "second@a.com")
+
+    with pytest.raises(AdminManagementException):
+        await service.change_role(boss.id, boss.id, "admin")  # self
+    with pytest.raises(AdminManagementException):
+        await service.change_role(boss.id, other_super.id, "admin")  # demote super
+    with pytest.raises(ValidationException):
+        await service.change_role(boss.id, admin.id, "super_admin")  # promote to super
+    with pytest.raises(AdminNotFoundException):
+        await service.change_role(boss.id, 999, "viewer")
+
+
 # ── set_active ────────────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio

@@ -153,15 +153,22 @@ class ChangePasswordRequest(BaseModel):
 
 
 class AdminCreateRequest(BaseModel):
-    """Create a new dashboard admin (role is always ADMIN — hierarchy model)."""
+    """Create a new dashboard admin. Role is assignable (admin/viewer) —
+    SUPER_ADMIN is never assignable (hierarchy model)."""
     email: EmailStr
     full_name: str = Field(min_length=1, max_length=100)
     password: str
+    role: str = "admin"
 
 
 class AdminSetActiveRequest(BaseModel):
     """Activate/deactivate an admin account."""
     active: bool
+
+
+class AdminChangeRoleRequest(BaseModel):
+    """Change an admin's role (admin/viewer)."""
+    role: str
 
 
 class AdminResetPasswordRequest(BaseModel):

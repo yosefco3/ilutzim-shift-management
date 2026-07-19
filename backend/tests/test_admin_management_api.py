@@ -156,6 +156,43 @@ async def test_create_invalid_email_422(api):
     assert resp.status_code == 422
 
 
+@pytest.mark.asyncio
+async def test_create_with_role_and_change_role(api):
+    ac, boss, second = api
+    headers = _auth(_token(str(boss.id), AdminRole.SUPER_ADMIN))
+
+    resp = await ac.post(
+        "/auth/admin/admins",
+        headers=headers,
+        json={
+            "email": "viewer@a.com",
+            "full_name": "צופה",
+            "password": "abcd123456",
+            "role": "viewer",
+        },
+    )
+    assert resp.status_code == 201
+    assert resp.json()["role"] == "viewer"
+
+    resp = await ac.patch(
+        f"/auth/admin/admins/{second.id}/role", headers=headers, json={"role": "viewer"}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["role"] == "viewer"
+
+    # invalid role → 422, super_admin target → 400, self → 400
+    resp = await ac.patch(
+        f"/auth/admin/admins/{second.id}/role",
+        headers=headers,
+        json={"role": "super_admin"},
+    )
+    assert resp.status_code == 422
+    resp = await ac.patch(
+        f"/auth/admin/admins/{boss.id}/role", headers=headers, json={"role": "admin"}
+    )
+    assert resp.status_code == 400
+
+
 # ── set_active / reset-password mapping ───────────────────────────────────────
 
 @pytest.mark.asyncio

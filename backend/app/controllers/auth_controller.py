@@ -13,6 +13,7 @@ from app.dependencies import (
     require_super_admin,
 )
 from app.schemas.user_schemas import (
+    AdminChangeRoleRequest,
     AdminCreateRequest,
     AdminListResponse,
     AdminResetPasswordRequest,
@@ -122,8 +123,10 @@ async def create_admin(
     _admin: dict = Depends(require_super_admin),
     service: AdminManagementService = Depends(get_admin_management_service),
 ):
-    """Create a new admin account (always role ADMIN — hierarchy model)."""
-    return await service.create_admin(body.email, body.full_name, body.password)
+    """Create a new admin account with an assignable role (admin/viewer)."""
+    return await service.create_admin(
+        body.email, body.full_name, body.password, body.role
+    )
 
 
 @router.patch("/admin/admins/{admin_id}/active", response_model=AdminResponse)
@@ -135,6 +138,17 @@ async def set_admin_active(
 ):
     """Activate/deactivate an admin. Caller id comes from the JWT."""
     return await service.set_active(int(admin["sub"]), admin_id, body.active)
+
+
+@router.patch("/admin/admins/{admin_id}/role", response_model=AdminResponse)
+async def change_admin_role(
+    admin_id: int,
+    body: AdminChangeRoleRequest,
+    admin: dict = Depends(require_super_admin),
+    service: AdminManagementService = Depends(get_admin_management_service),
+):
+    """Change an admin's role (admin/viewer). Caller id comes from the JWT."""
+    return await service.change_role(int(admin["sub"]), admin_id, body.role)
 
 
 @router.post("/admin/admins/{admin_id}/reset-password")
