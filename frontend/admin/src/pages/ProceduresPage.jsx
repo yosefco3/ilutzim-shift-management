@@ -247,6 +247,15 @@ function ProcedureRow({ proc, generating, publishing, error, onGenerate, onPubli
       </td>
       <td>
         <span className={`badge ${meta.badge}`}>{STATUS_LABEL(proc.status)}</span>
+        {proc.status === 'published' && proc.quiz_open === false && (
+          <span
+            className="badge badge-danger"
+            data-testid={`quiz-closed-badge-${proc.id}`}
+            style={{ marginInlineStart: '0.5rem' }}
+          >
+            {m.quizClosedBadge}
+          </span>
+        )}
       </td>
       <td>
         {isDraft

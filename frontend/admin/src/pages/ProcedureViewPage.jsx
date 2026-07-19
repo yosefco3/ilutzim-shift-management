@@ -154,7 +154,11 @@ export default function ProcedureViewPage() {
 
       {quizError && <div className="error-banner">{quizError}</div>}
 
-      {quizStarted ? (
+      {proc.quiz_open === false ? (
+        // Availability window closed: only the quiz is blocked — the reading
+        // above stays. [quiz_availability_window EDGE U1]
+        <div className="quiz-sent">{messages.PROC_QUIZ_CLOSED}</div>
+      ) : quizStarted ? (
         <div className="quiz-sent">{messages.PROC_QUIZ_SENT}</div>
       ) : (
         <button

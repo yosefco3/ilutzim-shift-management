@@ -456,6 +456,7 @@ export default {
       procedure_pass_threshold: 'אחוז עובר במבחן נהלים',
       procedure_quiz_size: 'מספר שאלות במבחן נהלים',
       procedure_bank_size: 'גודל בנק השאלות להפקה',
+      procedure_quiz_window_days: 'חלון זמינות המבחן (ימים, 0 = ללא הגבלה)',
     },
     changePassword: {
       title: 'החלפת סיסמה',
@@ -755,6 +756,12 @@ export default {
     // the list page. Every publish path sets the procedure as the single
     // default (clearing the previous one); the row action depends on status.
     defaultBadge: '⭐ ברירת מחדל',
+    // Quiz availability window (procedure_quiz_window_days setting) — the list
+    // badges a published procedure whose window closed; the detail header
+    // shows the deadline / how to re-open (rebroadcast resets the window).
+    quizClosedBadge: 'המבחן סגור',
+    quizOpenUntil: (date) => `המבחן פתוח עד ${date}`,
+    quizClosedHint: 'המבחן סגור — פרסום מחדש יפתח אותו שוב',
     rowPublish: 'פרסם',                           // draft → first publish
     republish: 'פרסם מחדש',                       // archived → re-publish
     markDefaultBroadcast: 'קבע כברירת מחדל ושדר', // published non-default

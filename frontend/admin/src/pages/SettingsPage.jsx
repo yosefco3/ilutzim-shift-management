@@ -58,6 +58,7 @@ const FIELD_TYPES = {
   procedure_pass_threshold: 'number',
   procedure_quiz_size: 'number',
   procedure_bank_size: 'number',
+  procedure_quiz_window_days: 'number',
 };
 
 // Logical grouping for the page — each section renders only the keys that the
@@ -88,7 +89,12 @@ const GROUPS = [
   },
   {
     title: 'נהלים (סד"פ)',
-    keys: ['procedure_pass_threshold', 'procedure_quiz_size', 'procedure_bank_size'],
+    keys: [
+      'procedure_pass_threshold',
+      'procedure_quiz_size',
+      'procedure_bank_size',
+      'procedure_quiz_window_days',
+    ],
   },
   ...(ATTENDANCE_ENABLED ? [{ title: 'נוכחות', keys: ATTENDANCE_KEYS }] : []),
 ];

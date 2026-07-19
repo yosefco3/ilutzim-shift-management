@@ -171,4 +171,38 @@ describe('ProcedureViewPage', () => {
     resolveQuiz({ data: { started: true }, error: null, status: 200 });
     await screen.findByText("המבחן נשלח לצ'אט");
   });
+
+  it('hides the start button and shows the closed note when quiz_open=false', async () => {
+    // Availability window closed: reading stays, only the quiz is blocked.
+    // [quiz_availability_window EDGE U1]
+    getProcedure.mockResolvedValue({
+      data: {
+        id: 'p1', title: 'נוהל', body_html: '<p>תוכן הנוהל</p>', body_text: 'x',
+        is_default: false, passed: false, quiz_open: false,
+      },
+      error: null, status: 200,
+    });
+    renderPage();
+    await screen.findByText('המבחן כבר לא זמין — חלון הזמן לביצועו הסתיים');
+    expect(screen.getByText('תוכן הנוהל')).toBeInTheDocument(); // reading intact
+    expect(
+      screen.queryByRole('button', { name: '▶️ התחל מבחן' }),
+    ).not.toBeInTheDocument();
+    expect(startProcedureQuiz).not.toHaveBeenCalled();
+  });
+
+  it('still shows the start button when quiz_open is true or absent', async () => {
+    // Backward compat: an older payload without quiz_open behaves as open.
+    getProcedure.mockResolvedValue({
+      data: {
+        id: 'p1', title: 'נוהל', body_html: '<p>x</p>', body_text: 'x',
+        is_default: false, passed: false,
+      },
+      error: null, status: 200,
+    });
+    renderPage();
+    expect(
+      await screen.findByRole('button', { name: '▶️ התחל מבחן' }),
+    ).toBeInTheDocument();
+  });
 });

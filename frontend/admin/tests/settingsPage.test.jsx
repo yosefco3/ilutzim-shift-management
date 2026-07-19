@@ -40,6 +40,17 @@ describe('SettingsPage', () => {
     expect(screen.queryByText('min_nights')).not.toBeInTheDocument();
   });
 
+  it('renders the quiz-window field as a number input in the procedures group', () => {
+    mockHook({
+      settings: [{ key: 'procedure_quiz_window_days', value: '0', description: null }],
+      draft: { procedure_quiz_window_days: '0' },
+    });
+    render(<SettingsPage />);
+    const label = screen.getByText('חלון זמינות המבחן (ימים, 0 = ללא הגבלה)');
+    expect(label).toBeInTheDocument();
+    expect(screen.queryByText('procedure_quiz_window_days')).not.toBeInTheDocument();
+  });
+
   it('does not render any telegram bot token field', () => {
     render(<SettingsPage />);
     expect(screen.queryByText('בוט טלגרם')).not.toBeInTheDocument();

@@ -56,6 +56,8 @@ export const messages = {
   PROC_QUIZ_BTN: "▶️ התחל מבחן",
   PROC_QUIZ_SENDING: "שולח...",
   PROC_QUIZ_SENT: "המבחן נשלח לצ'אט",
+  // Availability window closed — reading stays, only the quiz is gone.
+  PROC_QUIZ_CLOSED: "המבחן כבר לא זמין — חלון הזמן לביצועו הסתיים",
   // Status-specific screens (friendly Hebrew, never a raw error).
   PROC_ERR_AUTH: "יש לפתוח את הנוהל מתוך הבוט בטלגרם", // 401 / missing initData
   PROC_ERR_UNAVAILABLE: "הנוהל אינו זמין יותר", // 404 / not published

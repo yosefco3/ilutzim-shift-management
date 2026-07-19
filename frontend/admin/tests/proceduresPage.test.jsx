@@ -110,6 +110,25 @@ describe('ProceduresPage', () => {
     expect(deleteProcedure).not.toHaveBeenCalled();
   });
 
+  it('badges a published row whose quiz window closed', async () => {
+    // [quiz_availability_window EDGE U2]
+    fetchProcedures.mockResolvedValue([
+      { ...PUBLISHED_PROC, quiz_open: false, quiz_deadline_at: '2026-07-03T10:00:00' },
+      DRAFT_PROC, // drafts never get the badge (quiz_open irrelevant)
+    ]);
+    renderPage();
+    await screen.findByText('נוהל מעבר משמרת');
+    expect(screen.getByTestId('quiz-closed-badge-p2')).toHaveTextContent(m.quizClosedBadge);
+    expect(screen.queryByTestId('quiz-closed-badge-p1')).not.toBeInTheDocument();
+  });
+
+  it('shows no closed badge while the quiz window is open (or absent)', async () => {
+    fetchProcedures.mockResolvedValue([PUBLISHED_PROC]); // no quiz_open field
+    renderPage();
+    await screen.findByText('נוהל מעבר משמרת');
+    expect(screen.queryByTestId('quiz-closed-badge-p2')).not.toBeInTheDocument();
+  });
+
   it('renders the list of procedures with status + question counts', async () => {
     fetchProcedures.mockResolvedValue([PUBLISHED_PROC, DRAFT_PROC]);
     renderPage();

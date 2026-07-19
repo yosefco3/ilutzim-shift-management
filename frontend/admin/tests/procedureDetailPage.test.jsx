@@ -132,6 +132,36 @@ describe('ProcedureDetailPage — questions editor', () => {
     expect(screen.queryByTestId('generate-ai-btn')).toBeNull();
   });
 
+  it('shows the quiz-window deadline on a published procedure', async () => {
+    // [quiz_availability_window EDGE U2]
+    fetchProcedure.mockResolvedValue({
+      ...PUBLISHED_PROC,
+      quiz_open: true,
+      quiz_deadline_at: '2026-07-05T10:00:00',
+    });
+    renderPage('/procedures/p2');
+    await screen.findByText('נוהל מפורסם');
+    expect(screen.getByTestId('quiz-window-info')).toHaveTextContent('המבחן פתוח עד');
+  });
+
+  it('shows the closed hint when the quiz window expired', async () => {
+    fetchProcedure.mockResolvedValue({
+      ...PUBLISHED_PROC,
+      quiz_open: false,
+      quiz_deadline_at: '2026-07-03T10:00:00',
+    });
+    renderPage('/procedures/p2');
+    await screen.findByText('נוהל מפורסם');
+    expect(screen.getByTestId('quiz-window-info')).toHaveTextContent(m.quizClosedHint);
+  });
+
+  it('shows no window info without a deadline (unlimited setting)', async () => {
+    fetchProcedure.mockResolvedValue(PUBLISHED_PROC); // no quiz_deadline_at
+    renderPage('/procedures/p2');
+    await screen.findByText('נוהל מפורסם');
+    expect(screen.queryByTestId('quiz-window-info')).toBeNull();
+  });
+
   it('renders the body text + existing questions with the correct option marked', async () => {
     fetchProcedure.mockResolvedValue(DRAFT_PROC);
     renderPage();

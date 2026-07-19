@@ -139,6 +139,16 @@ export default function ProcedureDetailPage() {
           <h2>{proc.title}</h2>
           <p className="page-subtitle">
             <span className={`badge ${meta.badge}`}>{meta.label || proc.status}</span>
+            {proc.status === 'published' && proc.quiz_deadline_at && (
+              <span
+                data-testid="quiz-window-info"
+                style={{ marginInlineStart: '0.5rem' }}
+              >
+                {proc.quiz_open === false
+                  ? m.quizClosedHint
+                  : m.quizOpenUntil(formatDateTime(proc.quiz_deadline_at))}
+              </span>
+            )}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -599,6 +609,16 @@ function ResultsTab({ procedureId }) {
       </div>
     </div>
   );
+}
+
+// ISO datetime → localized date+time for the quiz-window deadline. Tolerant.
+function formatDateTime(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleString('he-IL', {
+    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+  });
 }
 
 // ISO datetime → localized date for the "קרא" column. Tolerant of bad input.
