@@ -18,10 +18,14 @@ describe('dev-env background marker', () => {
     );
   });
 
-  it('App.jsx adds the body class only under import.meta.env.DEV', () => {
-    const guarded = /if\s*\(import\.meta\.env\.DEV\)\s*{\s*document\.body\.classList\.add\('dev-env'\)/;
-    expect(appJsx).toMatch(guarded);
-    // Exactly one add-site, and none outside the DEV guard.
+  it('App.jsx adds the body class for dev builds OR dev-ish hostnames only', () => {
+    // Dev is detected by build mode or hostname (localhost / dev.*) — the
+    // prod domain (app.safrasecure.uk) must never match.
+    expect(appJsx).toContain('import.meta.env.DEV');
+    expect(appJsx).toContain("'localhost'");
+    expect(appJsx).toContain("startsWith('dev.')");
+    expect(appJsx).toMatch(/if\s*\(IS_DEV_ENV\)\s*{\s*document\.body\.classList\.add\('dev-env'\)/);
+    // Exactly one add-site, and none outside the guard.
     expect(appJsx.match(/classList\.add\('dev-env'\)/g)).toHaveLength(1);
   });
 

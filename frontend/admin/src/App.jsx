@@ -40,11 +40,17 @@ const ACTUAL_SCHEDULE_ENABLED = import.meta.env.VITE_ACTUAL_SCHEDULE_ENABLED !==
 // this flag unset, so the routes/nav entry are absent for end users).
 const PROCEDURES_ENABLED = import.meta.env.VITE_PROCEDURES_ENABLED === 'true';
 
-// DEV visual marker: `vite dev` (local + the dev tunnel) tints the app
-// background so dev is never mistaken for prod. import.meta.env.DEV is false
-// in the production build (`vite build` in the Docker image), so prod keeps
-// the standard background.
-if (import.meta.env.DEV) {
+// DEV visual marker: tint the app background so a dev window is never
+// mistaken for prod. Build mode alone is NOT enough — the local machine also
+// serves BUILT bundles via `vite preview` (and the dev tunnel), where
+// import.meta.env.DEV is false — so the hostname decides too: anything local
+// or dev.* is dev; the real prod domain (app.safrasecure.uk on Railway) never
+// matches and keeps the standard background.
+const IS_DEV_ENV =
+  import.meta.env.DEV ||
+  ['localhost', '127.0.0.1'].includes(window.location.hostname) ||
+  window.location.hostname.startsWith('dev.');
+if (IS_DEV_ENV) {
   document.body.classList.add('dev-env');
 }
 
