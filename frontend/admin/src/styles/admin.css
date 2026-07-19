@@ -2197,3 +2197,25 @@ body.board-focus .navbar { display: none; }
 .option-correct {
   font-weight: 700;
 }
+
+/* ── Admins management (multi-admin) ───────────────────────────────────── */
+.admins-section .data-table { margin-bottom: 0.75rem; }
+
+.admins-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.admins-row-actions .settings-input { max-width: 160px; }
+
+.admins-create-form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+.admins-create-form .settings-input { max-width: 200px; }
+
+.admins-add-action { margin-top: 0.5rem; }
