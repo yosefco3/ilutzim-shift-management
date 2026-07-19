@@ -334,6 +334,13 @@ body {
   color: var(--text);
 }
 .data-table tr:hover td { background: var(--surface-2); }
+/* Ordinal column (e.g. guards list): narrow and dim — an index, not data. */
+.data-table .row-number-col {
+  width: 2.5rem;
+  text-align: center;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
 
 /* Status badges */
 .badge {

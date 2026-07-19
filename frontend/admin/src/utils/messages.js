@@ -310,6 +310,9 @@ export default {
     noGuards: 'אין מאבטחים במערכת',
     empty: 'אין מאבטחים במערכת',
     role: 'מאפיינים',
+    rowNumber: '#',
+    countSummary: (total, inactive) =>
+      `סה"כ ${total} מאבטחים` + (inactive > 0 ? ` · ${inactive} מושבתים` : ''),
   },
   weeks: {
     title: 'ניהול שבועות',

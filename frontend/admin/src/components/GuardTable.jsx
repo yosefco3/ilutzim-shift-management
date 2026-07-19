@@ -30,6 +30,7 @@ export default function GuardTable({ guards, onEdit, onToggle, onDelete }) {
     <table className="data-table">
       <thead>
         <tr>
+          <th className="row-number-col">{messages.guards.rowNumber}</th>
           <th>{messages.guards.name}</th>
           <th>{messages.guards.phone}</th>
           <th>{messages.guards.role}</th>
@@ -38,8 +39,9 @@ export default function GuardTable({ guards, onEdit, onToggle, onDelete }) {
         </tr>
       </thead>
       <tbody>
-        {sortedGuards.map((g) => (
+        {sortedGuards.map((g, i) => (
           <tr key={g.id}>
+            <td className="row-number-col">{i + 1}</td>
             <td>{g.first_name} {g.last_name}{gpsConsentBadge(g)}</td>
             <td>{g.phone_number || '—'}</td>
             <td>{(g.roles || []).map((r) => ROLE_LABELS[r] || r).join(', ') || '—'}</td>

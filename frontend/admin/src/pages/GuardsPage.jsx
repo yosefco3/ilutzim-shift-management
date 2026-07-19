@@ -65,11 +65,19 @@ export default function GuardsPage() {
   if (loading) return <div className="loading">{messages.common.loading}</div>;
 
   const filteredGuards = guards.filter((g) => matchesGuardSearch(guardFullName(g), search));
+  const inactiveCount = guards.filter((g) => !g.is_active).length;
 
   return (
     <div className="page">
       <div className="page-header">
-        <h2>{messages.guards.title}</h2>
+        <div>
+          <h2>{messages.guards.title}</h2>
+          {guards.length > 0 && (
+            <p className="page-subtitle">
+              {messages.guards.countSummary(guards.length, inactiveCount)}
+            </p>
+          )}
+        </div>
         {!showForm && (
           <button className="btn btn-primary" onClick={() => { setEditing(null); setShowForm(true); }}>
             {messages.guards.addTitle}
