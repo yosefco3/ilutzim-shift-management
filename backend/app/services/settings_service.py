@@ -71,6 +71,10 @@ SETTINGS_DEFAULTS: dict[str, Any] = {
     "procedure_quiz_size": 7,
     "procedure_bank_size": 20,
     "procedure_ai_model": "claude-opus-4-8",
+    # Days since the last publish/rebroadcast a guard may still START the quiz
+    # (0 = unlimited — today's behavior). Checked dynamically at quiz start, so
+    # changing it takes effect immediately for already-published procedures.
+    "procedure_quiz_window_days": 0,
 }
 
 
@@ -115,6 +119,7 @@ class SettingsService:
         for key in req.settings:
             if key not in SETTINGS_DEFAULTS:
                 raise ValidationException(f"Unknown setting: {key}")
+        self._validate_quiz_window_days(req.settings)
         await self._validate_auto_window(req.settings)
         for key, value in req.settings.items():
             await self._settings_repo.set(key, str(value))
@@ -137,6 +142,19 @@ class SettingsService:
         day = _WEEKDAY_ORDER.get(weekday.strip().lower(), 0)
         hour, minute = parse_hhmm(str(await self._effective(incoming, f"{prefix}_time")))
         return (day, hour, minute)
+
+    @staticmethod
+    def _validate_quiz_window_days(incoming: dict[str, str]) -> None:
+        """Reject a non-integer or negative quiz-availability window."""
+        if "procedure_quiz_window_days" not in incoming:
+            return
+        raw = str(incoming["procedure_quiz_window_days"]).strip()
+        try:
+            days = int(raw)
+        except ValueError:
+            raise ValidationException("חלון זמינות המבחן חייב להיות מספר ימים שלם")
+        if days < 0:
+            raise ValidationException("חלון זמינות המבחן לא יכול להיות שלילי (0 = ללא הגבלה)")
 
     async def _validate_auto_window(self, incoming: dict[str, str]) -> None:
         """Reject saves where the weekly auto-lock fires at/before the auto-open.

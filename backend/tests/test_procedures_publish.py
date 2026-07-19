@@ -160,6 +160,36 @@ async def test_rebroadcast_still_reaches_non_passers(db_session):
     assert pub.calls[-1] == ["222"]
 
 
+async def test_publish_sets_quiz_window_anchor(db_session):
+    """First publish stamps the availability-window anchor alongside published_at."""
+    svc = _svc(db_session)
+    proc = await _make_proc(db_session, n_active=7)
+    await svc.publish(proc.id)
+    fresh = await svc._procedures.get_by_id(proc.id)
+    assert fresh.quiz_window_started_at is not None
+    assert fresh.quiz_window_started_at == fresh.published_at
+
+
+async def test_rebroadcast_resets_anchor_but_not_published_at(db_session):
+    """Rebroadcast re-opens the quiz window without touching published_at."""
+    svc = _svc(db_session)
+    proc = await _make_proc(db_session, n_active=7)
+    await svc.publish(proc.id)
+
+    # Age both stamps as if published two days ago.
+    from datetime import timedelta
+    fresh = await svc._procedures.get_by_id(proc.id)
+    old = fresh.published_at - timedelta(days=2)
+    fresh.published_at = old
+    fresh.quiz_window_started_at = old
+    await db_session.commit()
+
+    await svc.publish(proc.id, rebroadcast=True)
+    fresh = await svc._procedures.get_by_id(proc.id)
+    assert fresh.published_at == old  # untouched — reminder age-gate keys off it
+    assert fresh.quiz_window_started_at > old  # window re-opened
+
+
 async def test_first_publish_makes_procedure_the_default(db_session):
     svc = _svc(db_session)
     proc = await _make_proc(db_session, n_active=7)

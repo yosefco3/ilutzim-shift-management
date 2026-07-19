@@ -40,6 +40,15 @@ class Procedure(BaseModel):
         default=ProcedureStatus.DRAFT,
     )
     published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Anchor of the quiz-availability window (naive Israel time): reset on EVERY
+    # publish path — first publish, archived→publish AND rebroadcast — unlike
+    # ``published_at``, which only the first/archived publish sets (the reminder
+    # age-gate and admin display depend on it). The quiz is startable while
+    # now <= anchor + ``procedure_quiz_window_days`` (setting; 0 = unlimited).
+    # Computed dynamically at check time — nothing else is stored per procedure.
+    quiz_window_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True
+    )
     # Exactly one procedure may be the current/default (הנוהל הנוכחי): the bot
     # list surfaces it first with a ⭐ and the reminder job targets only it.
     # Enforced by the partial unique index below. 'false' (PG literal), not

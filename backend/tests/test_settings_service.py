@@ -109,6 +109,49 @@ async def test_update_settings_persists_and_returns_full_list():
 
 
 @pytest.mark.asyncio
+async def test_quiz_window_days_defaults_to_zero_unlimited():
+    """The quiz-availability window defaults to 0 (unlimited — ships dark)."""
+    repo = AsyncMock()
+    repo.get_all_settings.return_value = []
+    svc = SettingsService(repo)
+    items = {i.key: i.value for i in await svc.get_settings()}
+    assert items["procedure_quiz_window_days"] == "0"
+
+
+@pytest.mark.asyncio
+async def test_update_settings_rejects_negative_quiz_window():
+    repo = AsyncMock()
+    svc = SettingsService(repo)
+    with pytest.raises(ValidationException):
+        await svc.update_settings(
+            SettingsUpdateRequest(settings={"procedure_quiz_window_days": "-1"})
+        )
+    repo.set.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_settings_rejects_non_integer_quiz_window():
+    repo = AsyncMock()
+    svc = SettingsService(repo)
+    with pytest.raises(ValidationException):
+        await svc.update_settings(
+            SettingsUpdateRequest(settings={"procedure_quiz_window_days": "abc"})
+        )
+    repo.set.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_settings_accepts_valid_quiz_window():
+    repo = AsyncMock()
+    repo.get_all_settings.return_value = []
+    svc = SettingsService(repo)
+    await svc.update_settings(
+        SettingsUpdateRequest(settings={"procedure_quiz_window_days": "3"})
+    )
+    repo.set.assert_called_once_with("procedure_quiz_window_days", "3")
+
+
+@pytest.mark.asyncio
 async def test_update_settings_rejects_unknown_key():
     """Unknown keys raise ValidationException and are not written."""
     repo = AsyncMock()

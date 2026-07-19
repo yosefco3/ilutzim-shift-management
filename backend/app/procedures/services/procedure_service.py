@@ -218,13 +218,21 @@ class ProcedureService:
         if proc.status == ProcedureStatus.PUBLISHED:
             if not rebroadcast:
                 raise ConflictException("הנוהל כבר פורסם")
+            # Rebroadcast re-opens the quiz: reset the availability-window
+            # anchor (published_at stays — the reminder age-gate keys off it).
+            proc = await self._procedures.update(
+                procedure_id,
+                quiz_window_started_at=_now_naive(),
+            )
             republished = True
             recipients = await self._non_passed_recipients(procedure_id)
         else:
+            now = _now_naive()
             proc = await self._procedures.update(
                 procedure_id,
                 status=ProcedureStatus.PUBLISHED,
-                published_at=_now_naive(),
+                published_at=now,
+                quiz_window_started_at=now,
             )
             republished = False
             recipients = await self._all_recipients()
