@@ -13,7 +13,7 @@ from httpx import ASGITransport, AsyncClient
 from jose import jwt
 
 from app.constants import AdminRole
-from app.dependencies import get_admin_management_service
+from app.dependencies import _get_admin_repo, get_admin_management_service
 from app.exceptions import AuthenticationFailedException
 from app.main import create_app
 from app.repositories.admin_repository import AdminRepository
@@ -58,6 +58,9 @@ async def api(db_session):
     app.dependency_overrides[get_admin_management_service] = (
         lambda: AdminManagementService(AdminRepository(db_session))
     )
+    # get_current_admin verifies is_active against the DB (step 04) — point it
+    # at the same in-memory session the seeded admins live in.
+    app.dependency_overrides[_get_admin_repo] = lambda: AdminRepository(db_session)
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac, boss, second

@@ -13,6 +13,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.config import Settings, get_settings
 from app.constants import AdminRole
 from app.database import get_pool
+from app.exceptions import AuthenticationFailedException
 from app.models.user import User
 from app.repositories.admin_repository import AdminRepository
 from app.repositories.schedule_week_repository import ScheduleWeekRepository
@@ -152,13 +153,20 @@ async def get_excel_export_service(
 async def get_current_admin(
     credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
     auth_service: AuthService = Depends(get_auth_service),
+    admin_repo: AdminRepository = Depends(_get_admin_repo),
 ) -> dict:
     """
     Validate Bearer token and return the decoded payload.
-    Raises 401 if token is invalid.
+
+    Also verifies the admin still exists and is active [EDGE E5] — a token
+    outlives deactivation by up to its TTL, so the DB is the source of truth.
+    Raises 401 in every failure case (same message — don't leak which).
     """
     try:
         payload = auth_service.verify_token(credentials.credentials)
+        admin = await admin_repo.get_by_id(int(payload["sub"]))
+        if admin is None or not admin.is_active:
+            raise AuthenticationFailedException()
         return payload
     except Exception:
         raise HTTPException(
