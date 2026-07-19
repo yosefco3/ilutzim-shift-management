@@ -8,6 +8,7 @@ injected publisher seam so tests assert counts without the bot.
 
 import logging
 import uuid
+from datetime import datetime
 
 from app.exceptions import ConflictException, UserNotFoundException, ValidationException
 from app.procedures.constants import ProcedureStatus
@@ -18,6 +19,7 @@ from app.procedures.repositories.read_receipt_repository import (
     ProcedureReadReceiptRepository,
 )
 from app.procedures.services.publish_service import ProcedurePublisher
+from app.procedures.services.quiz_window import is_quiz_open, quiz_deadline
 from app.repositories.user_repository import UserRepository
 from app.services.settings_service import SettingsService
 from app.utils.date_utils import now_il
@@ -69,9 +71,27 @@ class ProcedureService:
         logger.info("Procedure created: id=%s title=%r", proc.id, proc.title)
         return proc
 
+    async def _window_days(self) -> int:
+        """Current ``procedure_quiz_window_days`` (tolerant: bad value → 0)."""
+        try:
+            return int(await self._settings.get_setting("procedure_quiz_window_days"))
+        except (TypeError, ValueError):
+            return 0
+
+    async def quiz_window_info(self, proc) -> tuple[bool, datetime | None]:
+        """(quiz_open, quiz_deadline_at) for one procedure at the current setting.
+
+        Meaningful for PUBLISHED procedures; a DRAFT has no anchor so it comes
+        back (True, None) — the frontend gates on status anyway.
+        """
+        days = await self._window_days()
+        return is_quiz_open(proc, days, _now_naive()), quiz_deadline(proc, days)
+
     async def list_all(self):
         """All procedures with active/total question counts for the list view."""
         procedures = await self._procedures.list_all()
+        window_days = await self._window_days()
+        now = _now_naive()
         rows = []
         for p in procedures:
             active = await self._questions.count_active(p.id)
@@ -89,6 +109,10 @@ class ProcedureService:
                     # The UI hides the "generate with AI" button once a bank
                     # exists (accidental regeneration guard).
                     "has_ai_questions": (await self._questions.count_ai(p.id)) > 0,
+                    # Availability window — the admin list shows a "המבחן סגור"
+                    # badge on published rows whose window closed.
+                    "quiz_open": is_quiz_open(p, window_days, now),
+                    "quiz_deadline_at": quiz_deadline(p, window_days),
                 }
             )
         return rows
@@ -126,6 +150,7 @@ class ProcedureService:
                     procedure_id, user.id, exc,
                 )
 
+        quiz_open, _ = await self.quiz_window_info(proc)
         return {
             "id": proc.id,
             "title": proc.title,
@@ -133,6 +158,9 @@ class ProcedureService:
             "body_text": proc.body_text,
             "is_default": proc.is_default,
             "passed": passed,
+            # False → the page hides the start-quiz button and explains why
+            # (reading itself stays available — only the quiz is windowed).
+            "quiz_open": quiz_open,
         }
 
     async def update(

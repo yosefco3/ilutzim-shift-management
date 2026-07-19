@@ -84,7 +84,12 @@ def _question_out(q) -> QuestionOut:
     )
 
 
-def _procedure_out(proc) -> ProcedureOut:
+def _procedure_out(
+    proc, *, quiz_open: bool = True, quiz_deadline_at=None
+) -> ProcedureOut:
+    """Serialize a procedure. Window info is passed only where it matters (the
+    GET-detail handler) — create/update/archive flows serve DRAFT/ARCHIVED
+    states where the frontend never shows it, so they keep the open defaults."""
     return ProcedureOut(
         id=proc.id,
         title=proc.title,
@@ -95,6 +100,8 @@ def _procedure_out(proc) -> ProcedureOut:
         created_at=proc.created_at,
         published_at=proc.published_at,
         is_default=proc.is_default,
+        quiz_open=quiz_open,
+        quiz_deadline_at=quiz_deadline_at,
         questions=[_question_out(q) for q in (proc.questions or [])],
     )
 
@@ -170,7 +177,10 @@ async def get_procedure(
     service: ProcedureService = Depends(get_procedure_service),
 ) -> ProcedureOut:
     proc = await service.get(procedure_id)
-    return _procedure_out(proc)
+    quiz_open, quiz_deadline_at = await service.quiz_window_info(proc)
+    return _procedure_out(
+        proc, quiz_open=quiz_open, quiz_deadline_at=quiz_deadline_at
+    )
 
 
 @router.patch("/{procedure_id}", response_model=ProcedureOut)

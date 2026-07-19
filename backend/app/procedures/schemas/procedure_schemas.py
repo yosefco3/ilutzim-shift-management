@@ -92,6 +92,11 @@ class ProcedureOut(BaseModel):
     created_at: datetime
     published_at: datetime | None = None
     is_default: bool = False
+    # Availability window (procedure_quiz_window_days setting, 0 = unlimited).
+    # Meaningful for PUBLISHED procedures only — a DRAFT has no anchor and
+    # reports (True, None); the frontend gates on status anyway.
+    quiz_open: bool = True
+    quiz_deadline_at: datetime | None = None
     questions: list[QuestionOut] = Field(default_factory=list)
 
 
@@ -110,6 +115,9 @@ class ProcedureListItem(BaseModel):
     total_questions: int = 0
     # True once an AI bank was generated — the UI hides the generate button.
     has_ai_questions: bool = False
+    # Availability window — published rows whose window closed get a badge.
+    quiz_open: bool = True
+    quiz_deadline_at: datetime | None = None
 
 
 # ── Questions ────────────────────────────────────────────────────────────────
@@ -222,3 +230,6 @@ class GuardProcedureOut(BaseModel):
     body_text: str
     is_default: bool = False
     passed: bool = False
+    # False → the availability window closed: the page hides the start-quiz
+    # button and shows a note (reading stays available).
+    quiz_open: bool = True

@@ -133,6 +133,69 @@ async def test_open_attempt_survives_expiry_midflight(db_session):
         await svc.start_attempt(guard.id, proc.id)
 
 
+# ── API surface: guard_view + admin list expose the window [EDGE U1, U2] ────
+
+
+def _procedure_service(db_session):
+    from unittest.mock import AsyncMock as _AsyncMock
+
+    from app.procedures.repositories.question_repository import (
+        QuizQuestionRepository,
+    )
+    from app.procedures.services.procedure_service import ProcedureService
+    from app.services.settings_service import SettingsService
+
+    return ProcedureService(
+        ProcedureRepository(db_session),
+        QuizQuestionRepository(db_session),
+        QuizAttemptRepository(db_session),
+        UserRepository(db_session),
+        SettingsService(SystemSettingsRepository(db_session)),
+        _AsyncMock(),  # publisher — unused here
+    )
+
+
+@pytest.mark.asyncio
+async def test_guard_view_reports_quiz_closed(db_session):
+    proc = await _published_with_questions(db_session)
+    guard = await _guard(db_session)
+    await _set_window(db_session, "1")
+    await _expire(db_session, proc, days=2)
+
+    view = await _procedure_service(db_session).guard_view(proc.id, guard)
+    assert view["quiz_open"] is False
+    assert view["body_text"]  # reading payload untouched — only the quiz closes
+
+
+@pytest.mark.asyncio
+async def test_guard_view_reports_quiz_open_at_default_setting(db_session):
+    proc = await _published_with_questions(db_session)
+    guard = await _guard(db_session)
+    view = await _procedure_service(db_session).guard_view(proc.id, guard)
+    assert view["quiz_open"] is True
+
+
+@pytest.mark.asyncio
+async def test_list_all_exposes_window_state(db_session):
+    proc = await _published_with_questions(db_session)
+    await _set_window(db_session, "1")
+    await _expire(db_session, proc, days=2)
+
+    rows = await _procedure_service(db_session).list_all()
+    row = next(r for r in rows if r["id"] == proc.id)
+    assert row["quiz_open"] is False
+    assert row["quiz_deadline_at"] == proc.quiz_window_started_at + timedelta(days=1)
+
+
+@pytest.mark.asyncio
+async def test_list_all_unlimited_window_has_no_deadline(db_session):
+    proc = await _published_with_questions(db_session)
+    rows = await _procedure_service(db_session).list_all()
+    row = next(r for r in rows if r["id"] == proc.id)
+    assert row["quiz_open"] is True
+    assert row["quiz_deadline_at"] is None
+
+
 # ── Reminder skip [EDGE D3] ─────────────────────────────────────────────────
 
 
