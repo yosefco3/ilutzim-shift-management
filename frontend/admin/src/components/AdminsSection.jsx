@@ -4,6 +4,7 @@ import {
   createAdmin,
   setAdminActive,
   resetAdminPassword,
+  changeAdminRole,
 } from '../api/adminApiClient';
 import ConfirmDialog from './ConfirmDialog';
 import { useToast } from './Toast';
@@ -23,6 +24,11 @@ const ROLE_LABELS = {
   viewer: t.roleViewer,
 };
 
+// Roles the super admin may hand out — mirrors the backend's ASSIGNABLE_ROLES
+// (SUPER_ADMIN is never assignable). Per-route permissions per role are a
+// future feature; for now VIEWER is groundwork.
+const ASSIGNABLE_ROLES = ['admin', 'viewer'];
+
 export default function AdminsSection() {
   const toast = useToast();
   const [admins, setAdmins] = useState([]);
@@ -33,6 +39,7 @@ export default function AdminsSection() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState('admin');
   const [submitting, setSubmitting] = useState(false);
 
   // Row actions
@@ -68,11 +75,17 @@ export default function AdminsSection() {
     }
     setSubmitting(true);
     try {
-      await createAdmin({ email: email.trim(), fullName: fullName.trim(), password });
+      await createAdmin({
+        email: email.trim(),
+        fullName: fullName.trim(),
+        password,
+        role,
+      });
       toast.success(t.createSuccess);
       setFullName('');
       setEmail('');
       setPassword('');
+      setRole('admin');
       setShowForm(false);
       await refresh();
     } catch (err) {
@@ -93,6 +106,18 @@ export default function AdminsSection() {
     }
   };
 
+  const handleChangeRole = async (admin, newRole) => {
+    if (newRole === admin.role) return;
+    try {
+      await changeAdminRole(admin.id, newRole);
+      toast.success(t.roleChanged);
+      await refresh();
+    } catch (err) {
+      toast.error(err.message);
+      await refresh(); // snap the select back to the server state
+    }
+  };
+
   const handleReset = async (admin) => {
     if (!isStrong(resetValue)) {
       toast.error(messages.settings.changePassword.weak);
@@ -110,8 +135,6 @@ export default function AdminsSection() {
 
   return (
     <div className="card settings-group admins-section">
-      <h3 className="settings-group-title">{t.title}</h3>
-
       {loaded && (
         <table className="data-table">
           <thead>
@@ -128,7 +151,24 @@ export default function AdminsSection() {
               <tr key={a.id}>
                 <td>{a.full_name}</td>
                 <td dir="ltr">{a.email}</td>
-                <td>{ROLE_LABELS[a.role] || a.role}</td>
+                <td>
+                  {a.role === 'super_admin' ? (
+                    ROLE_LABELS[a.role]
+                  ) : (
+                    <select
+                      className="settings-input admins-role-select"
+                      aria-label={t.colRole}
+                      value={a.role}
+                      onChange={(e) => handleChangeRole(a, e.target.value)}
+                    >
+                      {ASSIGNABLE_ROLES.map((r) => (
+                        <option key={r} value={r}>
+                          {ROLE_LABELS[r]}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </td>
                 <td>
                   <span className={`badge ${a.is_active ? 'badge-active' : 'badge-inactive'}`}>
                     {a.is_active ? t.active : t.inactive}
@@ -234,6 +274,18 @@ export default function AdminsSection() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
+          <select
+            className="settings-input admins-role-select"
+            aria-label={t.roleSelect}
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+          >
+            {ASSIGNABLE_ROLES.map((r) => (
+              <option key={r} value={r}>
+                {ROLE_LABELS[r]}
+              </option>
+            ))}
+          </select>
           <button type="submit" className="btn btn-primary" disabled={submitting}>
             {submitting ? messages.common.loading : t.createSubmit}
           </button>

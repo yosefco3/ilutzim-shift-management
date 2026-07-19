@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { adminLogout, isLoggedIn } from '../api/adminApiClient';
+import { adminLogout, getAdminRole, isLoggedIn } from '../api/adminApiClient';
 import messages from '../utils/messages';
 
 // Part B (constraints import + schedule builder) is hidden in production via a
@@ -79,6 +79,11 @@ export default function Navbar() {
         )}
         {/* הגדרות — אחרון לפני "התנתק" (יוסף 4/7): עמוד תחזוקה, לא עבודה יומית. */}
         <NavLink to="/settings">{messages.nav.settings}</NavLink>
+        {/* ניהול אדמינים — נראה רק לסופר-אדמין (התפקיד נשמר בלוגין; ה-backend
+            אוכף 403 בכל מקרה). */}
+        {getAdminRole() === 'super_admin' && (
+          <NavLink to="/admins">{messages.nav.admins}</NavLink>
+        )}
         <button className="btn btn-secondary btn-sm" onClick={handleLogout}>
           {messages.nav.logout}
         </button>

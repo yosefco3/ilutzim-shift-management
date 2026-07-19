@@ -7,6 +7,7 @@ const isLoggedIn = vi.fn();
 vi.mock('../src/api/adminApiClient', () => ({
   isLoggedIn: () => isLoggedIn(),
   adminLogout: vi.fn(),
+  getAdminRole: vi.fn(() => null),
 }));
 
 import Navbar from '../src/components/Navbar';

@@ -11,6 +11,7 @@ import {
   createAdmin,
   setAdminActive,
   resetAdminPassword,
+  changeAdminRole,
 } from '../src/api/adminApiClient';
 
 global.fetch = vi.fn();
@@ -83,7 +84,17 @@ describe('admin management functions', () => {
       email: 'x@a.com',
       full_name: 'דוד',
       password: 'abcd123456',
+      role: 'admin',
     });
+  });
+
+  it('changeAdminRole PATCHes the role', async () => {
+    mockJson({ id: 3, role: 'viewer' });
+    await changeAdminRole(3, 'viewer');
+    const [url, opts] = fetch.mock.calls[0];
+    expect(url).toContain('/auth/admin/admins/3/role');
+    expect(opts.method).toBe('PATCH');
+    expect(JSON.parse(opts.body)).toEqual({ role: 'viewer' });
   });
 
   it('setAdminActive PATCHes the active flag', async () => {

@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router-dom';
 vi.mock('../src/api/adminApiClient', () => ({
   isLoggedIn: () => true,
   adminLogout: vi.fn(),
+  getAdminRole: vi.fn(() => null),
 }));
 
 import Navbar from '../src/components/Navbar';

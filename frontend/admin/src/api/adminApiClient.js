@@ -109,10 +109,17 @@ export function listAdmins() {
   return request('/auth/admin/admins');
 }
 
-export function createAdmin({ email, fullName, password }) {
+export function createAdmin({ email, fullName, password, role = 'admin' }) {
   return request('/auth/admin/admins', {
     method: 'POST',
-    body: JSON.stringify({ email, full_name: fullName, password }),
+    body: JSON.stringify({ email, full_name: fullName, password, role }),
+  });
+}
+
+export function changeAdminRole(id, role) {
+  return request(`/auth/admin/admins/${id}/role`, {
+    method: 'PATCH',
+    body: JSON.stringify({ role }),
   });
 }
 

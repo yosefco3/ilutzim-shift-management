@@ -10,6 +10,7 @@ import AdminConstraintsPage from './pages/AdminConstraintsPage';
 import WeeksPage from './pages/WeeksPage';
 import SubmissionsPage from './pages/SubmissionsPage';
 import SettingsPage from './pages/SettingsPage';
+import AdminsPage from './pages/AdminsPage';
 import PublishPreviewPage from './pages/PublishPreviewPage';
 import ImportConstraintsPage from './pages/ImportConstraintsPage';
 import ProfilesPage from './pages/builder/ProfilesPage';
@@ -90,6 +91,9 @@ function AppContent() {
           <Route path="/weeks" element={<ProtectedRoute><WeeksPage /></ProtectedRoute>} />
           <Route path="/submissions" element={<ProtectedRoute><SubmissionsPage /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+          {/* ניהול אדמינים — הקישור בנאבבר מוצג רק לסופר-אדמין; ה-backend אוכף
+              403 לכל השאר, אז הראוט עצמו לא מסתיר מידע. */}
+          <Route path="/admins" element={<ProtectedRoute><AdminsPage /></ProtectedRoute>} />
           {/* /export was removed — constraints export is a one-click download on
               each week card (WeekQuickLinks); the page was just a week picker. */}
           <Route path="/publish-preview" element={<ProtectedRoute><PublishPreviewPage /></ProtectedRoute>} />

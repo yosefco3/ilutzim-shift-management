@@ -10,10 +10,13 @@ vi.mock('../src/components/Toast', () => ({ useToast: () => toast }));
 
 vi.mock('../src/api/adminApiClient', () => ({
   getAdminRole: vi.fn(),
+  isLoggedIn: vi.fn(() => true),
+  adminLogout: vi.fn(),
   listAdmins: vi.fn(),
   createAdmin: vi.fn(),
   setAdminActive: vi.fn(),
   resetAdminPassword: vi.fn(),
+  changeAdminRole: vi.fn(),
 }));
 
 import {
@@ -21,6 +24,7 @@ import {
   listAdmins,
   createAdmin,
   setAdminActive,
+  changeAdminRole,
 } from '../src/api/adminApiClient';
 import AdminsSection from '../src/components/AdminsSection';
 
@@ -52,6 +56,19 @@ describe('AdminsSection', () => {
     expect(screen.getByText('סופר-אדמין')).toBeInTheDocument();
   });
 
+  it('super-admin role is fixed text; admin row gets a role select that calls the API', async () => {
+    changeAdminRole.mockResolvedValue({ ...SECOND, role: 'viewer' });
+    render(<AdminsSection />);
+    await waitFor(() => expect(screen.getByText('boss@a.com')).toBeInTheDocument());
+
+    // one role select only (the admin row); the super-admin cell is plain text
+    const selects = screen.getAllByLabelText('תפקיד');
+    expect(selects).toHaveLength(1);
+
+    fireEvent.change(selects[0], { target: { value: 'viewer' } });
+    await waitFor(() => expect(changeAdminRole).toHaveBeenCalledWith(2, 'viewer'));
+  });
+
   it('super-admin row has no deactivate/reset actions; admin row does', async () => {
     render(<AdminsSection />);
     await waitFor(() => expect(screen.getByText('boss@a.com')).toBeInTheDocument());
@@ -81,6 +98,7 @@ describe('AdminsSection', () => {
         email: 'third@a.com',
         fullName: 'שלישי',
         password: 'abcd123456',
+        role: 'admin',
       }),
     );
     await waitFor(() => expect(listAdmins).toHaveBeenCalledTimes(2));
@@ -120,30 +138,35 @@ describe('AdminsSection', () => {
   });
 });
 
-describe('SettingsPage gating', () => {
-  it('shows the section only for super_admin', async () => {
-    vi.doMock('../src/hooks/useSettings', () => ({
-      useSettings: () => ({
-        settings: [],
-        draft: {},
-        dirty: false,
-        saving: false,
-        error: null,
-        setValue: vi.fn(),
-        handleSave: vi.fn(),
-      }),
-    }));
-    const { default: SettingsPage } = await import('../src/pages/SettingsPage');
+describe('AdminsPage', () => {
+  it('renders the page title and the admins table', async () => {
+    const { default: AdminsPage } = await import('../src/pages/AdminsPage');
+    render(<AdminsPage />);
+    expect(screen.getByText('ניהול אדמינים')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('boss@a.com')).toBeInTheDocument());
+  });
+});
+
+describe('Navbar gating', () => {
+  it('shows the אדמינים link only for super_admin', async () => {
+    const { MemoryRouter } = await import('react-router-dom');
+    const { default: Navbar } = await import('../src/components/Navbar');
 
     getAdminRole.mockReturnValue('admin');
-    const { unmount } = render(<SettingsPage />);
-    expect(screen.queryByText('ניהול אדמינים')).not.toBeInTheDocument();
+    const { unmount } = render(
+      <MemoryRouter>
+        <Navbar />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByText('אדמינים')).not.toBeInTheDocument();
     unmount();
 
     getAdminRole.mockReturnValue('super_admin');
-    render(<SettingsPage />);
-    await waitFor(() =>
-      expect(screen.getByText('ניהול אדמינים')).toBeInTheDocument(),
+    render(
+      <MemoryRouter>
+        <Navbar />
+      </MemoryRouter>,
     );
+    expect(screen.getByText('אדמינים')).toBeInTheDocument();
   });
 });

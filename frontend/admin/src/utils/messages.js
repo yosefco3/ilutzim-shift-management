@@ -38,6 +38,7 @@ export default {
     weeks: 'שבועות',
     submissions: 'דיווחים',
     settings: 'הגדרות',
+    admins: 'אדמינים',
     attendance: 'נוכחות',
     publishPreview: 'תצוגה מקדימה',
     import: 'ייבוא אילוצים',
@@ -464,6 +465,9 @@ export default {
     },
     admins: {
       title: 'ניהול אדמינים',
+      subtitle: 'חשבונות הכניסה לפאנל — הוספה, תפקידים, השבתה ואיפוס סיסמה. בהמשך: הרשאות לפי תפקיד.',
+      roleSelect: 'תפקיד',
+      roleChanged: 'התפקיד עודכן',
       colName: 'שם מלא',
       colEmail: 'מייל',
       colRole: 'תפקיד',

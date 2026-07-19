@@ -1,6 +1,4 @@
 import { useSettings } from '../hooks/useSettings';
-import { getAdminRole } from '../api/adminApiClient';
-import AdminsSection from '../components/AdminsSection';
 import ChangePasswordForm from '../components/ChangePasswordForm';
 import { useToast } from '../components/Toast';
 import messages from '../utils/messages';
@@ -295,10 +293,6 @@ export default function SettingsPage() {
       )}
 
       <ChangePasswordForm />
-
-      {/* Admin-accounts management — SUPER_ADMIN only (the backend enforces
-          403 regardless; the role just hides the section for regular admins). */}
-      {getAdminRole() === 'super_admin' && <AdminsSection />}
     </div>
   );
 }
