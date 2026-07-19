@@ -6,8 +6,22 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.dependencies import get_auth_service, get_current_admin
-from app.schemas.user_schemas import ChangePasswordRequest, LoginRequest
+from app.dependencies import (
+    get_admin_management_service,
+    get_auth_service,
+    get_current_admin,
+    require_super_admin,
+)
+from app.schemas.user_schemas import (
+    AdminCreateRequest,
+    AdminListResponse,
+    AdminResetPasswordRequest,
+    AdminResponse,
+    AdminSetActiveRequest,
+    ChangePasswordRequest,
+    LoginRequest,
+)
+from app.services.admin_management_service import AdminManagementService
 from app.services.auth_service import AuthService
 from app.services.login_throttle import get_login_throttle
 
@@ -83,3 +97,53 @@ async def get_me(admin: dict = Depends(get_current_admin)):
         "username": admin.get("username"),
         "role": admin.get("role"),
     }
+
+
+# ── Admin management (SUPER_ADMIN only) ───────────────────────────────────────
+
+
+@router.get("/admin/admins", response_model=AdminListResponse)
+async def list_admins(
+    _admin: dict = Depends(require_super_admin),
+    service: AdminManagementService = Depends(get_admin_management_service),
+):
+    """List all admin accounts (without password hashes)."""
+    admins = await service.list_admins()
+    return {"admins": admins, "count": len(admins)}
+
+
+@router.post(
+    "/admin/admins",
+    response_model=AdminResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_admin(
+    body: AdminCreateRequest,
+    _admin: dict = Depends(require_super_admin),
+    service: AdminManagementService = Depends(get_admin_management_service),
+):
+    """Create a new admin account (always role ADMIN — hierarchy model)."""
+    return await service.create_admin(body.email, body.full_name, body.password)
+
+
+@router.patch("/admin/admins/{admin_id}/active", response_model=AdminResponse)
+async def set_admin_active(
+    admin_id: int,
+    body: AdminSetActiveRequest,
+    admin: dict = Depends(require_super_admin),
+    service: AdminManagementService = Depends(get_admin_management_service),
+):
+    """Activate/deactivate an admin. Caller id comes from the JWT."""
+    return await service.set_active(int(admin["sub"]), admin_id, body.active)
+
+
+@router.post("/admin/admins/{admin_id}/reset-password")
+async def reset_admin_password(
+    admin_id: int,
+    body: AdminResetPasswordRequest,
+    admin: dict = Depends(require_super_admin),
+    service: AdminManagementService = Depends(get_admin_management_service),
+):
+    """Set a new password for another admin (self-reset is blocked)."""
+    await service.reset_password(int(admin["sub"]), admin_id, body.new_password)
+    return {"success": True}

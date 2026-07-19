@@ -30,6 +30,7 @@ from app.schedule_builder.services.board_service import BoardService
 from app.schedule_builder.services.schedule_export_service import (
     ScheduleExportService,
 )
+from app.services.admin_management_service import AdminManagementService
 from app.services.auth_service import AuthService
 from app.services.excel_export_service import ExcelExportService
 from app.services.settings_service import SettingsService
@@ -72,6 +73,12 @@ async def get_auth_service(
     settings: Settings = Depends(get_settings),
 ) -> AuthService:
     return AuthService(admin_repo, settings)
+
+
+async def get_admin_management_service(
+    admin_repo: AdminRepository = Depends(_get_admin_repo),
+) -> AdminManagementService:
+    return AdminManagementService(admin_repo)
 
 
 async def get_user_service(
