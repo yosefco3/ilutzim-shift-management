@@ -68,11 +68,11 @@ html { color-scheme: dark; }
    background + navbar get a subtle green tint so a dev window is instantly
    distinguishable from production (which never gets the class). */
 body.dev-env {
-  --bg:        #0a2015;
-  --navbar-bg: #0d2a1b;
-  --surface:   #10281c;
-  --surface-2: #163224;
-  --border:    #1f4030;
+  --bg:        #0a1226;
+  --navbar-bg: #0c162e;
+  --surface:   #101c36;
+  --surface-2: #152441;
+  --border:    #223259;
 }
 
 body {
