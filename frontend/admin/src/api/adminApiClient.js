@@ -21,6 +21,13 @@ function setToken(token) {
 
 function clearToken() {
   localStorage.removeItem('admin_token');
+  localStorage.removeItem('admin_role');
+}
+
+// Role only gates UI visibility (e.g. the admins-management section) — the
+// backend enforces 403 regardless of what the client claims.
+export function getAdminRole() {
+  return localStorage.getItem('admin_role');
 }
 
 export async function request(endpoint, options = {}) {
@@ -72,6 +79,7 @@ export function adminLogin(username, password) {
     body: JSON.stringify({ username, password }),
   }).then((data) => {
     setToken(data.access_token);
+    if (data.role) localStorage.setItem('admin_role', data.role);
     return data;
   });
 }
@@ -94,6 +102,32 @@ export function changeAdminPassword(currentPassword, newPassword) {
 
 export function getAdminProfile() {
   return request('/auth/admin/me');
+}
+
+// ──── Admin management (SUPER_ADMIN only) ────
+export function listAdmins() {
+  return request('/auth/admin/admins');
+}
+
+export function createAdmin({ email, fullName, password }) {
+  return request('/auth/admin/admins', {
+    method: 'POST',
+    body: JSON.stringify({ email, full_name: fullName, password }),
+  });
+}
+
+export function setAdminActive(id, active) {
+  return request(`/auth/admin/admins/${id}/active`, {
+    method: 'PATCH',
+    body: JSON.stringify({ active }),
+  });
+}
+
+export function resetAdminPassword(id, newPassword) {
+  return request(`/auth/admin/admins/${id}/reset-password`, {
+    method: 'POST',
+    body: JSON.stringify({ new_password: newPassword }),
+  });
 }
 
 // ──── Guards (Users) ────
