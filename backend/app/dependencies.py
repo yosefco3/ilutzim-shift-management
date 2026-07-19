@@ -174,6 +174,18 @@ async def require_admin_role(
     return admin
 
 
+async def require_super_admin(
+    admin: dict = Depends(get_current_admin),
+) -> dict:
+    """Require the super_admin role (admin management endpoints)."""
+    if admin.get("role") != AdminRole.SUPER_ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Super admin access required",
+        )
+    return admin
+
+
 async def get_current_user(
     x_telegram_init_data: str = Header(None, alias="X-Telegram-Init-Data"),
     settings: Settings = Depends(get_settings),

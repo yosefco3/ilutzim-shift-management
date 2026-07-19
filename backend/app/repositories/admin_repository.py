@@ -31,20 +31,35 @@ class AdminRepository(BaseRepository[Admin]):
         return result.scalar_one_or_none()
 
     async def get_by_username_or_email(self, username_or_email: str) -> Admin | None:
-        """Find an admin by exact email, or by prefix of the local part.
+        """Find an admin by exact email, or by exact local part (before the @).
 
         Allows users to type just 'admin' to match 'admin@example.com'.
+        With multiple admins a *prefix* match could hit the wrong account (or
+        two accounts), so only the full local part matches. If two admins share
+        a local part, only an exact-email match is returned — the full email is
+        required to disambiguate; ambiguity never raises.
         """
         from sqlalchemy import or_
 
+        escaped = (
+            username_or_email.replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
+        )
         stmt = select(Admin).where(
             or_(
                 Admin.email == username_or_email,
-                Admin.email.ilike(f"{username_or_email}%@%"),
+                Admin.email.ilike(f"{escaped}@%", escape="\\"),
             )
         )
         result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        admins = list(result.scalars().all())
+        if len(admins) == 1:
+            return admins[0]
+        for admin in admins:
+            if admin.email == username_or_email:
+                return admin
+        return None
 
     async def create_admin(
         self,
