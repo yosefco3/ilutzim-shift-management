@@ -13,7 +13,7 @@
  * warnings instead of blocking. Every mutation persists immediately (the DB
  * is the source of truth here — no snapshot/debounce layer like the planner).
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   createActualAssignment,
@@ -39,6 +39,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import PositionEditorModal from '../components/positions/PositionEditorModal';
 import { useToast } from '../components/Toast';
 import { useWeeks } from '../hooks/useWeeks';
+import useBoardFit from '../hooks/useBoardFit';
 import { autoSplitPoint } from '../utils/intervals';
 import messages from '../utils/messages';
 
@@ -134,10 +135,16 @@ export default function ActualBoardPage() {
     listAttributes().then(setAttributes).catch(() => {});
   }, []);
 
-  useEffect(() => {
+  // Layout effect (declared before useBoardFit below): the navbar must be
+  // back in the layout before the fit measurement runs on focus-exit.
+  useLayoutEffect(() => {
     document.body.classList.toggle('board-focus', focusMode);
     return () => document.body.classList.remove('board-focus');
   }, [focusMode]);
+
+  // The header/warnings banner above the board shifts the panes down — refit
+  // their max-height whenever the content above them can change.
+  const layoutRef = useBoardFit(focusMode, [loading, board]);
 
   // The pool: every active guard (no availability math here — day-of reality),
   // sorted by name. The "AHMASH first" grouping is GuardPool's own toggle.
@@ -562,7 +569,7 @@ export default function ActualBoardPage() {
                   </ul>
                 </div>
               )}
-              <div className="board-layout">
+              <div className="board-layout" ref={layoutRef}>
                 {focusMode && (
                   <button
                     type="button"

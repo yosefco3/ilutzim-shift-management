@@ -1398,14 +1398,17 @@ body {
   align-items: flex-start;
   gap: var(--space-4, 1rem);
 }
-/* The grid is its own scroll pane — sticky + viewport-height, mirroring the pool
-   — so wheel/arrow keys scroll it (not the page) while the pointer is over it. */
+/* The grid is its own scroll pane, mirroring the pool — wheel/arrow keys
+   scroll it (not the page) while the pointer is over it. --board-fit-max is
+   measured by useBoardFit so the pane bottom never runs past the viewport
+   (the header block above pushes it down); the calc() fallback covers focus
+   mode, where the variable is cleared and the layout spans the viewport. */
 .board-layout .board-grid-wrap {
   flex: 1;
   min-width: 0;
   position: sticky;
   top: 1rem;
-  max-height: calc(100vh - 2rem);
+  max-height: var(--board-fit-max, calc(100vh - 2rem));
 }
 
 /* Focus mode: the board + pool take over the whole viewport and every piece of
@@ -1441,7 +1444,7 @@ body.board-focus .navbar { display: none; }
   width: 16rem;
   position: sticky;
   top: 1rem;
-  max-height: calc(100vh - 2rem);
+  max-height: var(--board-fit-max, calc(100vh - 2rem));
   overflow-y: auto;
   background: var(--surface);
   border: 1px solid var(--border);

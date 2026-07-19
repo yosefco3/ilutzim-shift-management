@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   listProfiles,
@@ -19,6 +19,7 @@ import {
 } from '../../api/builderApiClient';
 import { triggerBlobDownload, weeklyExportFilename } from '../../utils/download';
 import { useToast } from '../../components/Toast';
+import useBoardFit from '../../hooks/useBoardFit';
 import BoardGrid from '../../components/board/BoardGrid';
 import GuardPool from '../../components/board/GuardPool';
 import ConfirmDialog from '../../components/ConfirmDialog';
@@ -145,7 +146,9 @@ export default function BoardPage() {
   // Focus mode hides the app chrome too (navbar, page header), which live
   // outside this component — so we flag it on <body> and let CSS hide them.
   // Cleared on unmount so leaving the page never leaves the app stuck hidden.
-  useEffect(() => {
+  // Layout effect (declared before useBoardFit below): the navbar must be
+  // back in the layout before the fit measurement runs on focus-exit.
+  useLayoutEffect(() => {
     document.body.classList.toggle('board-focus', focusMode);
     return () => document.body.classList.remove('board-focus');
   }, [focusMode]);
@@ -231,6 +234,10 @@ export default function BoardPage() {
     () => (warningsEnabled ? filterMutedWarnings(warnings, mutedWarnTypes) : EMPTY_WARNINGS),
     [warningsEnabled, warnings, mutedWarnTypes],
   );
+
+  // Everything above the board (header, controls, warnings banner) changes the
+  // panes' viewport offset — refit whenever any of it re-renders or resizes.
+  const layoutRef = useBoardFit(focusMode, [loading, board, effectiveWarnings]);
 
   // Warning types present (count > 0), in a stable display order for the banner.
   const warnTypes = useMemo(
@@ -795,7 +802,7 @@ export default function BoardPage() {
           {board.rows.length === 0 ? (
             <p className="empty-state">{m.empty}</p>
           ) : (
-            <div className="board-layout">
+            <div className="board-layout" ref={layoutRef}>
               {focusMode && (
                 <button
                   type="button"
