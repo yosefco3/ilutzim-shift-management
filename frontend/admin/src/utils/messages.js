@@ -155,6 +155,11 @@ export default {
     // Pencil affordance label/title + popover dialog label + overnight hint.
     matrixEditHours: 'עריכת שעות',
     matrixHoursTitle: 'עריכת שעות התא',
+    // Event participant-count quick editor on the matrix row header (event rows).
+    matrixEditEventCount: 'עריכת מספר משתתפים',
+    matrixEventCountTitle: 'מספר משתתפים באירוע',
+    matrixEventCountSaved: 'מספר המשתתפים עודכן',
+    eventCountUnlimitedHint: 'השאר ריק למספר משתנה (ללא הגבלה).',
     // Shown inside the popover when end <= start (a valid overnight window) [EDGE D2].
     matrixOvernightHint: 'חוצה חצות',
     // Multi-select + column operations (step 06). The selection action bar appears

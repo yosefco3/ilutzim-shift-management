@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import messages from '../../utils/messages';
 import { DAY_NAMES_SHORT as DAY_NAMES } from '../../utils/guardMessages.js';
 import CellHoursPopover from './CellHoursPopover';
+import EventCountPopover from './EventCountPopover';
 
 // The 7 day indices in canonical Sunday→Saturday order. The app is dir=rtl, so a
 // plain <table> renders the first column (position name) on the right and ראשון
@@ -114,8 +115,20 @@ const rectKeys = (a, c) => {
  *   onSaveDayLabel  — (day, value) => Promise|void. Step 07: persist one day's
  *                     label. The page merges the full day_labels map and PATCHes.
  *                     Optional (no-op when absent, e.g. in tests).
+ *   onSaveEventCount — async (positionId, count|null) => 'ok' | 'error'. Persist an
+ *                     event row's participant count (event_required_count). On 'ok'
+ *                     the matrix updates its own snapshot+working in place (this is
+ *                     position META, NOT part of the grid dirty state), so unsaved
+ *                     hour edits survive. Optional (no-op when absent).
  */
-export default function ProfileMatrix({ positions, profile, onSave, onDirtyChange, onSaveDayLabel }) {
+export default function ProfileMatrix({
+  positions,
+  profile,
+  onSave,
+  onDirtyChange,
+  onSaveDayLabel,
+  onSaveEventCount,
+}) {
   const m = messages.positions;
   const labels = profile?.day_labels || {};
 
@@ -134,6 +147,8 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
   const [selection, setSelection] = useState(() => new Set());
   const [openMenu, setOpenMenu] = useState(null);
   const [hoursEditor, setHoursEditor] = useState(null);
+  // Row index whose event participant-count editor is open (event rows only), or null.
+  const [eventEditor, setEventEditor] = useState(null);
 
   // In-flight drag state (anchor cell + whether the pointer has entered another
   // cell = "it became a drag") and the one-shot flag that swallows the click a
@@ -152,6 +167,7 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
     setHoursEditor(null);
     setOpenCell(null);
     setEditingDay(null);
+    setEventEditor(null);
   }, [positions]);
 
   // Changed positions (rows whose day map differs from the snapshot) — drives the
@@ -286,9 +302,35 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
     setOpenMenu(null);
     setHoursEditor(null);
     setEditingDay(null);
+    setEventEditor(null);
     setOpenCell({ posIdx, d });
   };
   const closePopover = () => setOpenCell(null);
+
+  // ── Event participant-count editor (row header, event rows only) ───────
+  // Opening it joins the overlay-exclusivity family. Confirm persists via the
+  // page, then patches the count into BOTH snapshot and working IN PLACE — the
+  // count is position meta, not part of the grid dirty diff (which compares only
+  // day_schedules), so any unsaved hour edits survive.
+  const openEventEditor = (posIdx) => {
+    setOpenMenu(null);
+    setHoursEditor(null);
+    setOpenCell(null);
+    setEditingDay(null);
+    setEventEditor(posIdx);
+  };
+  const closeEventEditor = () => setEventEditor(null);
+  const confirmEventCount = async (posIdx, count) => {
+    const pos = working[posIdx];
+    setEventEditor(null);
+    if (!pos) return;
+    const res = await onSaveEventCount?.(pos.id, count);
+    if (res && res !== 'ok') return; // save failed — keep the old value
+    const patch = (arr) =>
+      arr.map((p, i) => (i === posIdx ? { ...p, event_required_count: count } : p));
+    setSnapshot(patch);
+    setWorking(patch);
+  };
 
   // ── Step 07: header day-label editor helpers ──────────────────────────
   // Open: seed the draft from the current label (or '') and arm the close-guard.
@@ -296,6 +338,7 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
     setOpenMenu(null);
     setHoursEditor(null);
     setOpenCell(null);
+    setEventEditor(null);
     labelClosed.current = false;
     setLabelDraft(labels[String(d)] || '');
     setEditingDay(d);
@@ -339,6 +382,7 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
     setOpenCell(null);
     setOpenMenu(null);
     setEditingDay(null);
+    setEventEditor(null);
     setHoursEditor({ kind, keys, start: pre.start, end: pre.end, ...extra });
   };
   const confirmHoursEditor = (w) => {
@@ -664,11 +708,28 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
               <th scope="row" className="profile-matrix-row-name">
                 <span className="profile-matrix-name-text">{p.name}</span>
                 {p.is_event && (
-                  <span className="position-event-badge">
+                  <button
+                    type="button"
+                    className="position-event-badge position-event-badge-btn"
+                    aria-label={`${p.name} · ${m.matrixEditEventCount}`}
+                    title={m.matrixEditEventCount}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openEventEditor(posIdx);
+                    }}
+                  >
                     {p.event_required_count != null
                       ? `${m.eventBadge} · ${p.event_required_count}`
                       : m.eventBadge}
-                  </span>
+                    <span className="position-event-badge-pencil" aria-hidden="true">✎</span>
+                  </button>
+                )}
+                {eventEditor === posIdx && (
+                  <EventCountPopover
+                    count={p.event_required_count ?? null}
+                    onConfirm={(count) => confirmEventCount(posIdx, count)}
+                    onCancel={closeEventEditor}
+                  />
                 )}
               </th>
               {DAY_INDICES.map((d) => {

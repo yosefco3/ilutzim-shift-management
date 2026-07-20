@@ -634,3 +634,75 @@ describe('ProfileMatrix day-label editing (step 07)', () => {
     expect(onSaveDayLabel).not.toHaveBeenCalled();
   });
 });
+
+// ── Event participant-count quick editor (matrix row header) ────────────────
+describe('ProfileMatrix event participant count', () => {
+  const M = messages.positions;
+  const badgeName = (posName) => `${posName} · ${M.matrixEditEventCount}`;
+  const EVENT = (over = {}) =>
+    POSITION({ is_event: true, event_required_count: 3, ...over });
+
+  it('opens the count editor from the event badge, prefilled with the count', () => {
+    render(<ProfileMatrix positions={[EVENT()]} profile={{ day_labels: {} }} />);
+    // No editor until the badge is clicked.
+    expect(screen.queryByRole('dialog', { name: M.matrixEventCountTitle })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: badgeName('ארנונה') }));
+    const input = screen.getByRole('spinbutton', { name: M.matrixEventCountTitle });
+    expect(input).toHaveValue(3);
+  });
+
+  it('confirming a new number calls onSaveEventCount and updates the badge', async () => {
+    const onSaveEventCount = vi.fn().mockResolvedValue('ok');
+    render(
+      <ProfileMatrix
+        positions={[EVENT()]}
+        profile={{ day_labels: {} }}
+        onSaveEventCount={onSaveEventCount}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: badgeName('ארנונה') }));
+    const input = screen.getByRole('spinbutton', { name: M.matrixEventCountTitle });
+    fireEvent.change(input, { target: { value: '5' } });
+    fireEvent.click(screen.getByRole('button', { name: messages.common.confirm }));
+    expect(onSaveEventCount).toHaveBeenCalledWith('pos1', 5);
+    // Optimistic in-place badge update (await the resolved save).
+    expect(await screen.findByText('📣 אירוע · 5')).toBeInTheDocument();
+  });
+
+  it('an empty value saves null (unlimited)', () => {
+    const onSaveEventCount = vi.fn().mockResolvedValue('ok');
+    render(
+      <ProfileMatrix
+        positions={[EVENT()]}
+        profile={{ day_labels: {} }}
+        onSaveEventCount={onSaveEventCount}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: badgeName('ארנונה') }));
+    const input = screen.getByRole('spinbutton', { name: M.matrixEventCountTitle });
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: messages.common.confirm }));
+    expect(onSaveEventCount).toHaveBeenCalledWith('pos1', null);
+  });
+
+  it('cancel (Escape) closes the editor without saving', () => {
+    const onSaveEventCount = vi.fn();
+    render(
+      <ProfileMatrix
+        positions={[EVENT()]}
+        profile={{ day_labels: {} }}
+        onSaveEventCount={onSaveEventCount}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: badgeName('ארנונה') }));
+    const input = screen.getByRole('spinbutton', { name: M.matrixEventCountTitle });
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(onSaveEventCount).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog', { name: M.matrixEventCountTitle })).toBeNull();
+  });
+
+  it('does not render the editable badge on a non-event position', () => {
+    render(<ProfileMatrix positions={[POSITION()]} profile={{ day_labels: {} }} />);
+    expect(screen.queryByRole('button', { name: badgeName('ארנונה') })).toBeNull();
+  });
+});

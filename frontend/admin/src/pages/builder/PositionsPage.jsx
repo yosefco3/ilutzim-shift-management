@@ -232,6 +232,31 @@ export default function PositionsPage() {
     [profileId, profile, toast, m],
   );
 
+  // Save one event row's participant count (event_required_count) from the matrix
+  // row header. Position meta, saved immediately — NOT part of the grid dirty
+  // state. We deliberately do NOT reload positions here: the matrix patches the
+  // count into its own snapshot+working in place, so any unsaved hour edits
+  // survive. `is_event: true` is sent alongside so an empty (null) count clears
+  // to "unlimited" via the service's authoritative-count path.
+  const handleSaveEventCount = useCallback(
+    async (positionId, count) => {
+      try {
+        await updatePosition(positionId, { is_event: true, event_required_count: count });
+        // NOTE: we intentionally do NOT setPositions/reload here — a new positions
+        // array reference would reset the matrix (its load effect keys on
+        // `positions`) and discard any unsaved hour edits. The matrix patches the
+        // count into its own snapshot+working instead; the parent list re-syncs on
+        // the next natural reload (grid save / profile switch).
+        toast.success(m.matrixEventCountSaved);
+        return 'ok';
+      } catch (err) {
+        toast.error(err.message || messages.common.error);
+        return 'error';
+      }
+    },
+    [toast, m],
+  );
+
   // Run a navigation now, or — if the matrix has unsaved changes — defer it
   // behind the unsaved-changes ConfirmDialog. Used by the tab buttons and the
   // profile <select> [EDGE N2].
@@ -369,6 +394,7 @@ export default function PositionsPage() {
               onSave={handleMatrixSave}
               onDirtyChange={setMatrixDirty}
               onSaveDayLabel={handleSaveDayLabel}
+              onSaveEventCount={handleSaveEventCount}
             />
           ) : (
             <>

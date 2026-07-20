@@ -1108,6 +1108,33 @@ body {
   border-radius: 999px;
   white-space: nowrap;
 }
+/* Matrix row-header event badge is a button (click to edit the participant
+   count). Same pill look, plus a pencil that appears on hover/focus. */
+.position-event-badge-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.72rem;
+}
+.position-event-badge-pencil {
+  opacity: 0;
+  font-size: 0.72rem;
+  line-height: 1;
+  transition: opacity 0.1s;
+}
+.position-event-badge-btn:hover .position-event-badge-pencil,
+.position-event-badge-btn:focus-visible .position-event-badge-pencil {
+  opacity: 1;
+}
+.position-event-badge-btn:focus-visible {
+  outline: 2px solid var(--primary-ring);
+  outline-offset: 1px;
+}
+@media (pointer: coarse) {
+  .position-event-badge-pencil { opacity: 1; }
+}
 
 /* ── Part B — Positions page: matrix tab (תצוגת לוח) ───────────────── */
 /* Tab switcher row (matrix / cards). Mirrors the procedure detail tab-row,
@@ -1160,7 +1187,7 @@ body {
   font-weight: 600;
   color: var(--text);
 }
-.profile-matrix-row-name { background: var(--surface); }
+.profile-matrix-row-name { background: var(--surface); position: relative; }
 .profile-matrix-name-text { color: var(--text); }
 /* Stack the header: day name on its own line, with the label chip/affordance and
    the menu chevron flowing below it. This makes each day column as wide as its
@@ -1263,23 +1290,30 @@ body {
 .profile-matrix-cell-edit {
   position: absolute;
   top: 0.1rem;
-  inset-inline-end: 0.2rem;
-  border: none;
-  background: transparent;
-  color: var(--text-dim);
+  inset-inline-end: 0.15rem;
+  /* A solid, high-contrast chip (not a faint glyph) so the edit affordance is
+     unmistakable once the cell is hovered/focused. */
+  border: 1px solid var(--accent, #3b82f6);
+  background: var(--surface);
+  color: var(--accent, #3b82f6);
   cursor: pointer;
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   line-height: 1;
-  padding: 0.1rem 0.25rem;
+  padding: 0.12rem 0.3rem;
   border-radius: var(--radius);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.1s;
+  transition: opacity 0.1s, background 0.1s, color 0.1s;
 }
 .profile-matrix-cell:hover .profile-matrix-cell-edit,
 .profile-matrix-cell:focus-within .profile-matrix-cell-edit {
   opacity: 1;
   pointer-events: auto;
+}
+.profile-matrix-cell-edit:hover {
+  background: var(--accent, #3b82f6);
+  color: #fff;
 }
 @media (pointer: coarse) {
   .profile-matrix-cell-edit { opacity: 1; pointer-events: auto; }
