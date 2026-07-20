@@ -1189,6 +1189,38 @@ body {
 }
 .profile-matrix-row-name { background: var(--surface); position: relative; }
 .profile-matrix-name-text { color: var(--text); }
+/* Delete-position affordance in the row header — hidden until the row name cell
+   is hovered/focused (always shown on touch), sits at the inline-end (left in
+   RTL) so it never crowds the name. */
+.profile-matrix-row-delete {
+  position: absolute;
+  inset-inline-end: 0.25rem;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 1px solid var(--danger, #dc2626);
+  background: var(--surface);
+  color: var(--danger, #dc2626);
+  cursor: pointer;
+  font-size: 0.78rem;
+  line-height: 1;
+  padding: 0.15rem 0.3rem;
+  border-radius: var(--radius);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s;
+}
+.profile-matrix-row-name:hover .profile-matrix-row-delete,
+.profile-matrix-row-name:focus-within .profile-matrix-row-delete {
+  opacity: 1;
+  pointer-events: auto;
+}
+.profile-matrix-row-delete:hover {
+  background: var(--danger, #dc2626);
+  color: #fff;
+}
+@media (pointer: coarse) {
+  .profile-matrix-row-delete { opacity: 1; pointer-events: auto; }
+}
 /* Band group header (🌅 בוקר / 🌆 ערב / 🌙 לילה) — a small separator between the
    shift bands, echoing the board's `.board-band-head`. */
 .profile-matrix-band-head td {

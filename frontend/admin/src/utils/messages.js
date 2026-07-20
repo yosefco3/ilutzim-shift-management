@@ -156,6 +156,7 @@ export default {
     matrixEditHours: 'עריכת שעות',
     matrixHoursTitle: 'עריכת שעות התא',
     // Event participant-count quick editor on the matrix row header (event rows).
+    matrixDeletePosition: 'מחק עמדה',
     matrixEditEventCount: 'עריכת מספר משתתפים',
     matrixEventCountTitle: 'מספר משתתפים באירוע',
     matrixEventCountSaved: 'מספר המשתתפים עודכן',

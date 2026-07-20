@@ -165,6 +165,7 @@ export default function ProfileMatrix({
   onDirtyChange,
   onSaveDayLabel,
   onSaveEventCount,
+  onDeletePosition,
 }) {
   const m = messages.positions;
   const labels = profile?.day_labels || {};
@@ -773,6 +774,20 @@ export default function ProfileMatrix({
             <tr>
               <th scope="row" className="profile-matrix-row-name">
                 <span className="profile-matrix-name-text">{p.name}</span>
+                {typeof onDeletePosition === 'function' && (
+                  <button
+                    type="button"
+                    className="profile-matrix-row-delete"
+                    aria-label={`${p.name} · ${m.matrixDeletePosition}`}
+                    title={m.matrixDeletePosition}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeletePosition(p);
+                    }}
+                  >
+                    🗑
+                  </button>
+                )}
                 {p.is_event && (
                   <button
                     type="button"

@@ -635,6 +635,30 @@ describe('ProfileMatrix day-label editing (step 07)', () => {
   });
 });
 
+// ── Delete a position from the matrix row header ────────────────────────────
+describe('ProfileMatrix delete position', () => {
+  const delName = (posName) => `${posName} · ${messages.positions.matrixDeletePosition}`;
+
+  it('calls onDeletePosition with the row when its delete button is clicked', () => {
+    const onDeletePosition = vi.fn();
+    render(
+      <ProfileMatrix
+        positions={[POSITION({ id: 'p1', name: 'ארנונה' })]}
+        profile={{ day_labels: {} }}
+        onDeletePosition={onDeletePosition}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: delName('ארנונה') }));
+    expect(onDeletePosition).toHaveBeenCalledTimes(1);
+    expect(onDeletePosition.mock.calls[0][0]).toMatchObject({ id: 'p1', name: 'ארנונה' });
+  });
+
+  it('renders no delete button when onDeletePosition is absent', () => {
+    render(<ProfileMatrix positions={[POSITION()]} profile={{ day_labels: {} }} />);
+    expect(screen.queryByRole('button', { name: delName('ארנונה') })).toBeNull();
+  });
+});
+
 // ── Band group headers (morning / evening / night) ─────────────────────────
 describe('ProfileMatrix band separation', () => {
   const bands = messages.board.bands;

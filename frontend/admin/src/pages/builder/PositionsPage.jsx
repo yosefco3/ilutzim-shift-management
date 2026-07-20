@@ -395,6 +395,7 @@ export default function PositionsPage() {
               onDirtyChange={setMatrixDirty}
               onSaveDayLabel={handleSaveDayLabel}
               onSaveEventCount={handleSaveEventCount}
+              onDeletePosition={setConfirmDelete}
             />
           ) : (
             <>
