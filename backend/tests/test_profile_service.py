@@ -118,6 +118,47 @@ class TestRename:
         assert updated.name == "שגרה ראשית"
 
 
+class TestDayLabels:
+    """Per-day label map — set/clear/leave via rename_profile, copied on duplicate.
+
+    Validation (key range, length, blank-drop) lives on the schema and is covered
+    in test_profile_api.py; the service treats the dict as opaque.
+    """
+
+    async def test_rename_sets_and_persists_day_labels(self, service):
+        p = await service.create_profile("שגרה")
+        updated = await service.rename_profile(p.id, day_labels={"4": "ט׳ באב"})
+        assert updated.day_labels == {"4": "ט׳ באב"}
+        # Persisted — re-fetch from the DB, not just the returned object.
+        assert (await service.get_profile(p.id)).day_labels == {"4": "ט׳ באב"}
+
+    async def test_rename_empty_dict_clears_day_labels(self, service):
+        p = await service.create_profile("שגרה")
+        await service.rename_profile(p.id, day_labels={"1": "חג", "4": "ט׳ באב"})
+        cleared = await service.rename_profile(p.id, day_labels={})
+        assert cleared.day_labels == {}
+        assert (await service.get_profile(p.id)).day_labels == {}
+
+    async def test_rename_without_day_labels_leaves_them(self, service):
+        p = await service.create_profile("שגרה")
+        await service.rename_profile(p.id, day_labels={"4": "ט׳ באב"})
+        # Rename a different field — day_labels must be untouched (None = unchanged).
+        updated = await service.rename_profile(p.id, name="שגרה חדשה")
+        assert updated.name == "שגרה חדשה"
+        assert updated.day_labels == {"4": "ט׳ באב"}
+
+    async def test_duplicate_copies_day_labels(self, service):
+        src = await service.create_profile("שגרה")
+        await service.rename_profile(src.id, day_labels={"4": "ט׳ באב", "5": "ערב שבת"})
+        dup = await service.duplicate_profile(src.id)
+
+        assert dup.day_labels == {"4": "ט׳ באב", "5": "ערב שבת"}
+        # Copied by value — the source keeps its labels and the dicts are distinct.
+        refreshed_src = await service.get_profile(src.id)
+        assert refreshed_src.day_labels == {"4": "ט׳ באב", "5": "ערב שבת"}
+        assert dup.day_labels is not refreshed_src.day_labels
+
+
 class TestSetDefault:
     async def test_set_default_moves_the_flag(self, service, db_session):
         await service.seed_default_profile()  # creates "שגרה" as default

@@ -75,10 +75,13 @@ class ProfileService:
         name: str | None = None,
         kind: str | None = None,
         description: str | None = None,
+        day_labels: dict[str, str] | None = None,
     ) -> ActivationProfile:
-        """Update meta fields (name/kind/description). Never touches is_default.
+        """Update meta fields (name/kind/description/day_labels). Never touches is_default.
 
-        Only the fields explicitly provided (not None) are changed.
+        Only the fields explicitly provided (not None) are changed. For
+        ``day_labels``, None means "leave the stored map untouched" while a dict
+        (including ``{}``) REPLACES the whole map — clearing it when empty.
         """
         profile = await self._get_or_raise(profile_id)
         fields: dict = {}
@@ -88,6 +91,8 @@ class ProfileService:
             fields["kind"] = kind
         if description is not None:
             fields["description"] = description
+        if day_labels is not None:
+            fields["day_labels"] = day_labels
         if not fields:
             return profile
         updated = await self._repo.update(profile_id, **fields)
@@ -164,6 +169,7 @@ class ProfileService:
             name=new_name or f"{src.name} (עותק)",
             kind=src.kind,
             description=src.description,
+            day_labels=dict(src.day_labels or {}),
             is_default=False,
             display_order=order,
         )

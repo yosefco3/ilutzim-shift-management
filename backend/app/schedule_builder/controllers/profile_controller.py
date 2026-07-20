@@ -67,10 +67,14 @@ async def update_profile(
     data: ProfileUpdate,
     service: ProfileService = Depends(get_profile_service),
 ):
-    """Rename / update profile meta (name / kind / description)."""
+    """Rename / update profile meta (name / kind / description / day_labels)."""
     try:
         return await service.rename_profile(
-            profile_id, name=data.name, kind=data.kind, description=data.description
+            profile_id,
+            name=data.name,
+            kind=data.kind,
+            description=data.description,
+            day_labels=data.day_labels,
         )
     except AppBaseException as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message)

@@ -25,10 +25,11 @@ class FakeProfileService:
     def __init__(self):
         self._profiles: list[ActivationProfile] = []
 
-    def _make(self, name, kind=None, description=None, is_default=False):
+    def _make(self, name, kind=None, description=None, is_default=False, day_labels=None):
         p = ActivationProfile(
             name=name, kind=kind, description=description,
             is_default=is_default, display_order=len(self._profiles),
+            day_labels=day_labels if day_labels is not None else {},
         )
         p.id = uuid.uuid4()
         p.created_at = datetime(2026, 1, 1)
@@ -56,7 +57,7 @@ class FakeProfileService:
     async def get_profile(self, pid):
         return self._find(pid)
 
-    async def rename_profile(self, pid, name=None, kind=None, description=None):
+    async def rename_profile(self, pid, name=None, kind=None, description=None, day_labels=None):
         p = self._find(pid)
         if name is not None:
             p.name = name
@@ -64,11 +65,16 @@ class FakeProfileService:
             p.kind = kind
         if description is not None:
             p.description = description
+        if day_labels is not None:
+            p.day_labels = day_labels
         return p
 
     async def duplicate_profile(self, pid, new_name=None):
         src = self._find(pid)
-        dup = self._make(new_name or f"{src.name} (עותק)", src.kind, src.description)
+        dup = self._make(
+            new_name or f"{src.name} (עותק)", src.kind, src.description,
+            day_labels=dict(src.day_labels or {}),
+        )
         self._profiles.append(dup)
         return dup
 
@@ -176,6 +182,91 @@ class TestProfileAPI:
         client = _make_client(svc)
         resp = client.get(f"/admin/builder/profiles/{uuid.uuid4()}/delete-impact")
         assert resp.status_code == 404
+
+
+class TestProfileDayLabels:
+    """day_labels on PATCH/duplicate — validation lives on ProfileUpdate ([EDGE D4])."""
+
+    def test_patch_sets_day_labels(self):
+        svc = FakeProfileService()
+        p = svc.seed("שגרה")
+        client = _make_client(svc)
+
+        resp = client.patch(
+            f"/admin/builder/profiles/{p.id}",
+            json={"day_labels": {"4": "ט׳ באב"}},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["day_labels"] == {"4": "ט׳ באב"}
+        # Passed through to the service and stored on the profile.
+        assert svc._find(p.id).day_labels == {"4": "ט׳ באב"}
+
+    def test_patch_invalid_day_key_422(self):
+        svc = FakeProfileService()
+        p = svc.seed("שגרה")
+        client = _make_client(svc)
+        for bad in ("7", "x"):
+            resp = client.patch(
+                f"/admin/builder/profiles/{p.id}",
+                json={"day_labels": {bad: "label"}},
+            )
+            assert resp.status_code == 422, bad
+
+    def test_patch_value_too_long_422(self):
+        svc = FakeProfileService()
+        p = svc.seed("שגרה")
+        client = _make_client(svc)
+        resp = client.patch(
+            f"/admin/builder/profiles/{p.id}",
+            json={"day_labels": {"1": "א" * 51}},
+        )
+        assert resp.status_code == 422
+
+    def test_patch_whitespace_value_dropped(self):
+        svc = FakeProfileService()
+        p = svc.seed("שגרה")
+        client = _make_client(svc)
+        resp = client.patch(
+            f"/admin/builder/profiles/{p.id}",
+            json={"day_labels": {"4": "ט׳ באב", "5": "   "}},
+        )
+        assert resp.status_code == 200
+        # The blank-only entry is dropped, not stored as an empty string.
+        assert resp.json()["day_labels"] == {"4": "ט׳ באב"}
+
+    def test_patch_empty_dict_clears_labels(self):
+        svc = FakeProfileService()
+        p = svc.seed("שגרה")
+        p.day_labels = {"4": "ט׳ באב"}
+        client = _make_client(svc)
+        resp = client.patch(
+            f"/admin/builder/profiles/{p.id}", json={"day_labels": {}}
+        )
+        assert resp.status_code == 200
+        assert resp.json()["day_labels"] == {}
+
+    def test_patch_without_field_leaves_labels(self):
+        svc = FakeProfileService()
+        p = svc.seed("שגרה")
+        p.day_labels = {"4": "ט׳ באב"}
+        client = _make_client(svc)
+        resp = client.patch(
+            f"/admin/builder/profiles/{p.id}", json={"name": "שגרה חדשה"}
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["name"] == "שגרה חדשה"
+        # day_labels absent from the body = unchanged.
+        assert body["day_labels"] == {"4": "ט׳ באב"}
+
+    def test_duplicate_copies_day_labels(self):
+        svc = FakeProfileService()
+        p = svc.seed("שגרה")
+        p.day_labels = {"4": "ט׳ באב"}
+        client = _make_client(svc)
+        resp = client.post(f"/admin/builder/profiles/{p.id}/duplicate", json={})
+        assert resp.status_code == 201
+        assert resp.json()["day_labels"] == {"4": "ט׳ באב"}
 
 
 class TestProfileAPIAuth:
