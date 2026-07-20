@@ -855,4 +855,55 @@ describe('ProfileMatrix event participant count', () => {
       variants.forEach((v) => expect(v.classList.contains('is-off')).toBe(false));
     });
   });
+
+  describe('arrow-key scrolling while hovered', () => {
+    // The grid must scroll up/down with the arrow keys whenever the pointer is
+    // over it (cells are focusable <td>s with no native arrow behaviour). jsdom
+    // has no layout, so we stub the container's scroll geometry + scrollBy and
+    // assert the wiring drives the right scroller.
+    const setup = () => {
+      const { container } = render(
+        <ProfileMatrix positions={[POSITION()]} profile={{ day_labels: {} }} />,
+      );
+      const scroll = container.querySelector('.profile-matrix-scroll');
+      const scrollBy = vi.fn();
+      const scrollTo = vi.fn();
+      // Full-screen mode: the container itself is the vertical scroller.
+      Object.defineProperty(scroll, 'scrollHeight', { value: 2000, configurable: true });
+      Object.defineProperty(scroll, 'clientHeight', { value: 500, configurable: true });
+      scroll.scrollBy = scrollBy;
+      scroll.scrollTo = scrollTo;
+      vi.spyOn(window, 'getComputedStyle').mockReturnValue({ overflowY: 'auto' });
+      return { scroll, scrollBy, scrollTo };
+    };
+
+    it('ArrowDown over the grid scrolls the container down', () => {
+      const { scroll, scrollBy } = setup();
+      fireEvent.mouseEnter(scroll);
+      fireEvent.keyDown(window, { key: 'ArrowDown' });
+      expect(scrollBy).toHaveBeenCalledWith({ top: 64 });
+    });
+
+    it('ArrowUp over the grid scrolls the container up', () => {
+      const { scroll, scrollBy } = setup();
+      fireEvent.mouseEnter(scroll);
+      fireEvent.keyDown(window, { key: 'ArrowUp' });
+      expect(scrollBy).toHaveBeenCalledWith({ top: -64 });
+    });
+
+    it('does NOT scroll when the pointer has left the grid', () => {
+      const { scroll, scrollBy } = setup();
+      fireEvent.mouseEnter(scroll);
+      fireEvent.mouseLeave(scroll);
+      fireEvent.keyDown(window, { key: 'ArrowDown' });
+      expect(scrollBy).not.toHaveBeenCalled();
+    });
+
+    it('End jumps to the bottom of the container', () => {
+      const { scroll, scrollTo } = setup();
+      fireEvent.mouseEnter(scroll);
+      fireEvent.keyDown(window, { key: 'End' });
+      expect(scrollTo).toHaveBeenCalledWith({ top: 2000 });
+    });
+  });
 });

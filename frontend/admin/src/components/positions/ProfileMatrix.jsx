@@ -230,6 +230,11 @@ export default function ProfileMatrix({
   const drag = useRef({ anchor: null, dragging: false });
   const suppressClick = useRef(false);
   const menuRef = useRef(null);
+  // The scroll container + whether the mouse is currently over it. Arrow keys
+  // scroll the grid while the pointer hovers it (or focus is inside), in both
+  // normal and full-screen mode — see the keydown effect below.
+  const scrollRef = useRef(null);
+  const pointerOver = useRef(false);
 
   useEffect(() => {
     setSnapshot(clonePositions(positions));
@@ -631,8 +636,74 @@ export default function ProfileMatrix({
     if (hoursEditor?.kind === 'bar') setHoursEditor(null);
   }, [selection]);
 
+  // Scroll the grid up/down with the arrow (and Page/Home/End) keys whenever the
+  // pointer is over it — or focus is inside it. Cells are focusable <td>s with no
+  // native arrow behaviour, so without this the arrows do nothing once a cell is
+  // clicked. Works in both modes: in full-screen the scroll container is the
+  // vertical scroller (overflow:auto, fixed inset:0); in normal flow it only
+  // scrolls horizontally, so the page (document.scrollingElement) scrolls instead.
+  // We pick whichever actually scrolls vertically at press time.
+  useEffect(() => {
+    const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End']);
+    const onKey = (e) => {
+      if (!SCROLL_KEYS.has(e.key)) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const el = scrollRef.current;
+      if (!el) return;
+      // Only when the grid is the user's focus: pointer over it, or focus inside.
+      if (!pointerOver.current && !el.contains(document.activeElement)) return;
+      // Never hijack keys meant for a text field (e.g. the day-label input).
+      const t = e.target;
+      const tag = t?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t?.isContentEditable) return;
+      // The container scrolls itself only when it genuinely overflows vertically
+      // with an auto/scroll overflow-y (full-screen); otherwise scroll the page.
+      const cs = window.getComputedStyle(el);
+      const selfScrolls =
+        (cs.overflowY === 'auto' || cs.overflowY === 'scroll') &&
+        el.scrollHeight > el.clientHeight;
+      const target = selfScrolls ? el : document.scrollingElement || document.documentElement;
+      const viewport = selfScrolls ? el.clientHeight : window.innerHeight;
+      const LINE = 64;
+      e.preventDefault();
+      switch (e.key) {
+        case 'ArrowDown':
+          target.scrollBy({ top: LINE });
+          break;
+        case 'ArrowUp':
+          target.scrollBy({ top: -LINE });
+          break;
+        case 'PageDown':
+          target.scrollBy({ top: viewport * 0.9 });
+          break;
+        case 'PageUp':
+          target.scrollBy({ top: -viewport * 0.9 });
+          break;
+        case 'Home':
+          target.scrollTo({ top: 0 });
+          break;
+        case 'End':
+          target.scrollTo({ top: target.scrollHeight });
+          break;
+        default:
+          break;
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   return (
-    <div className="profile-matrix-scroll">
+    <div
+      className="profile-matrix-scroll"
+      ref={scrollRef}
+      onMouseEnter={() => {
+        pointerOver.current = true;
+      }}
+      onMouseLeave={() => {
+        pointerOver.current = false;
+      }}
+    >
       <div className="profile-matrix-toolbar">
         <button
           type="button"
