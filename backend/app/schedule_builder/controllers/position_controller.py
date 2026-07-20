@@ -19,6 +19,7 @@ from app.schedule_builder.schemas.position_schemas import (
     PositionCreate,
     PositionReorder,
     PositionResponse,
+    PositionsBulkDaySchedules,
     PositionUpdate,
 )
 from app.schedule_builder.services.position_service import PositionService
@@ -77,6 +78,29 @@ async def reorder_positions(
     """
     try:
         return await service.reorder_positions(profile_id, data.position_ids)
+    except AppBaseException as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message)
+
+
+@router.put(
+    "/profiles/{profile_id}/positions/day-schedules",
+    response_model=list[PositionResponse],
+)
+async def bulk_update_day_schedules(
+    profile_id: uuid.UUID,
+    data: PositionsBulkDaySchedules,
+    service: PositionService = Depends(get_position_service),
+):
+    """Atomically set ``day_schedules`` for many positions in one request.
+
+    The matrix editor saves the whole grid here instead of N PATCHes. The body
+    is validated up front (membership + no duplicate ids); on any mismatch the
+    service raises 409 and writes nothing. Returns the full ordered position
+    list (same shape as ``list_positions``).
+    """
+    try:
+        items = [(item.position_id, item.day_schedules) for item in data.items]
+        return await service.bulk_update_day_schedules(profile_id, items)
     except AppBaseException as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message)
 

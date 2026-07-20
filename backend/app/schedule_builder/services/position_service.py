@@ -10,6 +10,7 @@ import logging
 import uuid
 
 from app.exceptions import (
+    PositionBulkMismatchException,
     PositionNotFoundException,
     PositionReorderMismatchException,
     ProfileNotFoundException,
@@ -125,6 +126,52 @@ class PositionService:
             await self._repo.set_display_order(position_id, order)
         logger.info(
             "Reordered %d positions in profile %s", len(ordered_ids), profile_id
+        )
+        return await self._repo.get_by_profile(profile_id)
+
+    async def bulk_update_day_schedules(
+        self,
+        profile_id: uuid.UUID,
+        items: list[tuple[uuid.UUID, dict]],
+    ) -> list[Position]:
+        """Atomically set ``day_schedules`` for many of a profile's positions.
+
+        Each item is a ``(position_id, day_schedules)`` pair. ``day_schedules``
+        replaces the position's map wholesale (``{}`` closes it for the week —
+        [EDGE D3]). Positions NOT mentioned are untouched [EDGE C1].
+
+        The whole body is validated BEFORE any mutation, so a failure leaves
+        nothing written (all-or-nothing — [EDGE N1]; the request dependency
+        commits once at the end). Raises ``PositionBulkMismatchException`` (409)
+        — with the offending ids in the message — if any ``position_id`` does not
+        belong to the profile or repeats within ``items`` [EDGE C2].
+        """
+        if await self._profile_repo.get_by_id(profile_id) is None:
+            raise ProfileNotFoundException()
+        positions = await self._repo.get_by_profile(profile_id)
+        existing_ids = {p.id for p in positions}
+
+        # Collect offending ids (unknown / foreign / duplicate) in encounter
+        # order; the loop must finish before the first write.
+        requested_ids = [pid for pid, _ in items]
+        offending: list[uuid.UUID] = []
+        seen: set[uuid.UUID] = set()
+        for pid in requested_ids:
+            if pid not in existing_ids or pid in seen:
+                offending.append(pid)
+            seen.add(pid)
+        if offending:
+            unique = list(dict.fromkeys(offending))  # dedupe, keep order
+            bad = ", ".join(str(pid) for pid in unique)
+            raise PositionBulkMismatchException(
+                f"עמדות לא תואמות לפרופיל: {bad}"
+            )
+
+        for pid, day_schedules in items:
+            await self._repo.update(pid, day_schedules=day_schedules)
+        logger.info(
+            "Bulk-set day_schedules for %d positions in profile %s",
+            len(items), profile_id,
         )
         return await self._repo.get_by_profile(profile_id)
 

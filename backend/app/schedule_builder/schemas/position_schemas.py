@@ -29,9 +29,16 @@ class DaySchedule(BaseModel):
         return v
 
 
-def _validate_day_schedules(value: dict) -> dict:
-    """Keys must be "0".."6"; at least one day; each value a valid DaySchedule."""
-    if not isinstance(value, dict) or not value:
+def _validate_day_schedules(value: dict, *, require_non_empty: bool = True) -> dict:
+    """Validate the ``day_schedules`` map: keys must be "0".."6", each value a
+    valid ``DaySchedule`` (``HH:MM`` start/end — the part-A convention, where
+    ``end <= start`` is a valid overnight wrap).
+
+    ``require_non_empty=False`` permits an empty ``{}`` — the matrix editor can
+    close a position for the whole week [EDGE D3]. The single-position create /
+    update schemas keep the default (≥1 active day).
+    """
+    if not isinstance(value, dict) or (require_non_empty and not value):
         raise ValueError("יש להגדיר לפחות יום פעיל אחד")
     for day, hours in value.items():
         if day not in _DAY_KEYS:
@@ -119,6 +126,30 @@ class PositionReorder(BaseModel):
         if len(set(v)) != len(v):
             raise ValueError("מזהי עמדות חייבים להיות ייחודיים")
         return v
+
+
+class PositionDayScheduleItem(BaseModel):
+    """One row of a bulk day-schedules update: which position, and its full
+    ``day_schedules`` map. Empty ``{}`` is valid (the position is closed all
+    week) [EDGE D3]; day keys and ``HH:MM`` reuse the single-position rules.
+    """
+    position_id: uuid.UUID
+    day_schedules: dict = Field(default_factory=dict)
+
+    @field_validator("day_schedules")
+    @classmethod
+    def _check_schedules(cls, v: dict) -> dict:
+        return _validate_day_schedules(v, require_non_empty=False)
+
+
+class PositionsBulkDaySchedules(BaseModel):
+    """Body for the atomic bulk day-schedules PUT.
+
+    Duplicate ``position_id`` across items is NOT rejected here — the service
+    treats it as a 409 mismatch (with the offending ids), not a 422 schema
+    error, mirroring the unknown / foreign-id case [EDGE C2]. Empty items → 422.
+    """
+    items: list[PositionDayScheduleItem] = Field(min_length=1)
 
 
 class PositionResponse(BaseModel):

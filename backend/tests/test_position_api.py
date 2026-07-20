@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 
 from app.dependencies import require_admin_role
 from app.exceptions import (
+    PositionBulkMismatchException,
     PositionNotFoundException,
     PositionReorderMismatchException,
     ProfileNotFoundException,
@@ -91,6 +92,25 @@ class FakePositionService:
         for order, p in enumerate(ordered):
             p.display_order = order
         return ordered
+
+    async def bulk_update_day_schedules(self, profile_id, items):
+        # items: list of (position_id, day_schedules). Mirrors the real service —
+        # membership + duplicate check before any mutation (atomic).
+        in_profile = [p for p in self._positions if p.profile_id == profile_id]
+        existing = {p.id for p in in_profile}
+        requested = [pid for pid, _ in items]
+        offending = []
+        seen = set()
+        for pid in requested:
+            if pid not in existing or pid in seen:
+                offending.append(pid)
+            seen.add(pid)
+        if offending:
+            raise PositionBulkMismatchException()
+        by_id = {p.id: p for p in in_profile}
+        for pid, day_schedules in items:
+            by_id[pid].day_schedules = day_schedules
+        return list(in_profile)
 
     async def copy_position(self, pid, target_profile_id):
         src = self._find(pid)
@@ -294,6 +314,155 @@ class TestPositionReorderAPI:
         resp = client.put(
             f"/admin/builder/profiles/{uuid.uuid4()}/positions/order",
             json={"position_ids": []},
+        )
+        assert resp.status_code == 422
+
+
+class TestPositionBulkDaySchedulesAPI:
+    def _url(self, profile_id):
+        return f"/admin/builder/profiles/{profile_id}/positions/day-schedules"
+
+    def test_bulk_updates_subset_third_untouched(self):
+        svc = FakePositionService()
+        profile_id = uuid.uuid4()
+        a = svc._make(profile_id, "א", VALID_SCHEDULE, [])
+        b = svc._make(profile_id, "ב", VALID_SCHEDULE, [])
+        c = svc._make(profile_id, "ג", VALID_SCHEDULE, [])
+        svc._positions.extend([a, b, c])
+        client = _make_client(svc)
+
+        new_a = {"1": {"start": "08:00", "end": "16:00"}}
+        resp = client.put(
+            self._url(profile_id),
+            json={"items": [
+                {"position_id": str(a.id), "day_schedules": new_a},
+                {"position_id": str(b.id), "day_schedules": {}},
+            ]},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert [p["name"] for p in body] == ["א", "ב", "ג"]  # full ordered list
+        by_id = {p["id"]: p for p in body}
+        assert by_id[str(a.id)]["day_schedules"] == new_a
+        assert by_id[str(b.id)]["day_schedules"] == {}  # [EDGE D3]
+        assert by_id[str(c.id)]["day_schedules"] == VALID_SCHEDULE  # untouched
+
+    def test_bulk_empty_schedules_ok(self):
+        svc = FakePositionService()
+        profile_id = uuid.uuid4()
+        a = svc._make(profile_id, "א", VALID_SCHEDULE, [])
+        svc._positions.append(a)
+        client = _make_client(svc)
+        resp = client.put(
+            self._url(profile_id),
+            json={"items": [{"position_id": str(a.id), "day_schedules": {}}]},
+        )
+        assert resp.status_code == 200
+        assert resp.json()[0]["day_schedules"] == {}
+
+    def test_bulk_overnight_ok(self):
+        svc = FakePositionService()
+        profile_id = uuid.uuid4()
+        a = svc._make(profile_id, "א", VALID_SCHEDULE, [])
+        svc._positions.append(a)
+        client = _make_client(svc)
+        resp = client.put(
+            self._url(profile_id),
+            json={"items": [{"position_id": str(a.id),
+                             "day_schedules": {"0": {"start": "23:00", "end": "07:00"}}}]},
+        )
+        assert resp.status_code == 200  # [EDGE D2]
+
+    def test_bulk_unknown_id_409_no_change(self):
+        svc = FakePositionService()
+        profile_id = uuid.uuid4()
+        a = svc._make(profile_id, "א", VALID_SCHEDULE, [])
+        svc._positions.append(a)
+        client = _make_client(svc)
+        resp = client.put(
+            self._url(profile_id),
+            json={"items": [
+                {"position_id": str(a.id),
+                 "day_schedules": {"1": {"start": "08:00", "end": "16:00"}}},
+                {"position_id": str(uuid.uuid4()), "day_schedules": {}},
+            ]},
+        )
+        assert resp.status_code == 409  # [EDGE C2]
+        assert a.day_schedules == VALID_SCHEDULE  # nothing written [EDGE N1]
+
+    def test_bulk_other_profile_id_409(self):
+        svc = FakePositionService()
+        profile_id = uuid.uuid4()
+        a = svc._make(profile_id, "א", VALID_SCHEDULE, [])
+        foreign = svc._make(uuid.uuid4(), "זר", VALID_SCHEDULE, [])
+        svc._positions.extend([a, foreign])
+        client = _make_client(svc)
+        resp = client.put(
+            self._url(profile_id),
+            json={"items": [{"position_id": str(foreign.id), "day_schedules": {}}]},
+        )
+        assert resp.status_code == 409  # [EDGE C2]
+
+    def test_bulk_duplicate_id_409(self):
+        svc = FakePositionService()
+        profile_id = uuid.uuid4()
+        a = svc._make(profile_id, "א", VALID_SCHEDULE, [])
+        svc._positions.append(a)
+        client = _make_client(svc)
+        resp = client.put(
+            self._url(profile_id),
+            json={"items": [
+                {"position_id": str(a.id), "day_schedules": {}},
+                {"position_id": str(a.id),
+                 "day_schedules": {"1": {"start": "08:00", "end": "16:00"}}},
+            ]},
+        )
+        assert resp.status_code == 409  # [EDGE C2]
+
+    def test_bulk_bad_hours_422(self):
+        svc = FakePositionService()
+        profile_id = uuid.uuid4()
+        a = svc._make(profile_id, "א", VALID_SCHEDULE, [])
+        svc._positions.append(a)
+        client = _make_client(svc)
+        resp = client.put(
+            self._url(profile_id),
+            json={"items": [{"position_id": str(a.id),
+                             "day_schedules": {"0": {"start": "25:00", "end": "15:00"}}}]},
+        )
+        assert resp.status_code == 422  # [EDGE D1]
+
+    def test_bulk_bad_minutes_422(self):
+        svc = FakePositionService()
+        profile_id = uuid.uuid4()
+        a = svc._make(profile_id, "א", VALID_SCHEDULE, [])
+        svc._positions.append(a)
+        client = _make_client(svc)
+        resp = client.put(
+            self._url(profile_id),
+            json={"items": [{"position_id": str(a.id),
+                             "day_schedules": {"0": {"start": "7:3", "end": "15:00"}}}]},
+        )
+        assert resp.status_code == 422  # [EDGE D1]
+
+    def test_bulk_bad_day_index_422(self):
+        svc = FakePositionService()
+        profile_id = uuid.uuid4()
+        a = svc._make(profile_id, "א", VALID_SCHEDULE, [])
+        svc._positions.append(a)
+        client = _make_client(svc)
+        resp = client.put(
+            self._url(profile_id),
+            json={"items": [{"position_id": str(a.id),
+                             "day_schedules": {"9": {"start": "07:00", "end": "15:00"}}}]},
+        )
+        assert resp.status_code == 422  # [EDGE D1]
+
+    def test_bulk_empty_items_422(self):
+        client = _make_client(FakePositionService())
+        resp = client.put(
+            self._url(uuid.uuid4()),
+            json={"items": []},
         )
         assert resp.status_code == 422
 

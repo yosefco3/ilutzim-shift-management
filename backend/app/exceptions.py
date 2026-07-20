@@ -146,6 +146,17 @@ class PositionReorderMismatchException(AppBaseException):
     message = "רשימת הסדר חייבת להכיל בדיוק את עמדות הפרופיל"
 
 
+class PositionBulkMismatchException(AppBaseException):
+    """Raised when a bulk day-schedules body references positions that do not
+    belong to the target profile (an unknown / foreign id) or repeats an id.
+
+    The offending ids are carried in the message (set by the service). Nothing
+    is written — the service validates the whole body before mutating [EDGE C2,
+    N1]."""
+    status_code = 409
+    message = "עמדות לא תואמות לפרופיל"
+
+
 class WeekNotFoundException(AppBaseException):
     """Raised when a schedule week does not exist."""
     status_code = 404

@@ -7,6 +7,7 @@ import uuid
 import pytest
 
 from app.exceptions import (
+    PositionBulkMismatchException,
     PositionNotFoundException,
     PositionReorderMismatchException,
     ProfileNotFoundException,
@@ -184,6 +185,96 @@ class TestReorder:
         a = await service.create_position(profile.id, "א")
         with pytest.raises(PositionReorderMismatchException):
             await service.reorder_positions(profile.id, [a.id, uuid.uuid4()])
+
+
+class TestBulkDaySchedules:
+    async def test_updates_subset_leaves_third_untouched(self, service, db_session):
+        profile = await _make_profile(db_session)
+        sched = {"0": {"start": "07:00", "end": "15:00"}}
+        a = await service.create_position(profile.id, "א", day_schedules=sched)
+        b = await service.create_position(profile.id, "ב", day_schedules=sched)
+        c = await service.create_position(profile.id, "ג", day_schedules=sched)
+
+        new_a = {"1": {"start": "08:00", "end": "16:00"}}
+        new_b = {"2": {"start": "09:00", "end": "17:00"}}
+        result = await service.bulk_update_day_schedules(
+            profile.id, [(a.id, new_a), (b.id, new_b)]
+        )
+
+        # Full ordered list returned (same shape as list_positions).
+        assert [p.name for p in result] == ["א", "ב", "ג"]
+        by_id = {p.id: p for p in result}
+        assert by_id[a.id].day_schedules == new_a
+        assert by_id[b.id].day_schedules == new_b
+        # The unmentioned position is untouched [EDGE C1].
+        assert by_id[c.id].day_schedules == sched
+
+    async def test_empty_schedules_closes_position(self, service, db_session):
+        profile = await _make_profile(db_session)
+        a = await service.create_position(
+            profile.id, "א", day_schedules={"0": {"start": "07:00", "end": "15:00"}}
+        )
+        result = await service.bulk_update_day_schedules(profile.id, [(a.id, {})])
+        assert result[0].day_schedules == {}  # [EDGE D3]
+
+    async def test_overnight_window_allowed(self, service, db_session):
+        profile = await _make_profile(db_session)
+        a = await service.create_position(
+            profile.id, "א", day_schedules={"0": {"start": "07:00", "end": "15:00"}}
+        )
+        night = {"0": {"start": "23:00", "end": "07:00"}}
+        result = await service.bulk_update_day_schedules(profile.id, [(a.id, night)])
+        assert result[0].day_schedules == night  # [EDGE D2]
+
+    async def test_unknown_id_raises_and_writes_nothing(self, service, db_session):
+        profile = await _make_profile(db_session)
+        sched = {"0": {"start": "07:00", "end": "15:00"}}
+        a = await service.create_position(profile.id, "א", day_schedules=sched)
+        with pytest.raises(PositionBulkMismatchException):
+            await service.bulk_update_day_schedules(
+                profile.id,
+                [(a.id, {"1": {"start": "08:00", "end": "16:00"}}),
+                 (uuid.uuid4(), sched)],
+            )
+        # Nothing written — validation precedes any mutation [EDGE C2+N1].
+        assert (await service.get_position(a.id)).day_schedules == sched
+
+    async def test_other_profile_id_raises_and_writes_nothing(
+        self, service, db_session
+    ):
+        profile = await _make_profile(db_session, "שגרה")
+        other = await _make_profile(db_session, "אחר")
+        sched = {"0": {"start": "07:00", "end": "15:00"}}
+        a = await service.create_position(profile.id, "א", day_schedules=sched)
+        foreign = await service.create_position(other.id, "זר", day_schedules=sched)
+        with pytest.raises(PositionBulkMismatchException):
+            await service.bulk_update_day_schedules(
+                profile.id,
+                [(a.id, {"1": {"start": "08:00", "end": "16:00"}}),
+                 (foreign.id, sched)],
+            )
+        assert (await service.get_position(a.id)).day_schedules == sched
+
+    async def test_duplicate_id_raises(self, service, db_session):
+        profile = await _make_profile(db_session)
+        a = await service.create_position(profile.id, "א")
+        with pytest.raises(PositionBulkMismatchException):
+            await service.bulk_update_day_schedules(
+                profile.id,
+                [(a.id, {"1": {"start": "08:00", "end": "16:00"}}),
+                 (a.id, {"2": {"start": "09:00", "end": "17:00"}})],
+            )
+
+    async def test_message_carries_offending_ids(self, service, db_session):
+        profile = await _make_profile(db_session)
+        bad = uuid.uuid4()
+        with pytest.raises(PositionBulkMismatchException) as exc_info:
+            await service.bulk_update_day_schedules(profile.id, [(bad, {})])
+        assert str(bad) in exc_info.value.message
+
+    async def test_missing_profile_raises(self, service, db_session):
+        with pytest.raises(ProfileNotFoundException):
+            await service.bulk_update_day_schedules(uuid.uuid4(), [(uuid.uuid4(), {})])
 
 
 class TestCopyToProfile:
