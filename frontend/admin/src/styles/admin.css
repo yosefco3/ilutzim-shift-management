@@ -1098,6 +1098,72 @@ body {
   white-space: nowrap;
 }
 
+/* ── Part B — Positions page: matrix tab (תצוגת לוח) ───────────────── */
+/* Tab switcher row (matrix / cards). Mirrors the procedure detail tab-row,
+   which has no CSS of its own — this gives the positions page a flex row. */
+.positions-tab-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+/* Horizontal scroll on narrow screens so the 7-day grid never overflows. */
+.profile-matrix-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.profile-matrix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.profile-matrix th,
+.profile-matrix td {
+  border: 1px solid var(--border);
+  padding: 0.5rem 0.6rem;
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.profile-matrix thead th {
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+}
+/* First column / row header = position name, pinned right in RTL. */
+.profile-matrix-col-name,
+.profile-matrix-row-name {
+  text-align: start;
+  min-width: 9rem;
+  background: var(--surface-2);
+  font-weight: 600;
+  color: var(--text);
+}
+.profile-matrix-row-name { background: var(--surface); }
+.profile-matrix-name-text { color: var(--text); }
+.profile-matrix-day-name { color: var(--text); }
+/* Per-day label chip in the header (e.g. "ט׳ באב"). Echoes the requirement-tag
+   pill: accent text on a faint accent tint. [EDGE I2] — matrix-only for now. */
+.profile-matrix-day-label {
+  display: inline-block;
+  margin-inline-start: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--accent, #3b82f6);
+  border: 1px solid var(--accent, #3b82f6);
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+}
+.profile-matrix-cell { color: var(--text); }
+/* Inactive day — muted ✕ (read-only marker, not a button yet). */
+.profile-matrix-cell.is-off {
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
 .day-row select:disabled { opacity: 0.4; }
 .day-duration {
   font-size: 0.85rem;

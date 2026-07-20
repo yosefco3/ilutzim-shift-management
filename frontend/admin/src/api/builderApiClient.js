@@ -22,6 +22,8 @@ export function getProfile(id) {
   return request(`${BASE}/${id}`);
 }
 
+// `body` is sent verbatim, so `day_labels` (step 07) and every other profile
+// field pass through unchanged — no allow-list to update when adding fields.
 export function updateProfile(id, body) {
   return request(`${BASE}/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
 }
@@ -87,6 +89,18 @@ export function reorderPositions(profileId, positionIds) {
   return request(`${BASE}/${profileId}/positions/order`, {
     method: 'PUT',
     body: JSON.stringify({ position_ids: positionIds }),
+  });
+}
+
+// Atomic bulk replace of `day_schedules` for a subset of the profile's positions
+// (the matrix editor's single Save in step 04 — last-write-wins per position so
+// two admins editing different rows don't clobber each other [EDGE C1]).
+// `items`: [{ position_id, day_schedules }] — backend validates every id belongs
+// to the profile or 409s atomically [EDGE C2].
+export function bulkUpdateDaySchedules(profileId, items) {
+  return request(`${BASE}/${profileId}/positions/day-schedules`, {
+    method: 'PUT',
+    body: JSON.stringify({ items }),
   });
 }
 

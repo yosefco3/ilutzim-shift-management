@@ -128,6 +128,13 @@ export default {
     copied: (name, profile) => `"${name}" הועתקה לפרופיל "${profile}"`,
     attrCreated: 'המאפיין נוצר',
     attrDeleted: 'המאפיין נמחק',
+    // Matrix tab (תצוגת לוח) — positions × days grid. Read-only in step 03;
+    // editing lands in steps 04–07.
+    matrix: 'תצוגת לוח',
+    cards: 'כרטיסיות',
+    matrixPositionCol: 'עמדה',
+    matrixHours: (start, end) => `${start}–${end}`,
+    matrixOff: 'לא פעיל',
   },
   board: {
     // Ad-hoc position marker (actual board only — rows added mid-week).

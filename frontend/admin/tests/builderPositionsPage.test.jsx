@@ -57,7 +57,33 @@ describe('PositionsPage', () => {
   it('loads the profile selector and lists positions', async () => {
     renderPage();
     expect(await screen.findByText('ארנונה')).toBeInTheDocument();
+    // Requirement tags live on the cards — switch off the default matrix tab.
+    fireEvent.click(screen.getByText('כרטיסיות'));
     expect(screen.getByText('חמוש')).toBeInTheDocument(); // requirement tag
+  });
+
+  it('defaults to the matrix tab (positions × days grid)', async () => {
+    renderPage();
+    await screen.findByText('ארנונה');
+    // The matrix tab button is the active one.
+    const matrixBtn = screen.getByText('תצוגת לוח');
+    expect(matrixBtn.className).toContain('btn-primary');
+    expect(matrixBtn).toHaveAttribute('aria-pressed', 'true');
+    // Matrix rendered, cards grid not.
+    expect(document.querySelector('.profile-matrix')).not.toBeNull();
+    expect(document.querySelector('.position-cards')).toBeNull();
+  });
+
+  it('switching to "כרטיסיות" shows the card grid and hides the matrix', async () => {
+    renderPage();
+    await screen.findByText('ארנונה');
+    expect(document.querySelector('.profile-matrix')).not.toBeNull();
+
+    fireEvent.click(screen.getByText('כרטיסיות'));
+
+    expect(document.querySelector('.position-cards')).not.toBeNull();
+    expect(document.querySelector('.profile-matrix')).toBeNull();
+    expect(screen.getByText('כרטיסיות').className).toContain('btn-primary');
   });
 
   it('creates a position with day schedule and requirement', async () => {
@@ -158,6 +184,9 @@ describe('PositionsPage', () => {
     renderPage();
     await screen.findByText('ארנונה');
 
+    // Drag-and-drop lives on the cards — switch off the default matrix tab.
+    fireEvent.click(screen.getByText('כרטיסיות'));
+
     // The drop target is the other profile rendered as a copy-target chip.
     const target = screen
       .getAllByText('חג')
@@ -182,6 +211,9 @@ describe('PositionsPage', () => {
     renderPage();
     await screen.findByText('ארנונה');
 
+    // The delete button lives on the cards — switch off the default matrix tab.
+    fireEvent.click(screen.getByText('כרטיסיות'));
+
     fireEvent.click(screen.getByText('מחק')); // opens confirm
     const buttons = screen.getAllByText('מחק');
     fireEvent.click(buttons[buttons.length - 1]);
@@ -196,5 +228,8 @@ describe('PositionsPage', () => {
     // The editor modal opens on load, seeded with the position's name.
     expect(await screen.findByText('עריכת עמדה')).toBeInTheDocument();
     expect(screen.getByLabelText('שם העמדה').value).toBe('ארנונה');
+    // ?edit lands on the cards tab (the editor flow lives there), not the matrix.
+    expect(document.querySelector('.position-cards')).not.toBeNull();
+    expect(document.querySelector('.profile-matrix')).toBeNull();
   });
 });

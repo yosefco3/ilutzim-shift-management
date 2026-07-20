@@ -14,6 +14,7 @@ import {
 import { useToast } from '../../components/Toast';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import PositionEditorModal from '../../components/positions/PositionEditorModal';
+import ProfileMatrix from '../../components/positions/ProfileMatrix';
 import messages from '../../utils/messages';
 import { DAY_NAMES_SHORT as DAY_NAMES } from '../../utils/guardMessages.js';
 
@@ -36,6 +37,13 @@ export default function PositionsPage() {
   const [positions, setPositions] = useState([]);
   const [attributes, setAttributes] = useState([]);
   const [loading, setLoading] = useState(true);
+  // "matrix" (positions × days, default) | "cards" (the original card UI). The
+  // board's ?edit= deep-link opens the position editor modal, which lives in the
+  // cards flow — so an ?edit param lands you on the cards tab to match.
+  const [tab, setTab] = useState(() => (searchParams.get('edit') ? 'cards' : 'matrix'));
+
+  // The selected profile object (carries day_labels for the matrix headers).
+  const profile = profiles.find((p) => p.id === profileId);
 
   const [editor, setEditor] = useState(null); // editor form or null
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -213,98 +221,121 @@ export default function PositionsPage() {
         </button>
       </div>
 
-      {positions.length > 0 && (
-        <div className="copy-targets">
-          <span className="copy-targets-title">{m.copyTargetsTitle}</span>
-          {profiles.filter((p) => p.id !== profileId).length === 0 ? (
-            <span className="copy-targets-hint">{m.copyOnlyProfile}</span>
-          ) : (
-            <>
-              {profiles
-                .filter((p) => p.id !== profileId)
-                .map((p) => (
-                  <div
-                    key={p.id}
-                    className={`copy-target${dragOverProfile === p.id ? ' over' : ''}`}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = 'copy';
-                      if (dragOverProfile !== p.id) setDragOverProfile(p.id);
-                    }}
-                    onDragLeave={() => setDragOverProfile((cur) => (cur === p.id ? null : cur))}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      const id = e.dataTransfer.getData('text/plain');
-                      if (id) handleCopyToProfile(id, p);
-                    }}
-                  >
-                    {p.name}
-                  </div>
-                ))}
-              <span className="copy-targets-hint">
-                {draggingId ? m.dropToCopy : m.copyHint}
-              </span>
-            </>
-          )}
-        </div>
-      )}
-
       {!positions.length ? (
         <p className="empty-state">{m.empty}</p>
       ) : (
-        <div className="position-cards">
-          {positions.map((p) => (
-            <div
-              key={p.id}
-              className={`position-card${draggingId === p.id ? ' dragging' : ''}`}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData('text/plain', p.id);
-                e.dataTransfer.effectAllowed = 'copy';
-                setDraggingId(p.id);
-              }}
-              onDragEnd={() => {
-                setDraggingId(null);
-                setDragOverProfile(null);
-              }}
+        <>
+          <div className="tab-row positions-tab-row">
+            <button
+              className={`btn btn-sm ${tab === 'matrix' ? 'btn-primary' : 'btn-outline'}`}
+              aria-pressed={tab === 'matrix'}
+              onClick={() => setTab('matrix')}
             >
-              <div className="position-card-header">
-                <span className="position-card-name">{p.name}</span>
-                {p.is_event && (
-                  <span className="position-event-badge">
-                    {p.event_required_count != null
-                      ? `${m.eventBadge} · ${p.event_required_count}`
-                      : m.eventBadge}
-                  </span>
+              {m.matrix}
+            </button>
+            <button
+              className={`btn btn-sm ${tab === 'cards' ? 'btn-primary' : 'btn-outline'}`}
+              aria-pressed={tab === 'cards'}
+              onClick={() => setTab('cards')}
+            >
+              {m.cards}
+            </button>
+          </div>
+
+          {tab === 'matrix' ? (
+            <ProfileMatrix positions={positions} profile={profile} />
+          ) : (
+            <>
+              <div className="copy-targets">
+                <span className="copy-targets-title">{m.copyTargetsTitle}</span>
+                {profiles.filter((p) => p.id !== profileId).length === 0 ? (
+                  <span className="copy-targets-hint">{m.copyOnlyProfile}</span>
+                ) : (
+                  <>
+                    {profiles
+                      .filter((p) => p.id !== profileId)
+                      .map((p) => (
+                        <div
+                          key={p.id}
+                          className={`copy-target${dragOverProfile === p.id ? ' over' : ''}`}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = 'copy';
+                            if (dragOverProfile !== p.id) setDragOverProfile(p.id);
+                          }}
+                          onDragLeave={() => setDragOverProfile((cur) => (cur === p.id ? null : cur))}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            const id = e.dataTransfer.getData('text/plain');
+                            if (id) handleCopyToProfile(id, p);
+                          }}
+                        >
+                          {p.name}
+                        </div>
+                      ))}
+                    <span className="copy-targets-hint">
+                      {draggingId ? m.dropToCopy : m.copyHint}
+                    </span>
+                  </>
                 )}
               </div>
-              <p className="position-card-days">{daySummary(p.day_schedules)}</p>
-              {p.required_attributes?.length > 0 && (
-                <div className="position-card-tags">
-                  {p.required_attributes.map((key) => (
-                    <span key={key} className="position-tag">
-                      {attrLabel(key)}
-                    </span>
-                  ))}
-                </div>
-              )}
-              <div className="position-card-actions">
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => setEditor(p)}
-                >
-                  {m.edit}
-                </button>
-                <button
-                  className="btn btn-danger btn-sm"
-                  onClick={() => setConfirmDelete(p)}
-                >
-                  {m.delete}
-                </button>
+
+              <div className="position-cards">
+                {positions.map((p) => (
+                  <div
+                    key={p.id}
+                    className={`position-card${draggingId === p.id ? ' dragging' : ''}`}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/plain', p.id);
+                      e.dataTransfer.effectAllowed = 'copy';
+                      setDraggingId(p.id);
+                    }}
+                    onDragEnd={() => {
+                      setDraggingId(null);
+                      setDragOverProfile(null);
+                    }}
+                  >
+                    <div className="position-card-header">
+                      <span className="position-card-name">{p.name}</span>
+                      {p.is_event && (
+                        <span className="position-event-badge">
+                          {p.event_required_count != null
+                            ? `${m.eventBadge} · ${p.event_required_count}`
+                            : m.eventBadge}
+                        </span>
+                      )}
+                    </div>
+                    <p className="position-card-days">{daySummary(p.day_schedules)}</p>
+                    {p.required_attributes?.length > 0 && (
+                      <div className="position-card-tags">
+                        {p.required_attributes.map((key) => (
+                          <span key={key} className="position-tag">
+                            {attrLabel(key)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="position-card-actions">
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => setEditor(p)}
+                      >
+                        {m.edit}
+                      </button>
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={() => setConfirmDelete(p)}
+                      >
+                        {m.delete}
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
-          ))}
-        </div>
+            </>
+          )}
+        </>
       )}
 
       <PositionEditorModal
