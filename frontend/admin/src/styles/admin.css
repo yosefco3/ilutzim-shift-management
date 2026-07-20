@@ -1121,7 +1121,7 @@ body {
 .profile-matrix th,
 .profile-matrix td {
   border: 1px solid var(--border);
-  padding: 0.5rem 0.6rem;
+  padding: 0.45rem 0.4rem;
   text-align: center;
   vertical-align: middle;
   white-space: nowrap;
@@ -1144,14 +1144,21 @@ body {
 }
 .profile-matrix-row-name { background: var(--surface); }
 .profile-matrix-name-text { color: var(--text); }
-.profile-matrix-day-name { color: var(--text); }
+/* Stack the header: day name on its own line, with the label chip/affordance and
+   the menu chevron flowing below it. This makes each day column as wide as its
+   WIDEST line (≈ the hours cell) instead of the SUM of name + chip + chevron —
+   so all 7 days fit without the last column (שבת) being clipped. */
+.profile-matrix-day-name {
+  display: block;
+  color: var(--text);
+}
 /* Per-day label chip in the header (e.g. "ט׳ באב"). Step 07 turns it into a
    button (click to edit), so it carries a button reset. Echoes the
    requirement-tag pill: accent text on a faint accent border. [EDGE I2] — now
    visible on the board too (step 07 flips it on). */
 .profile-matrix-day-label {
   display: inline-block;
-  margin-inline-start: 0.4rem;
+  margin-top: 0.2rem;
   font: inherit;
   font-size: 0.72rem;
   font-weight: 500;
@@ -1175,11 +1182,11 @@ body {
 /* Inline editor for a day label (step 07): pill-shaped input (max 50 chars). */
 .profile-matrix-day-label-input {
   display: inline-block;
-  margin-inline-start: 0.4rem;
+  margin-top: 0.2rem;
   font: inherit;
   font-size: 0.72rem;
   font-weight: 500;
-  width: 7rem;
+  width: 6rem;
   max-width: 100%;
   color: var(--text);
   background: var(--surface);
