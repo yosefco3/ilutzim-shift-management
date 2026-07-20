@@ -59,6 +59,42 @@ const bandForRow = (daySchedules) => {
   return bandForStart(_toMin(bestStart));
 };
 
+// Variant days: within a row, the "usual" window is the most-common active
+// window (mode). Active days whose window differs from that mode are flagged so
+// an admin spots the one/two weekly exceptions at a glance. Off days never
+// count. Nothing is flagged when the row has <2 active days, when the most-
+// common window is a tie (no clear majority to deviate from), or when every
+// active day already shares the same window. Recomputed from the WORKING state,
+// so the marks update live as hours are toggled/edited.
+const winKey = (w) => `${w.start}|${w.end}`;
+function variantDaysForRow(daySchedules) {
+  const active = [];
+  for (const d of DAY_INDICES) {
+    const w = daySchedules?.[String(d)];
+    if (windowActive(w)) active.push([d, winKey(w)]);
+  }
+  if (active.length < 2) return new Set();
+  const counts = new Map();
+  for (const [, k] of active) counts.set(k, (counts.get(k) || 0) + 1);
+  // Most-common window + whether that maximum is unique (a clear majority).
+  let maxCount = 0;
+  let maxKey = null;
+  let tie = false;
+  for (const [k, c] of counts) {
+    if (c > maxCount) {
+      maxCount = c;
+      maxKey = k;
+      tie = false;
+    } else if (c === maxCount) {
+      tie = true;
+    }
+  }
+  if (tie || maxCount === active.length) return new Set(); // no majority / all same
+  const out = new Set();
+  for (const [d, k] of active) if (k !== maxKey) out.add(d);
+  return out;
+}
+
 // Two windows are equal only if both are active with identical hours, or both
 // inactive (absent/empty). Drives per-cell dirty highlight and per-row diffing.
 function windowsEqual(a, b) {
@@ -220,6 +256,12 @@ export default function ProfileMatrix({
   // separate morning/evening/night — mirroring the board (תצוגה כמו בלוח).
   const rowBands = useMemo(
     () => working.map((p) => bandForRow(p.day_schedules)),
+    [working],
+  );
+  // Per-row set of "variant" day indices (active days whose hours differ from
+  // the row's most-common window) — drives the small exception-day marker.
+  const rowVariants = useMemo(
+    () => working.map((p) => variantDaysForRow(p.day_schedules)),
     [working],
   );
   const bandCounts = useMemo(() => {
@@ -823,17 +865,21 @@ export default function ProfileMatrix({
                   (active && snapActive && (win.start !== snapWin.start || win.end !== snapWin.end));
                 const cellOpen = active && openCell?.posIdx === posIdx && openCell?.d === d;
                 const selected = selection.has(cellKey(posIdx, d));
+                // Active day whose hours differ from the row's usual window.
+                const variant = active && rowVariants[posIdx]?.has(d);
                 return (
                   <td
                     key={d}
                     role="button"
                     tabIndex={0}
                     aria-pressed={active}
-                    aria-label={`${p.name}, ${DAY_NAMES[d]}, ${active ? m.active : m.matrixOff}`}
+                    aria-label={`${p.name}, ${DAY_NAMES[d]}, ${active ? m.active : m.matrixOff}${
+                      variant ? ` · ${m.matrixVariantDay}` : ''
+                    }`}
                     className={`profile-matrix-cell${active ? '' : ' is-off'}${
                       dirty ? ' is-dirty' : ''
-                    }${selected ? ' is-selected' : ''}`}
-                    title={active ? undefined : m.matrixOff}
+                    }${selected ? ' is-selected' : ''}${variant ? ' is-variant' : ''}`}
+                    title={active ? (variant ? m.matrixVariantDay : undefined) : m.matrixOff}
                     onClick={(e) => handleCellClick(posIdx, d, e)}
                     onDoubleClick={() => handleCellDblClick(posIdx, d)}
                     onPointerDown={(e) => onCellPointerDown(posIdx, d, e)}

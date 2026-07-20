@@ -768,4 +768,58 @@ describe('ProfileMatrix event participant count', () => {
     render(<ProfileMatrix positions={[POSITION()]} profile={{ day_labels: {} }} />);
     expect(screen.queryByRole('button', { name: badgeName('ארנונה') })).toBeNull();
   });
+
+  // ── Variant-day marker ────────────────────────────────────────────────
+  // Within a row, active days whose hours differ from the row's most-common
+  // ("usual") window are flagged with `is-variant` so weekly exceptions pop.
+  describe('variant-day marker', () => {
+    const variantCells = (container) =>
+      container.querySelectorAll('.profile-matrix-cell.is-variant');
+
+    it('flags the active day whose hours differ from the row majority', () => {
+      // Sun–Fri = 07:00–15:00 (6 days), Sat = 15:00–23:00 (the exception).
+      const ds = {};
+      for (const d of [0, 1, 2, 3, 4, 5]) ds[d] = { start: '07:00', end: '15:00' };
+      ds[6] = { start: '15:00', end: '23:00' };
+      const { container } = render(
+        <ProfileMatrix positions={[POSITION({ day_schedules: ds })]} profile={{ day_labels: {} }} />,
+      );
+      const variants = variantCells(container);
+      expect(variants).toHaveLength(1);
+      expect(variants[0].textContent).toContain(messages.positions.matrixHours('15:00', '23:00'));
+    });
+
+    it('flags nothing when every active day shares the same window', () => {
+      const ds = {};
+      for (const d of [0, 1, 2, 3, 4]) ds[d] = { start: '07:00', end: '15:00' }; // 5 active, 2 off
+      const { container } = render(
+        <ProfileMatrix positions={[POSITION({ day_schedules: ds })]} profile={{ day_labels: {} }} />,
+      );
+      expect(variantCells(container)).toHaveLength(0);
+    });
+
+    it('flags nothing when there is no clear majority (a tie)', () => {
+      const ds = { 0: { start: '07:00', end: '15:00' }, 1: { start: '15:00', end: '23:00' } }; // 1 vs 1
+      const { container } = render(
+        <ProfileMatrix positions={[POSITION({ day_schedules: ds })]} profile={{ day_labels: {} }} />,
+      );
+      expect(variantCells(container)).toHaveLength(0);
+    });
+
+    it('never flags an off (inactive) day', () => {
+      // 3 days X, 1 day Y (the exception), 3 days off — off days stay unflagged.
+      const ds = {
+        0: { start: '07:00', end: '15:00' },
+        1: { start: '07:00', end: '15:00' },
+        2: { start: '07:00', end: '15:00' },
+        3: { start: '23:00', end: '07:00' },
+      };
+      const { container } = render(
+        <ProfileMatrix positions={[POSITION({ day_schedules: ds })]} profile={{ day_labels: {} }} />,
+      );
+      const variants = variantCells(container);
+      expect(variants).toHaveLength(1);
+      variants.forEach((v) => expect(v.classList.contains('is-off')).toBe(false));
+    });
+  });
 });

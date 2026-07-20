@@ -1398,6 +1398,26 @@ body {
   color: var(--warning);
   background: var(--warning-soft);
 }
+/* Variant day — an ACTIVE cell whose hours differ from the row's most-common
+   ("usual") window. A small cyan corner dot + a faint tint flag the one/two
+   weekly exception days so they pop against the baseline. Off days are never
+   flagged. Scoped under `tbody tr` so the tint wins over the zebra/hover
+   backgrounds (equal specificity, later in source); the dirty (unsaved) amber
+   keeps priority when both apply, and the dot still shows either way. */
+.profile-matrix tbody tr .profile-matrix-cell.is-variant { background: var(--info-soft); }
+.profile-matrix tbody tr .profile-matrix-cell.is-variant.is-dirty { background: var(--warning-soft); }
+.profile-matrix-cell.is-variant::before {
+  content: "";
+  position: absolute;
+  top: 0.28rem;
+  inset-inline-start: 0.28rem;
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 50%;
+  background: var(--info);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.22);
+  pointer-events: none;
+}
 /* Pencil affordance (active cells only): hidden until the cell is hovered or
    focused (keyboard), always shown on touch pointers (no hover available). */
 .profile-matrix-cell-edit {

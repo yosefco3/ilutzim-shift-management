@@ -142,6 +142,9 @@ export default {
     matrixPositionCol: 'עמדה',
     matrixHours: (start, end) => `${start}–${end}`,
     matrixOff: 'לא פעיל',
+    // Tooltip on an active cell whose hours differ from the row's most-common
+    // window — the small "variant day" marker that flags weekly exceptions.
+    matrixVariantDay: 'שעות שונות משאר ימי השבוע',
     // Matrix editor (step 04) — explicit save/discard toolbar + dirty guards.
     // N = number of CHANGED POSITIONS (rows), not cells.
     matrixSave: (n) => `שמירה (${n})`,
