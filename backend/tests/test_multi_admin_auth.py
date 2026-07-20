@@ -80,6 +80,25 @@ async def test_lookup_wildcards_not_interpreted(db_session):
     assert await repo.get_by_username_or_email("y_sef") is None
 
 
+@pytest.mark.asyncio
+async def test_lookup_case_and_whitespace_insensitive(db_session):
+    """A capitalized or space-padded email/local-part still logs in — emails are
+    stored lowercased, so login normalizes the input (real prod bug 2026-07-20:
+    'Moshesh94@gmail.com' / trailing space failed with the right password)."""
+    repo = AdminRepository(db_session)
+    await _add_admin(repo, "moshesh94@gmail.com")
+
+    for variant in (
+        "Moshesh94@gmail.com",
+        "  moshesh94@gmail.com  ",
+        "MOSHESH94@GMAIL.COM",
+        "Moshesh94",
+        " moshesh94 ",
+    ):
+        found = await repo.get_by_username_or_email(variant)
+        assert found is not None and found.email == "moshesh94@gmail.com", variant
+
+
 # ── login through the service ─────────────────────────────────────────────────
 
 @pytest.mark.asyncio

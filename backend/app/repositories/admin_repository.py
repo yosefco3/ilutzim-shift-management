@@ -31,25 +31,33 @@ class AdminRepository(BaseRepository[Admin]):
         return result.scalar_one_or_none()
 
     async def get_by_username_or_email(self, username_or_email: str) -> Admin | None:
-        """Find an admin by exact email, or by exact local part (before the @).
+        """Find an admin by email, or by the local part (before the @).
 
-        Allows users to type just 'admin' to match 'admin@example.com'.
-        With multiple admins a *prefix* match could hit the wrong account (or
-        two accounts), so only the full local part matches. If two admins share
-        a local part, only an exact-email match is returned — the full email is
+        Case- and whitespace-insensitive: emails are stored lowercased, so the
+        input is stripped and lowercased before matching. This is standard for
+        email login — otherwise a stray leading/trailing space or a capital
+        letter (browser autofill, mobile auto-capitalization) fails the login
+        even with the right password.
+
+        Allows users to type just 'admin' to match 'admin@example.com'. With
+        multiple admins a *prefix* match could hit the wrong account (or two
+        accounts), so only the full local part matches. If two admins share a
+        local part, only an exact-email match is returned — the full email is
         required to disambiguate; ambiguity never raises.
         """
-        from sqlalchemy import or_
+        from sqlalchemy import func, or_
 
+        normalized = username_or_email.strip().lower()
         escaped = (
-            username_or_email.replace("\\", "\\\\")
+            normalized.replace("\\", "\\\\")
             .replace("%", "\\%")
             .replace("_", "\\_")
         )
+        email_lower = func.lower(Admin.email)
         stmt = select(Admin).where(
             or_(
-                Admin.email == username_or_email,
-                Admin.email.ilike(f"{escaped}@%", escape="\\"),
+                email_lower == normalized,
+                email_lower.like(f"{escaped}@%", escape="\\"),
             )
         )
         result = await self.session.execute(stmt)
@@ -57,7 +65,7 @@ class AdminRepository(BaseRepository[Admin]):
         if len(admins) == 1:
             return admins[0]
         for admin in admins:
-            if admin.email == username_or_email:
+            if admin.email.lower() == normalized:
                 return admin
         return None
 
