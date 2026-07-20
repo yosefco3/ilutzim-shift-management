@@ -1171,13 +1171,19 @@ body {
 }
 .profile-matrix {
   width: 100%;
+  /* Fixed layout = the 7 day columns divide the container evenly and can NEVER
+     push past 100% (auto layout let the "15:00–07:00" cells dictate widths, so on
+     a ~1040px container the last day (שבת) tipped over and clipped). Below
+     min-width the scroll container scrolls instead of clipping. */
+  table-layout: fixed;
+  min-width: 50rem;
   border-collapse: collapse;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
 }
 .profile-matrix th,
 .profile-matrix td {
   border: 1px solid var(--border);
-  padding: 0.45rem 0.4rem;
+  padding: 0.45rem 0.35rem;
   text-align: center;
   vertical-align: middle;
   white-space: nowrap;
@@ -1200,13 +1206,16 @@ body {
 .profile-matrix-col-name,
 .profile-matrix-row-name {
   text-align: start;
-  min-width: 9rem;
+  /* Fixed width (table-layout: fixed) — the day columns share what's left. */
+  width: 11rem;
   background: var(--surface-2);
   font-weight: 600;
   color: var(--text);
 }
 .profile-matrix-row-name { background: var(--surface); position: relative; }
-.profile-matrix-name-text { color: var(--text); }
+/* Long position names wrap inside the fixed-width name column instead of forcing
+   the column wider (which would squeeze the day columns and re-introduce clipping). */
+.profile-matrix-name-text { color: var(--text); white-space: normal; overflow-wrap: anywhere; }
 /* Delete-position affordance in the row header — hidden until the row name cell
    is hovered/focused (always shown on touch), sits at the inline-end (left in
    RTL) so it never crowds the name. */
