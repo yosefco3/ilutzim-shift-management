@@ -1132,6 +1132,13 @@ body {
   font-weight: 600;
   position: sticky;
   top: 0;
+  /* Sticky establishes a stacking context; without a z-index it stays at the
+     page level and the (later-in-DOM) tbody cells paint OVER the header — so the
+     column dropdown menu (a descendant) rendered behind the table text. Lifting
+     the header above the body fixes the menu overlap and also keeps the sticky
+     header on top when the grid scrolls. Kept below the cell hours popover
+     (z-index 20) so a downward popover is never covered by the header. */
+  z-index: 15;
 }
 /* First column / row header = position name, pinned right in RTL. */
 .profile-matrix-col-name,
