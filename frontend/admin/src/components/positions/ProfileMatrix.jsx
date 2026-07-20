@@ -37,26 +37,63 @@ function scheduleChanged(snapMap, workMap) {
   return false;
 }
 
+// Stable string id for a cell — step 06 selection/bulk ops key on this.
+const cellKey = (posIdx, d) => `${posIdx}:${d}`;
+
+// All cells inside the rectangle between two corners (inclusive) — step 06
+// drag-select sweeps the bounding rectangle (simpler & more predictable than a
+// freeform swept set).
+const rectKeys = (a, c) => {
+  const minP = Math.min(a.posIdx, c.posIdx);
+  const maxP = Math.max(a.posIdx, c.posIdx);
+  const minD = Math.min(a.d, c.d);
+  const maxD = Math.max(a.d, c.d);
+  const out = [];
+  for (let p = minP; p <= maxP; p++) {
+    for (let d = minD; d <= maxD; d++) out.push(cellKey(p, d));
+  }
+  return out;
+};
+
 /**
- * Positions × days matrix (steps 03–05). Step 03 laid out the read-only grid;
+ * Positions × days matrix (steps 03–06). Step 03 laid out the read-only grid;
  * step 04 made each cell toggle its day on/off, track dirty cells against an
  * immutable load-time snapshot, and save only the changed rows via the step-02
- * bulk endpoint. Step 05 adds a per-cell hours popover (start/end) on active
- * cells — pencil or double-click opens it; confirm writes the window into the
- * working row through the same dirty/save pipeline (no server call from the
- * popover). Multi-select / label editing land in 06–07.
+ * bulk endpoint. Step 05 added a per-cell hours popover (start/end) on active
+ * cells. Step 06 adds bulk gestures so a whole holiday day is 2 clicks:
+ *
+ *   • Drag-select (mouse): pointer-down on a cell + drag over others selects the
+ *     bounding rectangle (visual outline). Ctrl/Cmd+click adds/removes a single
+ *     cell. A plain click still toggles one cell; double-click still opens the
+ *     popover; the pencil still works. Click-vs-drag is split by "did the
+ *     pointer enter another cell while the button was down" (movement
+ *     threshold). A real drag sets a one-shot suppress flag so the click that
+ *     follows the pointer-up does NOT also toggle.
+ *   • Selection action bar (≥2 selected): כבה / הדלק (step-04 restore order) /
+ *     קבע שעות… (one CellHoursPopover; applies to every selected ACTIVE cell —
+ *     off cells stay off) / נקה בחירה.
+ *   • Day-header chevron menu: כבה את כל היום / הדלק את כל היום / קבע שעות לכל
+ *     היום… (same popover, all ACTIVE cells in the column). One menu open at a
+ *     time; click-outside closes.
+ *
+ * Touch/coarse pointers: drag-select would fight the horizontal scroll, so it is
+ * mouse-only — on touch a tap still toggles and whole-day ops reach via the
+ * header menu (per spec).
+ *
+ * Everything mutates ONLY the working state — same dirty tint, same single
+ * "שמירה (N)", no new server calls.
  *
  * Toggle-ON restore order: the snapshot's hours for that cell → else the
  * position's first active window in the snapshot → else 07:00–15:00. All-days-off
  * for a position is allowed here (no ≥1-day client rule) [EDGE D3].
  *
  * This component owns the working state (snapshot + editable copy + dirty diff
- * + toolbar) and stays self-contained. Saving is delegated up: it calls `onSave`
- * with ONLY the changed rows [EDGE C1], and PositionsPage does the API call,
- * toast, and reload. On success/409 the page reloads positions → this component
- * resets its snapshot; on other failures the page does NOT reload, so the dirty
- * state survives for a retry [EDGE N1]. `onDirtyChange` lets the page guard
- * navigation while there are unsaved changes [EDGE N2].
+ * + toolbar + selection) and stays self-contained. Saving is delegated up: it
+ * calls `onSave` with ONLY the changed rows [EDGE C1], and PositionsPage does
+ * the API call, toast, and reload. On success/409 the page reloads positions →
+ * this component resets its snapshot; on other failures the page does NOT
+ * reload, so the dirty state survives for a retry [EDGE N1]. `onDirtyChange`
+ * lets the page guard navigation while there are unsaved changes [EDGE N2].
  *
  * Props:
  *   positions     — listPositions() result (display_order). The load-time truth.
@@ -76,9 +113,31 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
   const [working, setWorking] = useState(() => clonePositions(positions));
   const [saving, setSaving] = useState(false);
 
+  // ── Step 06: multi-select + column operations ──────────────────────────
+  // selection  — Set of "posIdx:d" strings (rectangle drag + ctrl/cmd-click).
+  // openMenu   — the day index whose header chevron menu is open, or null.
+  // hoursEditor — one shared CellHoursPopover for bulk "קבע שעות", anchored to
+  //               the action bar (kind 'bar') or a day header (kind 'col').
+  const [selection, setSelection] = useState(() => new Set());
+  const [openMenu, setOpenMenu] = useState(null);
+  const [hoursEditor, setHoursEditor] = useState(null);
+
+  // In-flight drag state (anchor cell + whether the pointer has entered another
+  // cell = "it became a drag") and the one-shot flag that swallows the click a
+  // browser fires right after a drag's pointer-up.
+  const drag = useRef({ anchor: null, dragging: false });
+  const suppressClick = useRef(false);
+  const menuRef = useRef(null);
+
   useEffect(() => {
     setSnapshot(clonePositions(positions));
     setWorking(clonePositions(positions));
+    // A positions reload invalidates positional selection indices and any open
+    // overlay — reset all step-06 UI state too.
+    setSelection(new Set());
+    setOpenMenu(null);
+    setHoursEditor(null);
+    setOpenCell(null);
   }, [positions]);
 
   // Changed positions (rows whose day map differs from the snapshot) — drives the
@@ -127,6 +186,47 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
     [snapshot, restoreWindow],
   );
 
+  // Apply `mutate(dayMap, posIdx, d)` to each cell in `keys`, cloning ONLY the
+  // touched rows so unchanged rows keep their identity (and scheduleChanged
+  // stays a clean value compare). Used by every step-06 bulk gesture.
+  const applyToCells = useCallback((keys, mutate) => {
+    setWorking((cur) => {
+      const byRow = new Map(); // posIdx → Set<d>
+      for (const k of keys) {
+        const sep = k.indexOf(':');
+        const p = Number(k.slice(0, sep));
+        const d = Number(k.slice(sep + 1));
+        if (!byRow.has(p)) byRow.set(p, new Set());
+        byRow.get(p).add(d);
+      }
+      const next = cur.slice();
+      for (const [posIdx, days] of byRow) {
+        const orig = cur[posIdx];
+        if (!orig) continue;
+        const ds = { ...(orig.day_schedules || {}) };
+        for (const d of days) mutate(ds, posIdx, d);
+        next[posIdx] = { ...orig, day_schedules: ds };
+      }
+      return next;
+    });
+  }, []);
+
+  // Prefill for the bulk-hours popover: the first ACTIVE target cell's window,
+  // else the standard 07:00–15:00. Deterministic + friendly.
+  const firstActiveWin = useCallback(
+    (keys) => {
+      for (const k of keys) {
+        const sep = k.indexOf(':');
+        const p = Number(k.slice(0, sep));
+        const d = Number(k.slice(sep + 1));
+        const w = working[p]?.day_schedules?.[String(d)];
+        if (windowActive(w)) return { start: w.start, end: w.end };
+      }
+      return { ...DEFAULT_WINDOW };
+    },
+    [working],
+  );
+
   const handleSave = async () => {
     const items = changedPositions.map(({ id, day_schedules }) => ({
       position_id: id,
@@ -156,7 +256,12 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
   // not be silently lost.
   const dblCapture = useRef(null);
 
-  const openPopover = (posIdx, d) => setOpenCell({ posIdx, d });
+  // Opening any overlay closes the others — only one popover/menu at a time.
+  const openPopover = (posIdx, d) => {
+    setOpenMenu(null);
+    setHoursEditor(null);
+    setOpenCell({ posIdx, d });
+  };
   const closePopover = () => setOpenCell(null);
 
   // Popover confirm → write the window into the WORKING row only, then close.
@@ -172,10 +277,103 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
     setOpenCell(null);
   };
 
+  // ── Step 06: bulk hours editor (selection bar / day header) ───────────
+  // Same CellHoursPopover as the per-cell editor; on confirm it writes the
+  // chosen window to every ACTIVE cell among `keys` (off cells stay off).
+  const openHoursEditor = (kind, keys, extra = {}) => {
+    const pre = firstActiveWin(keys);
+    setOpenCell(null);
+    setOpenMenu(null);
+    setHoursEditor({ kind, keys, start: pre.start, end: pre.end, ...extra });
+  };
+  const confirmHoursEditor = (w) => {
+    if (!hoursEditor) return;
+    applyToCells(hoursEditor.keys, (ds, _p, d) => {
+      if (windowActive(ds[String(d)])) ds[String(d)] = { start: w.start, end: w.end };
+    });
+    setHoursEditor(null);
+  };
+  const cancelHoursEditor = () => setHoursEditor(null);
+
+  // ── Step 06: drag-select gestures ────────────────────────────────────
+  const onCellPointerDown = (posIdx, d, e) => {
+    // Touch/pen would fight the matrix's horizontal scroll; on coarse pointers
+    // selection reaches via the day-header menu (per spec). Mouse (and the test
+    // runner, whose pointer events carry no pointerType) drives the drag.
+    if (e.pointerType && e.pointerType !== 'mouse') return;
+    if (e.button != null && e.button !== 0) return; // primary button only
+    if (e.ctrlKey || e.metaKey) return; // ctrl/cmd-click is handled by the click
+    // The pencil owns its own pointerdown — don't start a drag from it.
+    if (e.target?.closest?.('.profile-matrix-cell-edit')) return;
+    drag.current = { anchor: { posIdx, d }, dragging: false };
+    const finish = () => {
+      if (drag.current.dragging) suppressClick.current = true; // swallow the click
+      drag.current = { anchor: null, dragging: false };
+    };
+    document.addEventListener('pointerup', finish, { once: true });
+  };
+
+  const onCellPointerEnter = (posIdx, d) => {
+    const st = drag.current;
+    if (!st.anchor) return;
+    // Entering another cell while the button is held = it's a drag (threshold).
+    if (st.anchor.posIdx === posIdx && st.anchor.d === d) return;
+    st.dragging = true;
+    setSelection(new Set(rectKeys(st.anchor, { posIdx, d })));
+  };
+
+  // ── Step 06: selection action-bar actions ────────────────────────────
+  const selOff = () =>
+    applyToCells([...selection], (ds, _p, d) => {
+      delete ds[String(d)];
+    });
+  const selOn = () =>
+    applyToCells([...selection], (ds, p, d) => {
+      ds[String(d)] = restoreWindow(snapshot[p], d);
+    });
+  const selClear = () => {
+    setSelection(new Set());
+    setHoursEditor(null);
+  };
+
+  // ── Step 06: column (day-header) actions ─────────────────────────────
+  const colKeys = useCallback(
+    (d) => working.map((_, p) => cellKey(p, d)),
+    [working],
+  );
+  const applyColumnOff = (d) =>
+    applyToCells(colKeys(d), (ds, _p, dd) => {
+      delete ds[String(dd)];
+    });
+  const applyColumnOn = (d) =>
+    applyToCells(colKeys(d), (ds, p, dd) => {
+      ds[String(dd)] = restoreWindow(snapshot[p], dd);
+    });
+  const openColumnHours = (d) => openHoursEditor('col', colKeys(d), { d });
+
   // Single click = toggle (kept synchronous — snappy, and the step-04 tests
-  // assert the change immediately after the click). On the first click of a
-  // possible double-click we also remember the pre-click window (see above).
+  // assert the change immediately after the click). Step 06 layers on top:
+  //   • after a real drag → swallow (suppressClick) so the drag isn't also a toggle
+  //   • ctrl/cmd-click → toggle the cell's membership in the selection (no on/off)
+  //   • plain click → clear any selection first, then toggle
+  // On the first click of a possible double-click we also remember the pre-click
+  // window (see dblCapture).
   const handleCellClick = (posIdx, d, e) => {
+    if (suppressClick.current) {
+      suppressClick.current = false;
+      return;
+    }
+    if (e?.ctrlKey || e?.metaKey) {
+      const key = cellKey(posIdx, d);
+      setSelection((cur) => {
+        const next = new Set(cur);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        return next;
+      });
+      return;
+    }
+    if (selection.size > 0) setSelection(new Set());
     if (e?.detail === 1) {
       const w = working[posIdx]?.day_schedules?.[String(d)];
       dblCapture.current = { posIdx, d, win: w ? { ...w } : null };
@@ -186,6 +384,8 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
   // Double-click = open the popover. Revert the two toggles to the captured
   // window first, then open on the (now restored) active cell.
   const handleCellDblClick = (posIdx, d) => {
+    setOpenMenu(null);
+    setHoursEditor(null);
     const cap = dblCapture.current;
     dblCapture.current = null;
     const captured = cap && cap.posIdx === posIdx && cap.d === d;
@@ -208,6 +408,26 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
     else setOpenCell(null);
   };
 
+  // Click-outside closes the open day-header menu (only one is open at a time,
+  // so a single ref is enough). The chevron toggles via its own onClick; when
+  // the menu is open a click on the chevron is outside menuRef → the listener
+  // closes it, and the chevron's toggle (closed→null) agrees.
+  useEffect(() => {
+    if (openMenu === null) return undefined;
+    const onDown = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setOpenMenu(null);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [openMenu]);
+
+  // Any selection change invalidates an open selection-bar hours editor (its
+  // keys were a snapshot of the previous selection). Column editors are tied to
+  // a day, not the selection, so they are left alone.
+  useEffect(() => {
+    if (hoursEditor?.kind === 'bar') setHoursEditor(null);
+  }, [selection]);
+
   return (
     <div className="profile-matrix-scroll">
       <div className="profile-matrix-toolbar">
@@ -228,6 +448,40 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
           {m.matrixDiscard}
         </button>
       </div>
+
+      {/* Step 06: selection action bar — only when ≥2 cells are selected. */}
+      {selection.size >= 2 && (
+        <div className="profile-matrix-selbar" role="toolbar" aria-label={m.matrixSelBar}>
+          <span className="profile-matrix-selbar-count">{m.matrixSelCount(selection.size)}</span>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={selOff}>
+            {m.matrixSelOff}
+          </button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={selOn}>
+            {m.matrixSelOn}
+          </button>
+          <span className="profile-matrix-hours-wrap">
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => openHoursEditor('bar', [...selection])}
+            >
+              {m.matrixSelHours}
+            </button>
+            {hoursEditor?.kind === 'bar' && (
+              <CellHoursPopover
+                start={hoursEditor.start}
+                end={hoursEditor.end}
+                onConfirm={confirmHoursEditor}
+                onCancel={cancelHoursEditor}
+              />
+            )}
+          </span>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={selClear}>
+            {m.matrixSelClear}
+          </button>
+        </div>
+      )}
+
       <table className="profile-matrix">
         <thead>
           <tr>
@@ -240,6 +494,60 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
                 {labels[String(d)] ? (
                   <span className="profile-matrix-day-label">{labels[String(d)]}</span>
                 ) : null}
+                {/* Step 06: per-day header menu (aria-label includes the day). */}
+                <button
+                  type="button"
+                  className="profile-matrix-day-menu-btn"
+                  aria-label={`${DAY_NAMES[d]} · ${m.matrixDayMenu}`}
+                  aria-haspopup="true"
+                  aria-expanded={openMenu === d}
+                  onClick={() => setOpenMenu((cur) => (cur === d ? null : d))}
+                >
+                  ▾
+                </button>
+                {openMenu === d && (
+                  <div className="profile-matrix-day-menu" ref={menuRef} role="menu">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => {
+                        applyColumnOff(d);
+                        setOpenMenu(null);
+                      }}
+                    >
+                      {m.matrixDayOff}
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => {
+                        applyColumnOn(d);
+                        setOpenMenu(null);
+                      }}
+                    >
+                      {m.matrixDayOn}
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => openColumnHours(d)}
+                    >
+                      {m.matrixDayHours}
+                    </button>
+                  </div>
+                )}
+                {/* Bulk-hours popover for the whole column (menu closes first). */}
+                {hoursEditor?.kind === 'col' && hoursEditor.d === d && (
+                  <CellHoursPopover
+                    start={hoursEditor.start}
+                    end={hoursEditor.end}
+                    onConfirm={confirmHoursEditor}
+                    onCancel={cancelHoursEditor}
+                  />
+                )}
               </th>
             ))}
           </tr>
@@ -266,6 +574,7 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
                   active !== snapActive ||
                   (active && snapActive && (win.start !== snapWin.start || win.end !== snapWin.end));
                 const cellOpen = active && openCell?.posIdx === posIdx && openCell?.d === d;
+                const selected = selection.has(cellKey(posIdx, d));
                 return (
                   <td
                     key={d}
@@ -273,10 +582,14 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
                     tabIndex={0}
                     aria-pressed={active}
                     aria-label={`${p.name}, ${DAY_NAMES[d]}, ${active ? m.active : m.matrixOff}`}
-                    className={`profile-matrix-cell${active ? '' : ' is-off'}${dirty ? ' is-dirty' : ''}`}
+                    className={`profile-matrix-cell${active ? '' : ' is-off'}${
+                      dirty ? ' is-dirty' : ''
+                    }${selected ? ' is-selected' : ''}`}
                     title={active ? undefined : m.matrixOff}
                     onClick={(e) => handleCellClick(posIdx, d, e)}
                     onDoubleClick={() => handleCellDblClick(posIdx, d)}
+                    onPointerDown={(e) => onCellPointerDown(posIdx, d, e)}
+                    onPointerEnter={() => onCellPointerEnter(posIdx, d)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();

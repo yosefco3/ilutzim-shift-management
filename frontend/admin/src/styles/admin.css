@@ -1261,6 +1261,78 @@ body {
   justify-content: flex-end;
 }
 
+/* ── Step 06 — multi-select + column operations ───────────────────────── */
+/* Selected cell — accent outline + faint accent tint. Uses `outline` (not
+   box-shadow) so it composes with the dirty cell's inset warning shadow. The
+   accent token may be undefined in some themes; the #3b82f6 fallback mirrors
+   the day-label chip. */
+.profile-matrix-cell.is-selected {
+  outline: 2px solid var(--accent, #3b82f6);
+  outline-offset: -2px;
+  background: rgba(59, 130, 246, 0.14);
+}
+/* Selection action bar — appears above the grid when ≥2 cells are selected. */
+.profile-matrix-selbar {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+/* The count label sits at the inline-start edge; the buttons cluster after it. */
+.profile-matrix-selbar-count {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-inline-end: auto;
+}
+/* The "קבע שעות…" button hosts the bulk hours popover, so it needs to be the
+   popover's positioning context (mirrors the active cell). */
+.profile-matrix-hours-wrap {
+  position: relative;
+  display: inline-flex;
+}
+/* Day-header chevron that opens the per-column menu. */
+.profile-matrix-day-menu-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 0.7rem;
+  line-height: 1;
+  padding: 0 0.15rem;
+  margin-inline-start: 0.2rem;
+  border-radius: var(--radius);
+}
+.profile-matrix-day-menu-btn:hover {
+  color: var(--text);
+  background: var(--surface-3);
+}
+/* The per-day dropdown. Anchored under the sticky <th> (a non-static position,
+   so it's the containing block). */
+.profile-matrix-day-menu {
+  position: absolute;
+  top: 100%;
+  inset-inline-start: 0;
+  margin-top: 0.15rem;
+  z-index: 30;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  padding: 0.25rem;
+  display: grid;
+  gap: 0.1rem;
+  min-width: 11rem;
+}
+/* Menu items are full-width, inline-start aligned (dropdown, not centered). */
+.profile-matrix-day-menu .btn {
+  justify-content: flex-start;
+  width: 100%;
+  text-align: start;
+}
+
 .day-row select:disabled { opacity: 0.4; }
 .day-duration {
   font-size: 0.85rem;

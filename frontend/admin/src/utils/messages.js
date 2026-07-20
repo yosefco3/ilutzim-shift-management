@@ -153,6 +153,21 @@ export default {
     matrixHoursTitle: 'עריכת שעות התא',
     // Shown inside the popover when end <= start (a valid overnight window) [EDGE D2].
     matrixOvernightHint: 'חוצה חצות',
+    // Multi-select + column operations (step 06). The selection action bar appears
+    // when ≥2 cells are selected; the day-header chevron opens a per-column menu.
+    // Every action here mutates ONLY the working state — same dirty tint + single
+    // "שמירה (N)" as a single-cell toggle, no new server calls.
+    matrixSelBar: 'פעולות על הבחירה',
+    matrixSelCount: (n) => `${n} נבחרו`,
+    matrixSelOff: 'כבה',
+    matrixSelOn: 'הדלק',
+    matrixSelHours: 'קבע שעות…',
+    matrixSelClear: 'נקה בחירה',
+    // Day-header chevron aria-label is "<יום> · תפריט יום" (day name included).
+    matrixDayMenu: 'תפריט יום',
+    matrixDayOff: 'כבה את כל היום',
+    matrixDayOn: 'הדלק את כל היום',
+    matrixDayHours: 'קבע שעות לכל היום…',
   },
   board: {
     // Ad-hoc position marker (actual board only — rows added mid-week).

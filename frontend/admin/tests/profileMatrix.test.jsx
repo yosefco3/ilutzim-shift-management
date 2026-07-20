@@ -341,3 +341,202 @@ describe('ProfileMatrix hours popover (step 05)', () => {
     expect(screen.queryByLabelText(m.end)).toBeNull();
   });
 });
+
+// ── Step 06: multi-select + column operations ──────────────────────────────
+describe('ProfileMatrix multi-select + column ops (step 06)', () => {
+  const m = messages.positions;
+  const common = messages.common;
+  const hours = (s, e) => messages.positions.matrixHours(s, e);
+  // Accessible name of a day-header chevron: "<יום> · תפריט יום".
+  const chevName = (dayIdx) => `${DAY_NAMES[dayIdx]} · ${m.matrixDayMenu}`;
+
+  // 3 positions, all active on Sunday — a clean single-column drag target.
+  const THREE_ON_SUNDAY = [
+    POSITION({ id: 'a', name: 'א', day_schedules: { 0: { start: '07:00', end: '15:00' } } }),
+    POSITION({ id: 'b', name: 'ב', day_schedules: { 0: { start: '07:00', end: '15:00' } } }),
+    POSITION({ id: 'c', name: 'ג', day_schedules: { 0: { start: '07:00', end: '15:00' } } }),
+  ];
+
+  it('drag-selects a 3-cell column; the cells stay active (drag does not toggle)', () => {
+    render(
+      <ProfileMatrix
+        positions={THREE_ON_SUNDAY}
+        profile={{ day_labels: {} }}
+        onSave={vi.fn()}
+        onDirtyChange={vi.fn()}
+      />,
+    );
+    const a = screen.getByRole('button', { name: cellName('א', 0, true) });
+    const b = screen.getByRole('button', { name: cellName('ב', 0, true) });
+    const c = screen.getByRole('button', { name: cellName('ג', 0, true) });
+    fireEvent.pointerDown(a, { pointerType: 'mouse', button: 0 });
+    fireEvent.pointerEnter(b, { pointerType: 'mouse' });
+    fireEvent.pointerEnter(c, { pointerType: 'mouse' });
+    fireEvent.pointerUp(c, { pointerType: 'mouse', button: 0 });
+
+    // 3 cells carry the selection outline; the action bar shows the count.
+    expect(document.querySelectorAll('.profile-matrix-cell.is-selected')).toHaveLength(3);
+    expect(screen.getByText(m.matrixSelCount(3))).toBeInTheDocument();
+    // CRITICAL: the drag did NOT toggle — the cells are still active (not dirty).
+    expect(screen.getByRole('button', { name: cellName('א', 0, true) })).toBeInTheDocument();
+    expect(screen.getByText(m.matrixSave(0))).toBeInTheDocument();
+  });
+
+  it('"כבה" on the selection turns all 3 cells off and marks their rows dirty', () => {
+    render(
+      <ProfileMatrix
+        positions={THREE_ON_SUNDAY}
+        profile={{ day_labels: {} }}
+        onSave={vi.fn()}
+        onDirtyChange={vi.fn()}
+      />,
+    );
+    const a = screen.getByRole('button', { name: cellName('א', 0, true) });
+    const b = screen.getByRole('button', { name: cellName('ב', 0, true) });
+    const c = screen.getByRole('button', { name: cellName('ג', 0, true) });
+    fireEvent.pointerDown(a, { pointerType: 'mouse', button: 0 });
+    fireEvent.pointerEnter(b, { pointerType: 'mouse' });
+    fireEvent.pointerEnter(c, { pointerType: 'mouse' });
+    fireEvent.pointerUp(c, { pointerType: 'mouse', button: 0 });
+
+    fireEvent.click(screen.getByRole('button', { name: m.matrixSelOff }));
+
+    // All three Sunday cells are now off (✕) and their rows dirty → שמירה (3).
+    expect(screen.getByRole('button', { name: cellName('א', 0, false) })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: cellName('ב', 0, false) })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: cellName('ג', 0, false) })).toBeInTheDocument();
+    expect(screen.getByText(m.matrixSave(3))).toBeInTheDocument();
+  });
+
+  it('ctrl/cmd+click builds a multi-cell selection one cell at a time', () => {
+    render(
+      <ProfileMatrix
+        positions={THREE_ON_SUNDAY}
+        profile={{ day_labels: {} }}
+        onSave={vi.fn()}
+        onDirtyChange={vi.fn()}
+      />,
+    );
+    // No selection yet → no action bar.
+    expect(screen.queryByRole('toolbar', { name: m.matrixSelBar })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: cellName('א', 0, true) }), { ctrlKey: true });
+    // 1 cell → still below the ≥2 bar threshold.
+    expect(screen.queryByRole('toolbar', { name: m.matrixSelBar })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: cellName('ג', 0, true) }), { ctrlKey: true });
+    // 2 cells → bar appears, and neither cell was toggled (both still active).
+    expect(screen.getByRole('toolbar', { name: m.matrixSelBar })).toBeInTheDocument();
+    expect(screen.getByText(m.matrixSelCount(2))).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: cellName('א', 0, true) })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: cellName('ג', 0, true) })).toBeInTheDocument();
+  });
+
+  it('"קבע שעות…" on a mixed selection changes only the active cells', () => {
+    // pos0 Sunday active; pos1 Sunday off. Select both Sundays via ctrl+click.
+    const positions = [
+      POSITION({ id: 'a', name: 'א', day_schedules: { 0: { start: '07:00', end: '15:00' } } }),
+      POSITION({ id: 'b', name: 'ב', day_schedules: {} }),
+    ];
+    render(
+      <ProfileMatrix positions={positions} profile={{ day_labels: {} }} onSave={vi.fn()} onDirtyChange={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: cellName('א', 0, true) }), { ctrlKey: true });
+    fireEvent.click(screen.getByRole('button', { name: cellName('ב', 0, false) }), { ctrlKey: true });
+
+    // Open the bulk-hours popover, set 08:00–16:00, confirm.
+    fireEvent.click(screen.getByRole('button', { name: m.matrixSelHours }));
+    fireEvent.change(screen.getByLabelText(m.start), { target: { value: '08:00' } });
+    fireEvent.change(screen.getByLabelText(m.end), { target: { value: '16:00' } });
+    fireEvent.click(screen.getByText(common.confirm));
+
+    // Active cell got the new window; the off cell stayed off (✕).
+    expect(screen.getByRole('button', { name: cellName('א', 0, true) })).toHaveTextContent(
+      hours('08:00', '16:00'),
+    );
+    expect(screen.getByRole('button', { name: cellName('ב', 0, false) })).toBeInTheDocument();
+  });
+
+  it('column "כבה את כל היום" then "הדלק את כל היום" (restores snapshot hours)', () => {
+    const positions = [
+      POSITION({ id: 'a', name: 'א', day_schedules: { 4: { start: '07:00', end: '15:00' } } }),
+      POSITION({ id: 'b', name: 'ב', day_schedules: { 4: { start: '08:00', end: '16:00' } } }),
+    ];
+    render(
+      <ProfileMatrix positions={positions} profile={{ day_labels: {} }} onSave={vi.fn()} onDirtyChange={vi.fn()} />,
+    );
+    // Open Thursday's header menu → כבה את כל היום.
+    fireEvent.click(screen.getByRole('button', { name: chevName(4) }));
+    fireEvent.click(screen.getByText(m.matrixDayOff));
+    expect(screen.getByRole('button', { name: cellName('א', 4, false) })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: cellName('ב', 4, false) })).toBeInTheDocument();
+
+    // Reopen → הדלק את כל היום restores each cell's snapshot hours.
+    fireEvent.click(screen.getByRole('button', { name: chevName(4) }));
+    fireEvent.click(screen.getByText(m.matrixDayOn));
+    expect(screen.getByRole('button', { name: cellName('א', 4, true) })).toHaveTextContent(
+      hours('07:00', '15:00'),
+    );
+    expect(screen.getByRole('button', { name: cellName('ב', 4, true) })).toHaveTextContent(
+      hours('08:00', '16:00'),
+    );
+  });
+
+  it('column "קבע שעות לכל היום…" changes all active cells in the column', () => {
+    const positions = [
+      POSITION({ id: 'a', name: 'א', day_schedules: { 4: { start: '07:00', end: '15:00' } } }),
+      POSITION({ id: 'b', name: 'ב', day_schedules: {} }), // Thursday off
+    ];
+    render(
+      <ProfileMatrix positions={positions} profile={{ day_labels: {} }} onSave={vi.fn()} onDirtyChange={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: chevName(4) }));
+    fireEvent.click(screen.getByText(m.matrixDayHours));
+    fireEvent.change(screen.getByLabelText(m.start), { target: { value: '06:00' } });
+    fireEvent.change(screen.getByLabelText(m.end), { target: { value: '18:00' } });
+    fireEvent.click(screen.getByText(common.confirm));
+
+    expect(screen.getByRole('button', { name: cellName('א', 4, true) })).toHaveTextContent(
+      hours('06:00', '18:00'),
+    );
+    // The off cell in the column stays off.
+    expect(screen.getByRole('button', { name: cellName('ב', 4, false) })).toBeInTheDocument();
+  });
+
+  it('a plain click (no drag) still toggles a single cell and clears the selection', () => {
+    render(
+      <ProfileMatrix
+        positions={THREE_ON_SUNDAY}
+        profile={{ day_labels: {} }}
+        onSave={vi.fn()}
+        onDirtyChange={vi.fn()}
+      />,
+    );
+    // Build a 2-cell selection via ctrl+click, then a plain click elsewhere.
+    fireEvent.click(screen.getByRole('button', { name: cellName('א', 0, true) }), { ctrlKey: true });
+    fireEvent.click(screen.getByRole('button', { name: cellName('ג', 0, true) }), { ctrlKey: true });
+    expect(screen.getByText(m.matrixSelCount(2))).toBeInTheDocument();
+
+    // Plain click on pos1 Sunday → toggles it off and clears the selection.
+    fireEvent.click(screen.getByRole('button', { name: cellName('ב', 0, true) }));
+    expect(screen.getByRole('button', { name: cellName('ב', 0, false) })).toBeInTheDocument();
+    expect(screen.queryByRole('toolbar', { name: m.matrixSelBar })).toBeNull();
+  });
+
+  it('the day-header menu closes on click-outside (another header opens one at a time)', () => {
+    render(
+      <ProfileMatrix
+        positions={THREE_ON_SUNDAY}
+        profile={{ day_labels: {} }}
+        onSave={vi.fn()}
+        onDirtyChange={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: chevName(0) }));
+    expect(screen.getByText(m.matrixDayOff)).toBeInTheDocument();
+    // Opening Tuesday's menu closes Sunday's (one menu at a time).
+    fireEvent.click(screen.getByRole('button', { name: chevName(2) }));
+    expect(screen.queryByText(m.matrixDayOff)).toBeInTheDocument(); // still one menu
+    // A mousedown outside the menu closes it.
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByText(m.matrixDayOff)).toBeNull();
+  });
+});
