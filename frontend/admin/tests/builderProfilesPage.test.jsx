@@ -165,4 +165,19 @@ describe('ProfilesPage', () => {
     await screen.findByText('שגרה');
     expect(screen.queryByText(messages.profiles.baseProfileWarning)).toBeNull();
   });
+
+  it('orders cards: base first, then newest-created to oldest', async () => {
+    // Deliberately scrambled input order to prove it sorts, not passes through.
+    listProfiles.mockResolvedValue([
+      { id: 'p1', name: 'ישן', is_base: false, is_default: false, created_at: '2026-01-01T00:00:00' },
+      { id: 'p2', name: 'שגרה', is_base: true, is_default: false, created_at: '2026-06-01T00:00:00' },
+      { id: 'p3', name: 'חדש', is_base: false, is_default: true, created_at: '2026-07-01T00:00:00' },
+      { id: 'p4', name: 'אמצע', is_base: false, is_default: false, created_at: '2026-05-01T00:00:00' },
+    ]);
+    renderPage();
+    await screen.findByText('חדש');
+    const names = [...document.querySelectorAll('.profile-card-name')].map((n) => n.textContent);
+    // Base pinned first (despite not being newest), then created_at descending.
+    expect(names).toEqual(['שגרה', 'חדש', 'אמצע', 'ישן']);
+  });
 });

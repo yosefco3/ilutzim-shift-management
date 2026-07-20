@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   listProfiles,
   createProfile,
@@ -114,6 +114,18 @@ export default function ProfilesPage() {
     }
   };
 
+  // Display order on this screen: the base profile (שגרה) is always pinned
+  // first; every other profile follows newest-created → oldest-created, so a
+  // freshly-duplicated profile lands right after the base and the very first
+  // profile ever created sits at the bottom. Sort a copy (never mutate state).
+  const orderedProfiles = useMemo(() => {
+    const ts = (p) => new Date(p.created_at || 0).getTime();
+    return [...profiles].sort((a, b) => {
+      if (a.is_base !== b.is_base) return a.is_base ? -1 : 1; // base first
+      return ts(b) - ts(a); // then newest-created first
+    });
+  }, [profiles]);
+
   // Warn with the cascade impact when the profile carries real schedules.
   const deleteMessage =
     deleteImpact && deleteImpact.weeks > 0
@@ -150,7 +162,7 @@ export default function ProfilesPage() {
         <p className="empty-state">{m.empty}</p>
       ) : (
         <div className="profile-cards">
-          {profiles.map((p) => (
+          {orderedProfiles.map((p) => (
             <div key={p.id} className="profile-card">
               <div className="profile-card-header">
                 <span className="profile-card-name">{p.name}</span>
