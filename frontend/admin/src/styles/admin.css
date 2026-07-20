@@ -1115,14 +1115,16 @@ body {
 .base-profile-banner-icon { flex: 0 0 auto; font-size: 1rem; line-height: 1.35; }
 .base-profile-banner-text { flex: 1 1 auto; }
 
-/* Purple "event" pill on a position card, echoing the Excel event colour. */
+/* Purple "event" pill on a position card, echoing the Excel event colour.
+   Redesign: switched to the info token family (soft cyan) so it sits in the
+   same palette as the rest of the matrix instead of a one-off purple. */
 .position-event-badge {
   margin-inline-start: 0.45rem;
   font-size: 0.72rem;
-  color: #6b3fa0;
-  background: #ede7f6;
-  border: 1px solid #cbb6e6;
-  padding: 0.08rem 0.5rem;
+  color: var(--on-info);
+  background: var(--info-soft);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  padding: 0.1rem 0.55rem;
   border-radius: 999px;
   white-space: nowrap;
 }
@@ -1131,7 +1133,7 @@ body {
 .position-event-badge-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.3rem;
   cursor: pointer;
   font: inherit;
   font-size: 0.72rem;
@@ -1140,7 +1142,7 @@ body {
   opacity: 0;
   font-size: 0.72rem;
   line-height: 1;
-  transition: opacity 0.1s;
+  transition: opacity 0.12s;
 }
 .position-event-badge-btn:hover .position-event-badge-pencil,
 .position-event-badge-btn:focus-visible .position-event-badge-pencil {
@@ -1154,11 +1156,17 @@ body {
   .position-event-badge-pencil { opacity: 1; }
 }
 
-/* ── Part B — Positions page: matrix tab (תצוגת לוח) ───────────────── */
-/* Tab switcher row (matrix / cards). Mirrors the procedure detail tab-row,
-   which has no CSS of its own — this gives the positions page a flex row. */
+/* ── Part B — Positions page: matrix tab (תצוגת לוח) ───────────────────────
+   Redesign (2026-07-20): same DOM + class names, denser & more readable grid.
+   1. Sticky name column (also horizontally) — the row's position never scrolls
+      out of view. 2. Roomier cells, tabular-nums hours. 3. Zebra rows + hover
+      highlight to track a position across the 7 days. 4. Quieter off-cells so
+      the active grid is the signal. 5. Sticky, bolder band + day headers.
+      6. One unified indigo accent (var(--primary)) instead of the stray blue. */
+/* Tab switcher row (matrix / cards). */
 .positions-tab-row {
   display: flex;
+  align-items: center;
   gap: 0.5rem;
   margin-bottom: 1rem;
 }
@@ -1176,65 +1184,82 @@ body {
      a ~1040px container the last day (שבת) tipped over and clipped). Below
      min-width the scroll container scrolls instead of clipping. */
   table-layout: fixed;
-  min-width: 50rem;
-  border-collapse: collapse;
-  font-size: 0.85rem;
+  min-width: 54rem;
+  /* separate (not collapse) is REQUIRED for the sticky name column to keep its
+     borders while scrolling; borders are drawn per-side below. */
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.9rem;
 }
 .profile-matrix th,
 .profile-matrix td {
-  border: 1px solid var(--border);
-  padding: 0.45rem 0.35rem;
+  border-inline-start: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 0.6rem 0.5rem;
   text-align: center;
   vertical-align: middle;
   white-space: nowrap;
 }
+.profile-matrix th:last-child,
+.profile-matrix td:last-child { border-inline-end: 1px solid var(--border); }
+/* Sticky day header row. */
 .profile-matrix thead th {
   background: var(--surface-2);
   color: var(--text);
   font-weight: 600;
   position: sticky;
   top: 0;
-  /* Sticky establishes a stacking context; without a z-index it stays at the
-     page level and the (later-in-DOM) tbody cells paint OVER the header — so the
-     column dropdown menu (a descendant) rendered behind the table text. Lifting
-     the header above the body fixes the menu overlap and also keeps the sticky
-     header on top when the grid scrolls. Kept below the cell hours popover
-     (z-index 20) so a downward popover is never covered by the header. */
+  /* Sticky establishes a stacking context; without a z-index the (later-in-DOM)
+     tbody cells paint OVER the header — so the column dropdown menu rendered
+     behind the table text. Kept below the cell hours popover (z-index 20) so a
+     downward popover is never covered by the header. */
   z-index: 15;
+  box-shadow: 0 1px 0 var(--border-strong);
 }
-/* First column / row header = position name, pinned right in RTL. */
+/* First column / row header = position name. Sticky BOTH vertically and
+   horizontally (inset-inline-start), so scrolling across the week keeps the
+   name in view and never loses which position a row belongs to. */
 .profile-matrix-col-name,
 .profile-matrix-row-name {
   text-align: start;
   /* Fixed width (table-layout: fixed) — the day columns share what's left. */
-  width: 11rem;
+  width: 13rem;
+  position: sticky;
+  inset-inline-start: 0;
   background: var(--surface-2);
   font-weight: 600;
   color: var(--text);
+  box-shadow: 1px 0 0 var(--border-strong);
 }
-.profile-matrix-row-name { background: var(--surface); position: relative; }
+.profile-matrix-col-name { z-index: 16; }          /* the corner, above all */
+.profile-matrix-row-name { background: var(--surface); z-index: 5; }
 /* Long position names wrap inside the fixed-width name column instead of forcing
    the column wider (which would squeeze the day columns and re-introduce clipping). */
-.profile-matrix-name-text { color: var(--text); white-space: normal; overflow-wrap: anywhere; }
+.profile-matrix-name-text {
+  color: var(--text);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-weight: 650;
+}
 /* Delete-position affordance in the row header — hidden until the row name cell
    is hovered/focused (always shown on touch), sits at the inline-end (left in
    RTL) so it never crowds the name. */
 .profile-matrix-row-delete {
   position: absolute;
-  inset-inline-end: 0.25rem;
+  inset-inline-end: 0.3rem;
   top: 50%;
   transform: translateY(-50%);
-  border: 1px solid var(--danger, #dc2626);
+  border: 1px solid var(--danger);
   background: var(--surface);
-  color: var(--danger, #dc2626);
+  color: var(--danger);
   cursor: pointer;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   line-height: 1;
-  padding: 0.15rem 0.3rem;
-  border-radius: var(--radius);
+  padding: 0.18rem 0.35rem;
+  border-radius: var(--radius-sm);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.1s;
+  transition: opacity 0.12s, background 0.12s, color 0.12s;
 }
 .profile-matrix-row-name:hover .profile-matrix-row-delete,
 .profile-matrix-row-name:focus-within .profile-matrix-row-delete {
@@ -1242,26 +1267,34 @@ body {
   pointer-events: auto;
 }
 .profile-matrix-row-delete:hover {
-  background: var(--danger, #dc2626);
+  background: var(--danger);
   color: #fff;
 }
 @media (pointer: coarse) {
   .profile-matrix-row-delete { opacity: 1; pointer-events: auto; }
 }
-/* Band group header (🌅 בוקר / 🌆 ערב / 🌙 לילה) — a small separator between the
-   shift bands, echoing the board's `.board-band-head`. */
+/* Zebra + row hover — track one position across the whole week. */
+.profile-matrix tbody tr:nth-of-type(even) .profile-matrix-cell { background: rgba(255, 255, 255, 0.015); }
+.profile-matrix tbody tr:hover .profile-matrix-cell { background: rgba(255, 255, 255, 0.035); }
+.profile-matrix tbody tr:hover .profile-matrix-row-name { background: var(--surface-2); }
+/* Band group header (🌅 בוקר / 🌆 ערב / 🌙 לילה) — sticky so the band label
+   stays with its rows on horizontal scroll; echoes the board's band head. */
 .profile-matrix-band-head td {
+  position: sticky;
+  inset-inline-start: 0;
   background: var(--surface-3);
   text-align: start;
-  font-weight: 650;
+  font-weight: 700;
   color: var(--text);
-  padding: 0.3rem 0.6rem;
-  border: 1px solid var(--border);
+  padding: 0.5rem 0.85rem;
+  font-size: 0.92rem;
+  letter-spacing: -0.01em;
+  box-shadow: inset 0 1px 0 var(--border-strong), inset 0 -1px 0 var(--border-strong);
 }
 .profile-matrix-band-count {
   color: var(--text-dim);
   font-weight: 400;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
 }
 /* Stack the header: day name on its own line, with the label chip/affordance and
    the menu chevron flowing below it. This makes each day column as wide as its
@@ -1270,24 +1303,26 @@ body {
 .profile-matrix-day-name {
   display: block;
   color: var(--text);
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 /* Per-day label chip in the header (e.g. "ט׳ באב"). Step 07 turns it into a
-   button (click to edit), so it carries a button reset. Echoes the
-   requirement-tag pill: accent text on a faint accent border. [EDGE I2] — now
-   visible on the board too (step 07 flips it on). */
+   button (click to edit), so it carries a button reset. Unified indigo accent. */
 .profile-matrix-day-label {
   display: inline-block;
-  margin-top: 0.2rem;
+  margin-top: 0.3rem;
   font: inherit;
   font-size: 0.72rem;
   font-weight: 500;
-  color: var(--accent, #3b82f6);
-  border: 1px solid var(--accent, #3b82f6);
-  padding: 0.05rem 0.45rem;
+  color: var(--primary-hover);
+  border: 1px solid var(--primary-ring);
+  background: var(--primary-soft);
+  padding: 0.08rem 0.5rem;
   border-radius: 999px;
-  background: transparent;
   cursor: pointer;
 }
+.profile-matrix-day-label:hover { border-color: var(--primary); }
 .profile-matrix-day-label:focus-visible {
   outline: 2px solid var(--primary-ring);
   outline-offset: 1px;
@@ -1297,41 +1332,62 @@ body {
 .profile-matrix-day-label-add {
   color: var(--text-dim);
   border-style: dashed;
+  background: transparent;
 }
+.profile-matrix-day-label-add:hover { color: var(--text-muted); }
 /* Inline editor for a day label (step 07): pill-shaped input (max 50 chars). */
 .profile-matrix-day-label-input {
   display: inline-block;
-  margin-top: 0.2rem;
+  margin-top: 0.3rem;
   font: inherit;
   font-size: 0.72rem;
   font-weight: 500;
-  width: 6rem;
+  width: 6.5rem;
   max-width: 100%;
   color: var(--text);
   background: var(--surface);
-  border: 1px solid var(--accent, #3b82f6);
+  border: 1px solid var(--primary);
   border-radius: 999px;
-  padding: 0.05rem 0.4rem;
+  padding: 0.08rem 0.45rem;
 }
 .profile-matrix-day-label-input:focus-visible {
   outline: 2px solid var(--primary-ring);
   outline-offset: 0;
 }
-.profile-matrix-cell { color: var(--text); }
-/* Cells are clickable toggles (step 04): hour window ↔ off (✕). */
+/* ── Cells ────────────────────────────────────────────────────────────── */
+/* Cells are clickable toggles (step 04): hour window ↔ off (✕). They also host
+   the absolute-positioned popover / pencil, so they are the containing block. */
 .profile-matrix-cell {
+  color: var(--text);
   cursor: pointer;
   user-select: none;
+  position: relative;
+  transition: background 0.1s ease;
 }
 .profile-matrix-cell:focus-visible {
   outline: 2px solid var(--primary-ring);
   outline-offset: -2px;
+  z-index: 2;
 }
-/* Inactive day — muted ✕. */
+/* Active hours — tabular-nums (aligned digits), LTR, a touch of tracking so the
+   window is easy to scan down a column. */
+.profile-matrix-cell-label {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  direction: ltr;
+  letter-spacing: 0.02em;
+  font-weight: 550;
+}
+/* Inactive day — quiet: faint diagonal hatch + dim ✕, so the active grid pops. */
 .profile-matrix-cell.is-off {
   color: var(--text-dim);
   font-weight: 600;
+  background: repeating-linear-gradient(
+    45deg, transparent, transparent 6px,
+    rgba(255, 255, 255, 0.02) 6px, rgba(255, 255, 255, 0.02) 12px
+  );
 }
+.profile-matrix-cell.is-off .profile-matrix-cell-label { opacity: 0.5; }
 /* Dirty cell — current value differs from the load-time snapshot (warning tint). */
 .profile-matrix-cell.is-dirty {
   background: var(--warning-soft);
@@ -1340,45 +1396,26 @@ body {
 }
 .profile-matrix-cell.is-dirty.is-off {
   color: var(--warning);
+  background: var(--warning-soft);
 }
-/* Save/discard toolbar above the grid (matrix tab only). */
-.profile-matrix-toolbar {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  padding: 0.5rem;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-2);
-}
-
-/* ── Step 05 — per-cell hours popover ─────────────────────────────────── */
-/* Active cells host the absolute-positioned popover, so they become the
-   containing block for it. */
-.profile-matrix-cell { position: relative; }
-/* The hours/✕ label is wrapped so it stays a clean text match alongside the
-   pencil affordance on active cells. */
-.profile-matrix-cell-label { display: inline-block; }
 /* Pencil affordance (active cells only): hidden until the cell is hovered or
-   focused (keyboard), always shown on touch pointers (no hover available).
-   Rendered always; CSS reveals it — the simplest reliable approach. */
+   focused (keyboard), always shown on touch pointers (no hover available). */
 .profile-matrix-cell-edit {
   position: absolute;
-  top: 0.1rem;
-  inset-inline-end: 0.15rem;
-  /* A solid, high-contrast chip (not a faint glyph) so the edit affordance is
-     unmistakable once the cell is hovered/focused. */
-  border: 1px solid var(--accent, #3b82f6);
+  top: 0.15rem;
+  inset-inline-end: 0.2rem;
+  border: 1px solid var(--primary);
   background: var(--surface);
-  color: var(--accent, #3b82f6);
+  color: var(--primary-hover);
   cursor: pointer;
   font-size: 0.8rem;
   line-height: 1;
-  padding: 0.12rem 0.3rem;
-  border-radius: var(--radius);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  padding: 0.14rem 0.32rem;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.1s, background 0.1s, color 0.1s;
+  transition: opacity 0.12s, background 0.12s, color 0.12s;
 }
 .profile-matrix-cell:hover .profile-matrix-cell-edit,
 .profile-matrix-cell:focus-within .profile-matrix-cell-edit {
@@ -1386,27 +1423,42 @@ body {
   pointer-events: auto;
 }
 .profile-matrix-cell-edit:hover {
-  background: var(--accent, #3b82f6);
+  background: var(--primary);
   color: #fff;
 }
 @media (pointer: coarse) {
   .profile-matrix-cell-edit { opacity: 1; pointer-events: auto; }
 }
+/* Save/discard toolbar above the grid (matrix tab only). Sticky so it stays
+   reachable while the grid scrolls. */
+.profile-matrix-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.6rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  position: sticky;
+  top: 0;
+  z-index: 18;
+}
+
+/* ── Step 05 — per-cell hours popover ─────────────────────────────────── */
 /* The popover card anchored under the cell (inside the matrix scroll area). */
 .cell-hours-popover {
   position: absolute;
   top: 100%;
   inset-inline-start: 0;
-  margin-top: 0.2rem;
+  margin-top: 0.25rem;
   z-index: 20;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
-  padding: 0.6rem;
+  box-shadow: var(--shadow-lg, 0 12px 32px rgba(0, 0, 0, 0.55));
+  padding: 0.7rem;
   display: grid;
-  gap: 0.4rem;
-  min-width: 11rem;
+  gap: 0.45rem;
+  min-width: 12rem;
 }
 .cell-hours-field {
   display: flex;
@@ -1415,12 +1467,26 @@ body {
   gap: 0.5rem;
   font-size: 0.85rem;
 }
-.cell-hours-field input { width: 6rem; }
+.cell-hours-field input {
+  width: 6.5rem;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.3rem 0.5rem;
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+}
+.cell-hours-field input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
 /* Overnight hint [EDGE D2] — end <= start is valid, just flagged. */
 .cell-hours-hint {
   margin: 0;
   font-size: 0.72rem;
-  color: var(--warning);
+  color: var(--on-warning);
 }
 .cell-hours-actions {
   display: flex;
@@ -1429,29 +1495,31 @@ body {
 }
 
 /* ── Step 06 — multi-select + column operations ───────────────────────── */
-/* Selected cell — accent outline + faint accent tint. Uses `outline` (not
-   box-shadow) so it composes with the dirty cell's inset warning shadow. The
-   accent token may be undefined in some themes; the #3b82f6 fallback mirrors
-   the day-label chip. */
+/* Selected cell — indigo outline + faint tint. Uses `outline` (not box-shadow)
+   so it composes with the dirty cell's inset warning shadow. */
 .profile-matrix-cell.is-selected {
-  outline: 2px solid var(--accent, #3b82f6);
+  outline: 2px solid var(--primary);
   outline-offset: -2px;
-  background: rgba(59, 130, 246, 0.14);
+  background: var(--primary-soft);
 }
 /* Selection action bar — appears above the grid when ≥2 cells are selected. */
 .profile-matrix-selbar {
   display: flex;
-  gap: 0.4rem;
+  gap: 0.45rem;
   align-items: center;
   flex-wrap: wrap;
-  padding: 0.4rem 0.5rem;
+  padding: 0.5rem 0.6rem;
   border-bottom: 1px solid var(--border);
   background: var(--surface-2);
+  position: sticky;
+  top: 0;
+  z-index: 19;
 }
 /* The count label sits at the inline-start edge; the buttons cluster after it. */
 .profile-matrix-selbar-count {
-  font-size: 0.8rem;
-  color: var(--text-dim);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
   margin-inline-end: auto;
 }
 /* The "קבע שעות…" button hosts the bulk hours popover, so it needs to be the
@@ -1466,11 +1534,12 @@ body {
   background: transparent;
   color: var(--text-dim);
   cursor: pointer;
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   line-height: 1;
-  padding: 0 0.15rem;
-  margin-inline-start: 0.2rem;
-  border-radius: var(--radius);
+  padding: 0.1rem 0.2rem;
+  margin-inline-start: 0.25rem;
+  border-radius: var(--radius-sm);
+  transition: color 0.12s, background 0.12s;
 }
 .profile-matrix-day-menu-btn:hover {
   color: var(--text);
@@ -1482,16 +1551,16 @@ body {
   position: absolute;
   top: 100%;
   inset-inline-start: 0;
-  margin-top: 0.15rem;
+  margin-top: 0.2rem;
   z-index: 30;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
-  padding: 0.25rem;
+  box-shadow: var(--shadow-lg, 0 12px 32px rgba(0, 0, 0, 0.55));
+  padding: 0.3rem;
   display: grid;
-  gap: 0.1rem;
-  min-width: 11rem;
+  gap: 0.12rem;
+  min-width: 12rem;
 }
 /* Menu items are full-width, inline-start aligned (dropdown, not centered). */
 .profile-matrix-day-menu .btn {
@@ -1538,7 +1607,7 @@ body.positions-focus .navbar { display: none; }
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 0.25rem 0.6rem;
+  padding: 0.3rem 0.65rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 .matrix-focus-exit { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
