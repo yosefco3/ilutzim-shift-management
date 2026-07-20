@@ -23,6 +23,7 @@ import useBoardFit from '../../hooks/useBoardFit';
 import BoardGrid from '../../components/board/BoardGrid';
 import GuardPool from '../../components/board/GuardPool';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import BaseProfileBanner from '../../components/BaseProfileBanner';
 import { autoSplitPoint, availabilityClip, segmentsCoverage } from '../../utils/intervals';
 import {
   computeBoardWarnings,
@@ -149,6 +150,14 @@ export default function BoardPage() {
   // the labels visible on the board.]
   const dayLabels = useMemo(
     () => profiles.find((p) => p.id === board?.profile?.id)?.day_labels || {},
+    [profiles, board],
+  );
+
+  // Is the week's effective profile the base (שגרה)? board.profile carries no
+  // is_base, so resolve it from the full list. Drives the non-blocking nudge to
+  // work on a copy instead of editing the base directly.
+  const effectiveIsBase = useMemo(
+    () => !!profiles.find((p) => p.id === board?.profile?.id)?.is_base,
     [profiles, board],
   );
 
@@ -661,6 +670,10 @@ export default function BoardPage() {
         <p className="empty-state">{loadError || m.noNextWeek}</p>
       ) : (
         <>
+          {/* Editing the base profile (שגרה) as the week's profile → the nudge.
+              Hidden in focus mode, which strips chrome for a full-screen board. */}
+          {!focusMode && effectiveIsBase && <BaseProfileBanner />}
+
           <div className="board-controls">
             <div className="board-control">
               <span>{m.nextWeek}</span>

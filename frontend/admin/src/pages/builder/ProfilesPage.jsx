@@ -10,6 +10,7 @@ import {
 } from '../../api/builderApiClient';
 import { useToast } from '../../components/Toast';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import BaseProfileBanner from '../../components/BaseProfileBanner';
 import messages from '../../utils/messages';
 
 const EMPTY_FORM = { name: '' };
@@ -127,6 +128,10 @@ export default function ProfilesPage() {
         <h2>{m.title}</h2>
         <p className="page-subtitle">{m.subtitle}</p>
       </div>
+
+      {/* When the base profile (שגרה) is ALSO the default, nudge toward making a
+          copy the default so new weeks stop using the base directly. */}
+      {profiles.some((p) => p.is_base && p.is_default) && <BaseProfileBanner />}
 
       <form className="profile-create-form" onSubmit={handleCreate}>
         <input

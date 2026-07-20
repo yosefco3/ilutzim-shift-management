@@ -396,4 +396,20 @@ describe('PositionsPage', () => {
     // Empty value → the key is dropped → the whole map clears to {}.
     await waitFor(() => expect(updateProfile).toHaveBeenCalledWith('p1', { day_labels: {} }));
   });
+
+  it('shows the base-profile warning banner when the selected profile is base', async () => {
+    listProfiles.mockResolvedValue([
+      { id: 'p1', name: 'שגרה', is_default: true, is_base: true },
+    ]);
+    renderPage();
+    await screen.findByText('ארנונה');
+    expect(screen.getByText(messages.profiles.baseProfileWarning)).toBeInTheDocument();
+  });
+
+  it('hides the banner for a non-base profile', async () => {
+    // Default beforeEach profile has is_base falsy.
+    renderPage();
+    await screen.findByText('ארנונה');
+    expect(screen.queryByText(messages.profiles.baseProfileWarning)).toBeNull();
+  });
 });

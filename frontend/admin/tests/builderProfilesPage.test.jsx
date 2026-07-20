@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import messages from '../src/utils/messages';
 
 vi.mock('../src/api/builderApiClient', () => ({
   listProfiles: vi.fn(),
@@ -142,5 +143,26 @@ describe('ProfilesPage', () => {
     await waitFor(() =>
       expect(updateProfile).toHaveBeenCalledWith('p1', { name: 'שגרה ראשית' }),
     );
+  });
+
+  it('warns when the base profile is ALSO the default', async () => {
+    listProfiles.mockResolvedValue([
+      { ...DEFAULT_PROFILE, is_base: true, is_default: true },
+    ]);
+    renderPage();
+    await screen.findByText('שגרה');
+    expect(
+      screen.getByText(messages.profiles.baseProfileWarning),
+    ).toBeInTheDocument();
+  });
+
+  it('does not warn when the base profile is not the default', async () => {
+    listProfiles.mockResolvedValue([
+      { ...DEFAULT_PROFILE, id: 'p1', name: 'שגרה', is_base: true, is_default: false },
+      { id: 'p2', name: 'חג', is_base: false, is_default: true, display_order: 1 },
+    ]);
+    renderPage();
+    await screen.findByText('שגרה');
+    expect(screen.queryByText(messages.profiles.baseProfileWarning)).toBeNull();
   });
 });

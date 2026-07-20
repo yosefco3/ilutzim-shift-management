@@ -66,6 +66,9 @@ export default {
     // is hidden and this badge marks it.
     base: 'בסיס',
     baseHint: 'פרופיל הבסיס — לא ניתן למחיקה',
+    // Non-blocking nudge shown wherever the base profile (שגרה) is being edited.
+    baseProfileWarning:
+      'זהו פרופיל הבסיס (שגרה). מומלץ לא לערוך אותו ישירות — עדיף לשכפל אותו, להפוך את העותק לברירת מחדל, ולעבוד על העותק.',
     makeDefault: 'הפוך לברירת מחדל',
     defaultSet: 'הפרופיל הוגדר כברירת מחדל',
     deleteTitle: 'מחיקת פרופיל',

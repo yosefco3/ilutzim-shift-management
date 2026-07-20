@@ -1097,6 +1097,24 @@ body {
 }
 .event-count input[type="number"] { width: 8rem; }
 .event-count .form-hint { margin-top: 0.3rem; }
+/* Non-blocking warning banner shown wherever the base profile (שגרה) is being
+   edited — Positions, board, Profiles. Amber, calm, never blocks any action. */
+.base-profile-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.85rem;
+  background: var(--warning-soft);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+.base-profile-banner-icon { flex: 0 0 auto; font-size: 1rem; line-height: 1.35; }
+.base-profile-banner-text { flex: 1 1 auto; }
+
 /* Purple "event" pill on a position card, echoing the Excel event colour. */
 .position-event-badge {
   margin-inline-start: 0.45rem;

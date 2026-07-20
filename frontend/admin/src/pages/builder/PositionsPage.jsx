@@ -15,6 +15,7 @@ import {
 } from '../../api/builderApiClient';
 import { useToast } from '../../components/Toast';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import BaseProfileBanner from '../../components/BaseProfileBanner';
 import PositionEditorModal from '../../components/positions/PositionEditorModal';
 import ProfileMatrix from '../../components/positions/ProfileMatrix';
 import messages from '../../utils/messages';
@@ -327,6 +328,9 @@ export default function PositionsPage() {
         <h2>{m.title}</h2>
         <p className="page-subtitle">{m.subtitle}</p>
       </div>
+
+      {/* Editing the base profile (שגרה) from either tab → the nudge banner. */}
+      {profile?.is_base && <BaseProfileBanner />}
 
       <div className="positions-toolbar">
         <label htmlFor="profile-select">{m.profile}</label>

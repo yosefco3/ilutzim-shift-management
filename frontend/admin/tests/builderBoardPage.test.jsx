@@ -32,6 +32,7 @@ import {
   saveSchedule,
 } from '../src/api/builderApiClient';
 import BoardPage from '../src/pages/builder/BoardPage';
+import messages from '../src/utils/messages';
 
 const POOL = [
   {
@@ -494,5 +495,23 @@ describe('BoardPage', () => {
     renderPage();
     await screen.findByText('ארנונה');
     expect(screen.queryByText('ט׳ באב')).toBeNull();
+  });
+
+  it('warns when the week\'s effective profile is the base', async () => {
+    listProfiles.mockResolvedValue([
+      { id: 'p1', name: 'שגרה', is_default: true, is_base: true },
+      { id: 'p2', name: 'חג', is_default: false, is_base: false },
+    ]);
+    renderPage();
+    await screen.findByText('ארנונה');
+    expect(
+      screen.getByText(messages.profiles.baseProfileWarning),
+    ).toBeInTheDocument();
+  });
+
+  it('does not warn when the effective profile is not the base', async () => {
+    renderPage(); // default PROFILES: p1 has no is_base
+    await screen.findByText('ארנונה');
+    expect(screen.queryByText(messages.profiles.baseProfileWarning)).toBeNull();
   });
 });
