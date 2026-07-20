@@ -143,6 +143,15 @@ export default function BoardPage() {
     [pool, selectedGuardId],
   );
 
+  // The week's assigned profile's per-day labels. board.profile carries only
+  // id/name/is_default (no day_labels), so resolve the full profile from the
+  // list already loaded here and read its day_labels. [EDGE I2: step 07 flips
+  // the labels visible on the board.]
+  const dayLabels = useMemo(
+    () => profiles.find((p) => p.id === board?.profile?.id)?.day_labels || {},
+    [profiles, board],
+  );
+
   // Focus mode hides the app chrome too (navbar, page header), which live
   // outside this component — so we flag it on <body> and let CSS hide them.
   // Cleared on unmount so leaving the page never leaves the app stuck hidden.
@@ -828,6 +837,7 @@ export default function BoardPage() {
                 attrLabel={attrLabel}
                 pool={pool}
                 assignmentsByCell={assignmentsByCell}
+                dayLabels={dayLabels}
                 selectedGuard={selectedGuard}
                 onAssign={handleAssign}
                 onUnassign={handleUnassign}

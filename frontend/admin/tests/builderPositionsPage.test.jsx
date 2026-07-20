@@ -9,6 +9,7 @@ vi.mock('../src/api/builderApiClient', () => ({
   listPositions: vi.fn(),
   createPosition: vi.fn(),
   updatePosition: vi.fn(),
+  updateProfile: vi.fn(),
   deletePosition: vi.fn(),
   copyPosition: vi.fn(),
   bulkUpdateDaySchedules: vi.fn(),
@@ -26,6 +27,7 @@ import {
   deletePosition,
   copyPosition,
   bulkUpdateDaySchedules,
+  updateProfile,
   listAttributes,
 } from '../src/api/builderApiClient';
 import PositionsPage from '../src/pages/builder/PositionsPage';
@@ -61,6 +63,7 @@ beforeEach(() => {
   // Fresh clone per call so a post-save/post-409 reload returns a NEW positions
   // identity — ProfileMatrix resets its snapshot only when `positions` changes.
   listPositions.mockImplementation(async () => [JSON.parse(JSON.stringify(POSITION))]);
+  updateProfile.mockResolvedValue({});
 });
 
 describe('PositionsPage', () => {
@@ -333,5 +336,37 @@ describe('PositionsPage', () => {
     expect(screen.queryByText(messages.positions.matrixDirtyLeave)).toBeNull();
     // Still on p1; the dirty change is still there.
     expect(screen.getByText(messages.positions.matrixSave(1))).toBeInTheDocument();
+  });
+
+  // ── Step 07: header day-label editing (PATCHes the profile's day_labels) ──
+  it('day-label Enter PATCHes the full merged day_labels map via updateProfile', async () => {
+    renderPage();
+    await screen.findByText('ארנונה');
+    // Thursday has no label yet → open its "+ תווית" affordance.
+    fireEvent.click(
+      screen.getByRole('button', { name: `${DAY_NAMES[4]} · ${messages.positions.matrixAddDayLabel}` }),
+    );
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'ט׳ באב' } });
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
+
+    // The page merges the FULL map (current {} + Thursday) and PATCHes.
+    await waitFor(() =>
+      expect(updateProfile).toHaveBeenCalledWith('p1', { day_labels: { '4': 'ט׳ באב' } }),
+    );
+    expect(toast.success).toHaveBeenCalledWith(messages.positions.dayLabelSaved);
+  });
+
+  it('day-label clear removes the key from the PATCHed day_labels map', async () => {
+    listProfiles.mockResolvedValue([
+      { id: 'p1', name: 'שגרה', is_default: true, day_labels: { '4': 'ישן' } },
+    ]);
+    renderPage();
+    // Thursday shows the existing label; click it to edit.
+    fireEvent.click(await screen.findByText('ישן'));
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: '' } });
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
+
+    // Empty value → the key is dropped → the whole map clears to {}.
+    await waitFor(() => expect(updateProfile).toHaveBeenCalledWith('p1', { day_labels: {} }));
   });
 });

@@ -95,14 +95,27 @@ const rectKeys = (a, c) => {
  * reload, so the dirty state survives for a retry [EDGE N1]. `onDirtyChange`
  * lets the page guard navigation while there are unsaved changes [EDGE N2].
  *
+ * Step 07 turns the header day-label chip into an inline editor: click the chip
+ * (or "+ תווית" when none) → an <input maxLength 50>; Enter/blur confirms,
+ * Escape cancels. Confirm hands the day + new value up via onSaveDayLabel; the
+ * PAGE owns the merge + PATCH + toast + state refresh (label edits are profile
+ * meta, NOT part of the grid dirty state, so they save immediately). The label
+ * editor joins the overlay-exclusivity family: opening it closes openCell /
+ * openMenu / hoursEditor and vice versa. While the input is open, cell clicks
+ * and selection keep working — the input stopPropagation's its key/click events
+ * (like CellHoursPopover) so Enter/Escape never leak into cell handlers.
+ *
  * Props:
- *   positions     — listPositions() result (display_order). The load-time truth.
- *   profile       — the selected ActivationProfile (carries day_labels). Optional.
- *   onSave        — async (items) => 'ok' | 'conflict' | 'error'. items:
- *                   [{ position_id, day_schedules }] for the changed rows only.
- *   onDirtyChange — (changedPositionCount) => void. Optional.
+ *   positions       — listPositions() result (display_order). The load-time truth.
+ *   profile         — the selected ActivationProfile (carries day_labels). Optional.
+ *   onSave          — async (items) => 'ok' | 'conflict' | 'error'. items:
+ *                     [{ position_id, day_schedules }] for the changed rows only.
+ *   onDirtyChange   — (changedPositionCount) => void. Optional.
+ *   onSaveDayLabel  — (day, value) => Promise|void. Step 07: persist one day's
+ *                     label. The page merges the full day_labels map and PATCHes.
+ *                     Optional (no-op when absent, e.g. in tests).
  */
-export default function ProfileMatrix({ positions, profile, onSave, onDirtyChange }) {
+export default function ProfileMatrix({ positions, profile, onSave, onDirtyChange, onSaveDayLabel }) {
   const m = messages.positions;
   const labels = profile?.day_labels || {};
 
@@ -138,6 +151,7 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
     setOpenMenu(null);
     setHoursEditor(null);
     setOpenCell(null);
+    setEditingDay(null);
   }, [positions]);
 
   // Changed positions (rows whose day map differs from the snapshot) — drives the
@@ -249,6 +263,16 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
   // One popover at a time; opening another simply replaces `openCell`.
   const [openCell, setOpenCell] = useState(null); // { posIdx, d } | null
 
+  // ── Step 07: header day-label editor ───────────────────────────────────
+  // editingDay = the day index whose label chip is currently an <input>, or null.
+  // labelDraft = the in-flight input value. `labelClosed` is a one-shot guard:
+  // Enter/Escape deliberately close the editor, and the <input>'s trailing blur
+  // would otherwise re-confirm — the guard makes that blur a no-op (no double
+  // PATCH, and Escape stays a true cancel).
+  const [editingDay, setEditingDay] = useState(null);
+  const [labelDraft, setLabelDraft] = useState('');
+  const labelClosed = useRef(false);
+
   // The cell's working window captured on the FIRST click of a double-click.
   // A double-click fires two toggles first (off→on, restored from the snapshot);
   // onDoubleClick reverts the cell to this captured value so the admin edits the
@@ -256,13 +280,43 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
   // not be silently lost.
   const dblCapture = useRef(null);
 
-  // Opening any overlay closes the others — only one popover/menu at a time.
+  // Opening any overlay closes the others — only one popover/menu/editor at a
+  // time. Step 07 adds the label editor to this exclusivity family.
   const openPopover = (posIdx, d) => {
     setOpenMenu(null);
     setHoursEditor(null);
+    setEditingDay(null);
     setOpenCell({ posIdx, d });
   };
   const closePopover = () => setOpenCell(null);
+
+  // ── Step 07: header day-label editor helpers ──────────────────────────
+  // Open: seed the draft from the current label (or '') and arm the close-guard.
+  const openLabelEditor = (d) => {
+    setOpenMenu(null);
+    setHoursEditor(null);
+    setOpenCell(null);
+    labelClosed.current = false;
+    setLabelDraft(labels[String(d)] || '');
+    setEditingDay(d);
+  };
+  // Cancel (Escape): drop the draft, never PATCH. Arm the guard so the input's
+  // unmount-blur doesn't turn this into a confirm.
+  const cancelLabel = () => {
+    labelClosed.current = true;
+    setEditingDay(null);
+  };
+  // Confirm (Enter/blur): hand the day + raw draft up to the page (it trims,
+  // merges the full map, PATCHes). Skip the round-trip when nothing changed.
+  const commitLabel = (d) => {
+    if (labelClosed.current) return; // already closed by Enter/Escape — ignore blur
+    labelClosed.current = true;
+    const existing = labels[String(d)] || '';
+    const next = labelDraft.trim();
+    setEditingDay(null);
+    if (next === existing) return; // unchanged → no PATCH (end-state identical)
+    onSaveDayLabel?.(d, labelDraft);
+  };
 
   // Popover confirm → write the window into the WORKING row only, then close.
   // Same dirty/save path as a toggle (no server call here).
@@ -284,6 +338,7 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
     const pre = firstActiveWin(keys);
     setOpenCell(null);
     setOpenMenu(null);
+    setEditingDay(null);
     setHoursEditor({ kind, keys, start: pre.start, end: pre.end, ...extra });
   };
   const confirmHoursEditor = (w) => {
@@ -491,9 +546,57 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
             {DAY_INDICES.map((d) => (
               <th key={d} scope="col" className="profile-matrix-col-day">
                 <span className="profile-matrix-day-name">{DAY_NAMES[d]}</span>
-                {labels[String(d)] ? (
-                  <span className="profile-matrix-day-label">{labels[String(d)]}</span>
-                ) : null}
+                {/* Step 07: editable day-label. Click the chip (or "+ תווית" when
+                    none) → inline input; Enter/blur confirm, Escape cancels. */}
+                {editingDay === d ? (
+                  <input
+                    type="text"
+                    className="profile-matrix-day-label-input"
+                    value={labelDraft}
+                    maxLength={50}
+                    autoFocus
+                    aria-label={`${DAY_NAMES[d]} · ${m.matrixEditDayLabel}`}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => setLabelDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      e.stopPropagation();
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        commitLabel(d);
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        cancelLabel();
+                      }
+                    }}
+                    onBlur={() => commitLabel(d)}
+                  />
+                ) : labels[String(d)] ? (
+                  <button
+                    type="button"
+                    className="profile-matrix-day-label"
+                    aria-label={`${DAY_NAMES[d]} · ${m.matrixEditDayLabel}`}
+                    title={`${DAY_NAMES[d]} · ${m.matrixEditDayLabel}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openLabelEditor(d);
+                    }}
+                  >
+                    {labels[String(d)]}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="profile-matrix-day-label profile-matrix-day-label-add"
+                    aria-label={`${DAY_NAMES[d]} · ${m.matrixAddDayLabel}`}
+                    title={`${DAY_NAMES[d]} · ${m.matrixAddDayLabel}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openLabelEditor(d);
+                    }}
+                  >
+                    {m.matrixAddDayLabel}
+                  </button>
+                )}
                 {/* Step 06: per-day header menu (aria-label includes the day). */}
                 <button
                   type="button"
@@ -501,7 +604,10 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
                   aria-label={`${DAY_NAMES[d]} · ${m.matrixDayMenu}`}
                   aria-haspopup="true"
                   aria-expanded={openMenu === d}
-                  onClick={() => setOpenMenu((cur) => (cur === d ? null : d))}
+                  onClick={() => {
+                    setEditingDay(null);
+                    setOpenMenu((cur) => (cur === d ? null : d));
+                  }}
                 >
                   ▾
                 </button>

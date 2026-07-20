@@ -5,6 +5,7 @@ import {
   listPositions,
   createPosition,
   updatePosition,
+  updateProfile,
   deletePosition,
   copyPosition,
   bulkUpdateDaySchedules,
@@ -184,6 +185,33 @@ export default function PositionsPage() {
     [profileId, toast, m, loadPositions],
   );
 
+  // Save one day's header label (step 07). Labels are profile meta — saved
+  // immediately, NOT part of the grid dirty state. The matrix hands up the day
+  // + raw draft; we merge the FULL day_labels map (trim; empty value removes
+  // the key [EDGE D4]) and PATCH the profile, then update the profile in place
+  // so the matrix re-renders with the server truth. Reuses the page toast the
+  // same way handleMatrixSave does.
+  const handleSaveDayLabel = useCallback(
+    async (day, value) => {
+      if (!profileId) return 'error';
+      const current = profile?.day_labels || {};
+      const next = { ...current };
+      const trimmed = String(value ?? '').trim();
+      if (trimmed) next[String(day)] = trimmed;
+      else delete next[String(day)];
+      try {
+        await updateProfile(profileId, { day_labels: next });
+        toast.success(m.dayLabelSaved);
+        setProfiles((cur) => cur.map((p) => (p.id === profileId ? { ...p, day_labels: next } : p)));
+        return 'ok';
+      } catch (err) {
+        toast.error(err.message || messages.common.error);
+        return 'error';
+      }
+    },
+    [profileId, profile, toast, m],
+  );
+
   // Run a navigation now, or — if the matrix has unsaved changes — defer it
   // behind the unsaved-changes ConfirmDialog. Used by the tab buttons and the
   // profile <select> [EDGE N2].
@@ -311,6 +339,7 @@ export default function PositionsPage() {
               profile={profile}
               onSave={handleMatrixSave}
               onDirtyChange={setMatrixDirty}
+              onSaveDayLabel={handleSaveDayLabel}
             />
           ) : (
             <>

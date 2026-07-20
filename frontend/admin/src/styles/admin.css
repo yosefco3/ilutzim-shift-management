@@ -1145,17 +1145,51 @@ body {
 .profile-matrix-row-name { background: var(--surface); }
 .profile-matrix-name-text { color: var(--text); }
 .profile-matrix-day-name { color: var(--text); }
-/* Per-day label chip in the header (e.g. "ט׳ באב"). Echoes the requirement-tag
-   pill: accent text on a faint accent tint. [EDGE I2] — matrix-only for now. */
+/* Per-day label chip in the header (e.g. "ט׳ באב"). Step 07 turns it into a
+   button (click to edit), so it carries a button reset. Echoes the
+   requirement-tag pill: accent text on a faint accent border. [EDGE I2] — now
+   visible on the board too (step 07 flips it on). */
 .profile-matrix-day-label {
   display: inline-block;
   margin-inline-start: 0.4rem;
+  font: inherit;
   font-size: 0.72rem;
   font-weight: 500;
   color: var(--accent, #3b82f6);
   border: 1px solid var(--accent, #3b82f6);
   padding: 0.05rem 0.45rem;
   border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+.profile-matrix-day-label:focus-visible {
+  outline: 2px solid var(--primary-ring);
+  outline-offset: 1px;
+}
+/* "+ תווית" affordance when a day has no label yet — dashed + muted so it reads
+   as an action rather than a set tag. */
+.profile-matrix-day-label-add {
+  color: var(--text-dim);
+  border-style: dashed;
+}
+/* Inline editor for a day label (step 07): pill-shaped input (max 50 chars). */
+.profile-matrix-day-label-input {
+  display: inline-block;
+  margin-inline-start: 0.4rem;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 500;
+  width: 7rem;
+  max-width: 100%;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--accent, #3b82f6);
+  border-radius: 999px;
+  padding: 0.05rem 0.4rem;
+}
+.profile-matrix-day-label-input:focus-visible {
+  outline: 2px solid var(--primary-ring);
+  outline-offset: 0;
 }
 .profile-matrix-cell { color: var(--text); }
 /* Cells are clickable toggles (step 04): hour window ↔ off (✕). */
@@ -1467,6 +1501,19 @@ body {
 }
 .board-day-name { display: block; font-weight: 600; color: var(--text); }
 .board-day-date { display: block; font-size: 0.72rem; color: var(--text-dim); }
+/* Per-day label chip on the board header (step 07) — presentational only, no
+   editing here. Inline with the day name so it doesn't shift the column. */
+.board-day-label {
+  display: inline-block;
+  margin-inline-start: 0.3rem;
+  font-size: 0.66rem;
+  font-weight: 500;
+  color: var(--accent, #3b82f6);
+  border: 1px solid var(--accent, #3b82f6);
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  vertical-align: middle;
+}
 .board-band-head td {
   background: var(--surface-3);
   text-align: start;

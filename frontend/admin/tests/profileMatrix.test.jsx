@@ -540,3 +540,97 @@ describe('ProfileMatrix multi-select + column ops (step 06)', () => {
     expect(screen.queryByText(m.matrixDayOff)).toBeNull();
   });
 });
+
+// ── Step 07: header day-label editing ──────────────────────────────────────
+describe('ProfileMatrix day-label editing (step 07)', () => {
+  const m = messages.positions;
+  // Accessible name of a day's label chip / "+ תווית" affordance / input:
+  // "<יום> · <…>" (mirrors the chevron's naming).
+  const chipName = (dayIdx) => `${DAY_NAMES[dayIdx]} · ${m.matrixEditDayLabel}`;
+  const addName = (dayIdx) => `${DAY_NAMES[dayIdx]} · ${m.matrixAddDayLabel}`;
+
+  it('clicking the label chip opens an inline input seeded with the label (max 50)', () => {
+    render(
+      <ProfileMatrix
+        positions={[POSITION()]}
+        profile={{ day_labels: { 4: 'ט׳ באב' } }}
+        onSaveDayLabel={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: chipName(4) }));
+    const input = screen.getByRole('textbox');
+    expect(input).toHaveValue('ט׳ באב');
+    expect(input.maxLength).toBe(50);
+  });
+
+  it('shows a "+ תווית" affordance that opens an empty input when no label is set', () => {
+    render(
+      <ProfileMatrix positions={[POSITION()]} profile={{ day_labels: {} }} onSaveDayLabel={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: addName(0) }));
+    expect(screen.getByRole('textbox')).toHaveValue('');
+  });
+
+  it('Enter confirms and hands the day + value up via onSaveDayLabel exactly once', () => {
+    const onSaveDayLabel = vi.fn().mockResolvedValue('ok');
+    render(
+      <ProfileMatrix positions={[POSITION()]} profile={{ day_labels: {} }} onSaveDayLabel={onSaveDayLabel} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: addName(2) }));
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'מנחה' } });
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
+
+    // Exactly once — the input's unmount-blur must not double-commit.
+    expect(onSaveDayLabel).toHaveBeenCalledTimes(1);
+    expect(onSaveDayLabel).toHaveBeenCalledWith(2, 'מנחה');
+  });
+
+  it('clearing an existing label and pressing Enter requests removal (empty value)', () => {
+    const onSaveDayLabel = vi.fn().mockResolvedValue('ok');
+    render(
+      <ProfileMatrix
+        positions={[POSITION()]}
+        profile={{ day_labels: { 4: 'ישן' } }}
+        onSaveDayLabel={onSaveDayLabel}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: chipName(4) }));
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: '' } });
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
+
+    expect(onSaveDayLabel).toHaveBeenCalledWith(4, '');
+  });
+
+  it('Escape cancels without calling onSaveDayLabel and leaves the label intact', () => {
+    const onSaveDayLabel = vi.fn();
+    render(
+      <ProfileMatrix
+        positions={[POSITION()]}
+        profile={{ day_labels: { 4: 'ט׳ באב' } }}
+        onSaveDayLabel={onSaveDayLabel}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: chipName(4) }));
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'אחר' } });
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' });
+
+    expect(onSaveDayLabel).not.toHaveBeenCalled();
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(screen.getByText('ט׳ באב')).toBeInTheDocument();
+  });
+
+  it('does not PATCH when the value is unchanged (open + blur with the same text)', () => {
+    const onSaveDayLabel = vi.fn();
+    render(
+      <ProfileMatrix
+        positions={[POSITION()]}
+        profile={{ day_labels: { 4: 'ט׳ באב' } }}
+        onSaveDayLabel={onSaveDayLabel}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: chipName(4) }));
+    // Blur without changing the seeded value → no PATCH.
+    fireEvent.blur(screen.getByRole('textbox'));
+    expect(onSaveDayLabel).not.toHaveBeenCalled();
+  });
+});

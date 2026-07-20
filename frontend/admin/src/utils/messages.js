@@ -168,6 +168,13 @@ export default {
     matrixDayOff: 'כבה את כל היום',
     matrixDayOn: 'הדלק את כל היום',
     matrixDayHours: 'קבע שעות לכל היום…',
+    // Day-label editing (step 07). The header chip becomes an inline input;
+    // confirm (Enter/blur) PATCHes the profile's day_labels immediately, Escape
+    // cancels. "+ תווית" is the affordance shown when a day has no label yet.
+    // The chip / add / input all carry an aria-label of "<יום> · <…>".
+    matrixAddDayLabel: '+ תווית',
+    matrixEditDayLabel: 'ערוך תווית',
+    dayLabelSaved: 'תווית היום נשמרה',
   },
   board: {
     // Ad-hoc position marker (actual board only — rows added mid-week).

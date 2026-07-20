@@ -389,6 +389,7 @@ export default function BoardGrid({
   attrLabel = (k) => k,
   pool = [],
   assignmentsByCell = {},
+  dayLabels = {},
   selectedGuard = null,
   onAssign,
   onUnassign,
@@ -509,7 +510,14 @@ export default function BoardGrid({
             <th className="board-corner">{m.position}</th>
             {days.map((d) => (
               <th key={d.index} className="board-day-head">
-                <span className="board-day-name">{DAY_NAMES[d.index]}</span>
+                <span className="board-day-name">
+                  {DAY_NAMES[d.index]}
+                  {/* Step 07: the assigned profile's per-day label (e.g. "ט׳ באב"),
+                      purely presentational here — no editing on the board. */}
+                  {dayLabels[String(d.index)] ? (
+                    <span className="board-day-label">{dayLabels[String(d.index)]}</span>
+                  ) : null}
+                </span>
                 <span className="board-day-date">{d.date.slice(5)}</span>
               </th>
             ))}

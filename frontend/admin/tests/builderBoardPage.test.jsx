@@ -478,4 +478,21 @@ describe('BoardPage', () => {
     unmount();
     expect(document.body.classList.contains('board-focus')).toBe(false);
   });
+
+  it('shows the assigned profile day-label chip in the day header (step 07)', async () => {
+    // The board resolves labels from listProfiles (board.profile has no
+    // day_labels) — give the assigned שגרה profile a Thursday label.
+    listProfiles.mockResolvedValue([
+      { id: 'p1', name: 'שגרה', is_default: true, day_labels: { 4: 'ט׳ באב' } },
+    ]);
+    renderPage();
+    await screen.findByText('ארנונה');
+    expect(screen.getByText('ט׳ באב')).toBeInTheDocument();
+  });
+
+  it('shows no day-label chip when the profile has no labels (step 07)', async () => {
+    renderPage();
+    await screen.findByText('ארנונה');
+    expect(screen.queryByText('ט׳ באב')).toBeNull();
+  });
 });
