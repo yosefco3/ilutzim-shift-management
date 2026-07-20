@@ -75,6 +75,9 @@ class ProfileResponse(BaseModel):
     # Per-day free-text labels (day index "0".."6" -> label); {} = none.
     day_labels: dict[str, str]
     is_default: bool
+    # Permanent base template (seeded "שגרה"); can never be deleted. The admin UI
+    # hides the delete button when true.
+    is_base: bool = False
     display_order: int
     created_at: datetime
     # Number of positions owned by this profile. Populated by the repository on

@@ -62,6 +62,10 @@ export default {
     edit: 'ערוך',
     delete: 'מחק',
     default: 'ברירת מחדל',
+    // Permanent base template (seeded שגרה): can't be deleted; the delete button
+    // is hidden and this badge marks it.
+    base: 'בסיס',
+    baseHint: 'פרופיל הבסיס — לא ניתן למחיקה',
     makeDefault: 'הפוך לברירת מחדל',
     defaultSet: 'הפרופיל הוגדר כברירת מחדל',
     deleteTitle: 'מחיקת פרופיל',

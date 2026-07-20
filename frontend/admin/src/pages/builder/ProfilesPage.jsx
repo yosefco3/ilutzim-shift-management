@@ -152,6 +152,9 @@ export default function ProfilesPage() {
                 {p.is_default && (
                   <span className="profile-card-default">{m.default}</span>
                 )}
+                {p.is_base && (
+                  <span className="profile-card-base" title={m.baseHint}>{m.base}</span>
+                )}
               </div>
               <p className="profile-card-positions">
                 {p.position_count > 0 ? m.positionsCount(p.position_count) : m.noPositionsYet}
@@ -174,9 +177,12 @@ export default function ProfilesPage() {
                 >
                   {m.edit}
                 </button>
-                <button className="btn btn-danger btn-sm" onClick={() => askDelete(p)}>
-                  {m.delete}
-                </button>
+                {/* The base template is permanent — no delete button for it. */}
+                {!p.is_base && (
+                  <button className="btn btn-danger btn-sm" onClick={() => askDelete(p)}>
+                    {m.delete}
+                  </button>
+                )}
               </div>
             </div>
           ))}

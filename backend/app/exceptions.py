@@ -121,6 +121,13 @@ class ProfileDeleteBlockedException(AppBaseException):
     message = "לא ניתן למחוק את הפרופיל האחרון שנותר"
 
 
+class ProfileBaseUndeletableException(AppBaseException):
+    """Raised when trying to delete the permanent base template (``is_base``) —
+    the seeded "שגרה" every other profile is built from."""
+    status_code = 409
+    message = "לא ניתן למחוק את פרופיל הבסיס"
+
+
 class AttributeNotFoundException(AppBaseException):
     """Raised when a requirement attribute does not exist."""
     status_code = 404

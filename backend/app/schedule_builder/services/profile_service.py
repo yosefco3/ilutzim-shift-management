@@ -10,7 +10,11 @@ session and commits itself.
 import logging
 import uuid
 
-from app.exceptions import ProfileDeleteBlockedException, ProfileNotFoundException
+from app.exceptions import (
+    ProfileBaseUndeletableException,
+    ProfileDeleteBlockedException,
+    ProfileNotFoundException,
+)
 from app.schedule_builder.models.activation_profile import ActivationProfile
 from app.schedule_builder.models.position import Position
 from app.schedule_builder.repositories.assignment_repository import AssignmentRepository
@@ -141,6 +145,10 @@ class ProfileService:
         default. (Positions are removed by cascade once they exist — task 03.)
         """
         target = await self._get_or_raise(profile_id)
+        # The permanent base template (seeded שגרה) is never deletable — it is the
+        # raw material every other profile is duplicated from.
+        if target.is_base:
+            raise ProfileBaseUndeletableException()
         total = await self._repo.count()
         if total <= 1:
             raise ProfileDeleteBlockedException()
@@ -192,6 +200,7 @@ class ProfileService:
             name=DEFAULT_PROFILE_NAME,
             kind=DEFAULT_PROFILE_NAME,
             is_default=True,
+            is_base=True,
             display_order=0,
         )
         await self._repo.save(profile)

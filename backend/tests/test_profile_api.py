@@ -13,7 +13,11 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.dependencies import require_admin_role
-from app.exceptions import ProfileDeleteBlockedException, ProfileNotFoundException
+from app.exceptions import (
+    ProfileBaseUndeletableException,
+    ProfileDeleteBlockedException,
+    ProfileNotFoundException,
+)
 from app.schedule_builder.controllers.profile_controller import router as profile_router
 from app.schedule_builder.dependencies import get_profile_service
 from app.schedule_builder.models.activation_profile import ActivationProfile
@@ -25,18 +29,20 @@ class FakeProfileService:
     def __init__(self):
         self._profiles: list[ActivationProfile] = []
 
-    def _make(self, name, kind=None, description=None, is_default=False, day_labels=None):
+    def _make(self, name, kind=None, description=None, is_default=False,
+              day_labels=None, is_base=False):
         p = ActivationProfile(
             name=name, kind=kind, description=description,
-            is_default=is_default, display_order=len(self._profiles),
+            is_default=is_default, is_base=is_base,
+            display_order=len(self._profiles),
             day_labels=day_labels if day_labels is not None else {},
         )
         p.id = uuid.uuid4()
         p.created_at = datetime(2026, 1, 1)
         return p
 
-    def seed(self, name="שגרה", is_default=True):
-        p = self._make(name, kind=name, is_default=is_default)
+    def seed(self, name="שגרה", is_default=True, is_base=True):
+        p = self._make(name, kind=name, is_default=is_default, is_base=is_base)
         self._profiles.append(p)
         return p
 
@@ -84,6 +90,8 @@ class FakeProfileService:
 
     async def delete_profile(self, pid):
         p = self._find(pid)
+        if p.is_base:
+            raise ProfileBaseUndeletableException()
         if len(self._profiles) <= 1:
             raise ProfileDeleteBlockedException()
         self._profiles.remove(p)
@@ -160,10 +168,32 @@ class TestProfileAPI:
 
     def test_delete_last_blocked_409(self):
         svc = FakeProfileService()
-        only = svc.seed("שגרה")
+        # A sole NON-base profile → blocked by the last-profile guard.
+        only = svc._make("חג")
+        svc._profiles.append(only)
         client = _make_client(svc)
         resp = client.delete(f"/admin/builder/profiles/{only.id}")
         assert resp.status_code == 409
+
+    def test_delete_base_blocked_409(self):
+        svc = FakeProfileService()
+        base = svc.seed("שגרה")  # is_base=True
+        other = svc._make("חג")
+        svc._profiles.append(other)
+        client = _make_client(svc)
+        resp = client.delete(f"/admin/builder/profiles/{base.id}")
+        assert resp.status_code == 409
+        # Still present — nothing removed.
+        assert base in svc._profiles
+
+    def test_response_exposes_is_base(self):
+        svc = FakeProfileService()
+        svc.seed("שגרה")  # base
+        svc._profiles.append(svc._make("חג"))  # not base
+        client = _make_client(svc)
+        by_name = {p["name"]: p for p in client.get("/admin/builder/profiles").json()}
+        assert by_name["שגרה"]["is_base"] is True
+        assert by_name["חג"]["is_base"] is False
 
     def test_delete_impact_reports_counts(self):
         svc = FakeProfileService()

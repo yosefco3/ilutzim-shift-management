@@ -914,6 +914,17 @@ body {
   padding: 0.1rem 0.5rem;
   border-radius: 999px;
 }
+/* Permanent base-template badge — accent (distinct from the green default one).
+   Marks the profile whose delete button is intentionally absent. */
+.profile-card-base {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent, #3b82f6);
+  border: 1px solid var(--accent, #3b82f6);
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  margin-inline-start: 0.4rem;
+}
 .profile-card-positions {
   font-size: 0.82rem;
   color: var(--text-dim);

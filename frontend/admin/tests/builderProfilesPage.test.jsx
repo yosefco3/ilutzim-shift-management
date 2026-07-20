@@ -106,6 +106,29 @@ describe('ProfilesPage', () => {
     await waitFor(() => expect(getProfileDeleteImpact).toHaveBeenCalledWith('p1'));
   });
 
+  it('hides the delete button and shows the base badge for the base profile', async () => {
+    listProfiles.mockResolvedValue([
+      { ...DEFAULT_PROFILE, is_base: true },
+      { id: 'p2', name: 'חג', is_default: false, is_base: false, display_order: 1 },
+    ]);
+    renderPage();
+    await screen.findByText('שגרה');
+    // The base badge marks it; the non-base profile keeps its delete button.
+    expect(screen.getByText('בסיס')).toBeInTheDocument();
+    // Exactly one delete button remains (for 'חג'), not two.
+    expect(screen.getAllByText('מחק')).toHaveLength(1);
+  });
+
+  it('keeps the delete button when no profile is the base', async () => {
+    listProfiles.mockResolvedValue([
+      { ...DEFAULT_PROFILE, is_base: false },
+    ]);
+    renderPage();
+    await screen.findByText('שגרה');
+    expect(screen.queryByText('בסיס')).toBeNull();
+    expect(screen.getByText('מחק')).toBeInTheDocument();
+  });
+
   it('edits a profile name', async () => {
     updateProfile.mockResolvedValue({ ...DEFAULT_PROFILE, name: 'שגרה ראשית' });
     renderPage();

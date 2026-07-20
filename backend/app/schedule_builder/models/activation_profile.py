@@ -50,6 +50,15 @@ class ActivationProfile(BaseModel):
         Boolean, nullable=False, default=False, server_default="0",
     )
 
+    # Marks THE base template (the seeded "שגרה") — the profile every other one is
+    # built from by duplicate+edit. Unlike ``is_default`` (a reassignable board
+    # fallback), ``is_base`` is PERMANENT: the base profile can never be deleted,
+    # so the raw material for new profiles is always there. Exactly one profile
+    # carries it (set at seed time / by the backfill migration).
+    is_base: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0",
+    )
+
     # Display order in the management screen.
     display_order: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0",

@@ -4,7 +4,11 @@ Tests for ProfileService (part B — schedule builder).
 
 import pytest
 
-from app.exceptions import ProfileDeleteBlockedException, ProfileNotFoundException
+from app.exceptions import (
+    ProfileBaseUndeletableException,
+    ProfileDeleteBlockedException,
+    ProfileNotFoundException,
+)
 from app.schedule_builder.repositories.profile_repository import ProfileRepository
 from app.schedule_builder.services.profile_service import (
     DEFAULT_PROFILE_NAME,
@@ -62,6 +66,16 @@ class TestDuplicate:
         assert dup.kind == "שגרה"
         assert dup.description == "בסיס"
         assert dup.is_default is False
+        # A copy is never the base — only the seeded original carries is_base.
+        assert dup.is_base is False
+
+    async def test_duplicate_of_base_is_not_base(self, service):
+        # Even duplicating THE base yields a normal, deletable copy.
+        await service.seed_default_profile()
+        base = (await service.list_profiles())[0]
+        assert base.is_base is True
+        dup = await service.duplicate_profile(base.id)
+        assert dup.is_base is False
 
     async def test_duplicate_with_explicit_name(self, service):
         src = await service.create_profile("שגרה")
@@ -211,6 +225,20 @@ class TestDelete:
         assert promoted is not None
         assert promoted.id == other.id
 
+    async def test_delete_base_blocked(self, service, db_session):
+        # The permanent base template (is_base) can never be deleted, even when
+        # other profiles exist and even when it is NOT the default.
+        await service.seed_default_profile()  # creates the base (is_base=True)
+        base = (await service.list_profiles())[0]
+        assert base.is_base is True
+        other = await service.create_profile("חג")
+        await service.set_default_profile(other.id)  # move default off the base
+        with pytest.raises(ProfileBaseUndeletableException):
+            await service.delete_profile(base.id)
+        # Still there.
+        names = [p.name for p in await service.list_profiles()]
+        assert "שגרה" in names
+
 
 class TestDeleteImpact:
     async def _assign(self, service, db_session, profile_id):
@@ -283,6 +311,8 @@ class TestSeed:
         assert len(profiles) == 1
         assert profiles[0].name == DEFAULT_PROFILE_NAME
         assert profiles[0].is_default is True
+        # The seeded profile is the permanent base template.
+        assert profiles[0].is_base is True
 
     async def test_seed_idempotent(self, service):
         await service.seed_default_profile()
