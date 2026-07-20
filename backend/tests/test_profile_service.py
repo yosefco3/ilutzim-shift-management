@@ -34,6 +34,28 @@ class TestCreateAndList:
         assert profiles[0].display_order < profiles[1].display_order
         assert all(p.is_default is False for p in profiles)
 
+    async def test_order_is_base_then_default_then_newest(self, service, db_session):
+        """Base first, default second, rest newest-created → oldest."""
+        from datetime import datetime
+
+        await service.seed_default_profile()  # base (is_base + is_default)
+        base = (await service.list_profiles())[0]
+
+        older = await service.create_profile("ישן")
+        default = await service.create_profile("ברירת מחדל")
+        newer = await service.create_profile("חדש")
+        # Pin created_at so the newest→oldest tail is deterministic.
+        older.created_at = datetime(2026, 1, 1)
+        default.created_at = datetime(2026, 2, 1)
+        newer.created_at = datetime(2026, 3, 1)
+        await db_session.flush()
+
+        await service.set_default_profile(default.id)
+
+        names = [p.name for p in await service.list_profiles()]
+        # base pinned first, chosen default second, then newest → oldest.
+        assert names == [base.name, "ברירת מחדל", "חדש", "ישן"]
+
     async def test_get_missing_raises(self, service):
         import uuid
 

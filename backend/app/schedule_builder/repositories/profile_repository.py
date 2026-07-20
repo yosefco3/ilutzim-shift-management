@@ -17,7 +17,13 @@ class ProfileRepository(BaseRepository[ActivationProfile]):
         super().__init__(session, ActivationProfile)
 
     async def get_all_ordered(self) -> list[ActivationProfile]:
-        """Return all profiles ordered by display_order, then created_at.
+        """Return all profiles ordered for display.
+
+        Order: the base profile (שגרה) is always first, the default profile
+        second, and every other profile after them from newest to oldest. Both
+        flags sort ``True`` ahead of ``False`` (DESC), so the base wins the top
+        slot and — when a non-base profile is the default — that profile takes
+        the second slot; ``created_at`` DESC breaks the remaining ties.
 
         Each returned profile carries a transient ``position_count`` attribute
         (the number of positions owning it) for display in the management UI.
@@ -29,8 +35,9 @@ class ProfileRepository(BaseRepository[ActivationProfile]):
             .scalar_subquery()
         )
         stmt = select(ActivationProfile, count_subq).order_by(
-            ActivationProfile.display_order.asc(),
-            ActivationProfile.created_at.asc(),
+            ActivationProfile.is_base.desc(),
+            ActivationProfile.is_default.desc(),
+            ActivationProfile.created_at.desc(),
         )
         result = await self.session.execute(stmt)
         profiles: list[ActivationProfile] = []

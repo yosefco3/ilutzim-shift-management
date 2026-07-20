@@ -115,13 +115,18 @@ export default function ProfilesPage() {
   };
 
   // Display order on this screen: the base profile (שגרה) is always pinned
-  // first; every other profile follows newest-created → oldest-created, so a
-  // freshly-duplicated profile lands right after the base and the very first
-  // profile ever created sits at the bottom. Sort a copy (never mutate state).
+  // first; the default profile comes second; every other profile follows
+  // newest-created → oldest-created, so a freshly-duplicated profile lands
+  // right after the default and the very first profile ever created sits at
+  // the bottom. Sort a copy (never mutate state). Note: the base is itself the
+  // default until another profile is set as default, so gate the "default
+  // second" rule on !is_base to avoid double-counting it.
   const orderedProfiles = useMemo(() => {
     const ts = (p) => new Date(p.created_at || 0).getTime();
+    const isDefaultOnly = (p) => p.is_default && !p.is_base;
     return [...profiles].sort((a, b) => {
       if (a.is_base !== b.is_base) return a.is_base ? -1 : 1; // base first
+      if (isDefaultOnly(a) !== isDefaultOnly(b)) return isDefaultOnly(a) ? -1 : 1; // default second
       return ts(b) - ts(a); // then newest-created first
     });
   }, [profiles]);
