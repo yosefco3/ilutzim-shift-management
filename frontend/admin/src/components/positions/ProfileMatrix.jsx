@@ -269,6 +269,18 @@ export default function ProfileMatrix({
     for (const b of rowBands) c[b] = (c[b] || 0) + 1;
     return c;
   }, [rowBands]);
+  // Display order = rows grouped by band (morning→evening→night), so each band
+  // is one contiguous block that prints its header once. Events are NOT split
+  // out — an event row sits in its band like any other position (a 07:00 event
+  // is a morning row). A STABLE sort preserves the incoming display_order within
+  // each band. Handlers still key on the ORIGINAL working index (posIdx), so
+  // selection/dirty/delete are unaffected — only the visual row order changes.
+  const rowOrder = useMemo(() => {
+    const idx = working.map((_, i) => i);
+    return idx.sort(
+      (a, b) => BAND_ORDER.indexOf(rowBands[a]) - BAND_ORDER.indexOf(rowBands[b]),
+    );
+  }, [working, rowBands]);
 
   // Report dirtiness up so the page can guard tab/profile/route changes. Fires
   // only when the count actually changes (memoized dep).
@@ -795,11 +807,14 @@ export default function ProfileMatrix({
           </tr>
         </thead>
         <tbody>
-          {working.map((p, posIdx) => {
+          {rowOrder.map((posIdx, seqIdx) => {
+            const p = working[posIdx];
             // A band group header prints once, above the first row of each band —
-            // a small morning/evening/night separation, like the board.
+            // a small morning/evening/night separation, like the board. Rows are
+            // grouped by band (rowOrder), so the header compares against the band
+            // of the PREVIOUS row in display order, not the working index.
             const band = rowBands[posIdx];
-            const bandChanged = posIdx === 0 || rowBands[posIdx - 1] !== band;
+            const bandChanged = seqIdx === 0 || rowBands[rowOrder[seqIdx - 1]] !== band;
             return (
             <Fragment key={p.id}>
               {bandChanged && (

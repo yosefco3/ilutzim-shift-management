@@ -696,6 +696,39 @@ describe('ProfileMatrix band separation', () => {
     // Count reflects the two morning positions.
     expect(screen.getByText(`· 2 ${messages.board.positionsCount}`)).toBeInTheDocument();
   });
+
+  it('groups events into their band (no separate event section, bands stay contiguous)', () => {
+    // Scrambled incoming order interleaving bands + an event — like production.
+    const { container } = render(
+      <ProfileMatrix
+        positions={[
+          POSITION({ id: 'm1', name: 'בוקר1', day_schedules: { 0: { start: '07:00', end: '15:00' } } }),
+          POSITION({ id: 'n1', name: 'לילה1', day_schedules: { 0: { start: '23:00', end: '07:00' } } }),
+          POSITION({
+            id: 'ev',
+            name: 'אירוע-בוקר',
+            is_event: true,
+            day_schedules: { 0: { start: '07:00', end: '12:00' } },
+          }),
+          POSITION({ id: 'e1', name: 'ערב1', day_schedules: { 0: { start: '15:00', end: '23:00' } } }),
+          POSITION({ id: 'm2', name: 'בוקר2', day_schedules: { 0: { start: '07:00', end: '15:00' } } }),
+        ]}
+        profile={{ day_labels: {} }}
+      />,
+    );
+    // Each band header appears exactly once — no duplicate morning header.
+    expect(screen.getAllByText(bands.morning)).toHaveLength(1);
+    expect(screen.getAllByText(bands.evening)).toHaveLength(1);
+    expect(screen.getAllByText(bands.night)).toHaveLength(1);
+    // Morning count includes the event row → 3.
+    expect(screen.getByText(`· 3 ${messages.board.positionsCount}`)).toBeInTheDocument();
+    // Rows are ordered by band (morning incl. the event → evening → night), with
+    // the incoming order preserved within each band.
+    const rowNames = [...container.querySelectorAll('.profile-matrix-name-text')].map(
+      (n) => n.textContent,
+    );
+    expect(rowNames).toEqual(['בוקר1', 'אירוע-בוקר', 'בוקר2', 'ערב1', 'לילה1']);
+  });
 });
 
 // ── Event participant-count quick editor (matrix row header) ────────────────
