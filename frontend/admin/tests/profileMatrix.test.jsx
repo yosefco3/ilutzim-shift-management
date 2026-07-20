@@ -193,3 +193,151 @@ describe('ProfileMatrix editing (step 04)', () => {
     expect(onDirtyChange).toHaveBeenLastCalledWith(0);
   });
 });
+
+// ── Step 05: per-cell hours popover ───────────────────────────────────────
+describe('ProfileMatrix hours popover (step 05)', () => {
+  const m = messages.positions;
+  const common = messages.common;
+
+  it('confirm updates the cell hours, marks the row dirty, and flows into the save payload', async () => {
+    const onSave = vi.fn().mockResolvedValue('ok');
+    render(
+      <ProfileMatrix
+        positions={[POSITION()]}
+        profile={{ day_labels: {} }}
+        onSave={onSave}
+        onDirtyChange={vi.fn()}
+      />,
+    );
+    // Sunday is active 07:30–15:00. Open the popover via the pencil.
+    fireEvent.click(screen.getByRole('button', { name: m.matrixEditHours }));
+    fireEvent.change(screen.getByLabelText(m.end), { target: { value: '17:45' } });
+    fireEvent.click(screen.getByText(common.confirm));
+
+    // Cell now shows the trimmed end, row is dirty → save shows count 1.
+    expect(screen.getByText(m.matrixHours('07:30', '17:45'))).toBeInTheDocument();
+    fireEvent.click(screen.getByText(m.matrixSave(1)));
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const [items] = onSave.mock.calls[0];
+    expect(items[0].position_id).toBe('pos1');
+    expect(items[0].day_schedules[0]).toEqual({ start: '07:30', end: '17:45' });
+  });
+
+  it('Escape cancels without changing the cell or marking it dirty', () => {
+    const onDirtyChange = vi.fn();
+    render(
+      <ProfileMatrix
+        positions={[POSITION()]}
+        profile={{ day_labels: {} }}
+        onSave={vi.fn()}
+        onDirtyChange={onDirtyChange}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: m.matrixEditHours }));
+    fireEvent.change(screen.getByLabelText(m.end), { target: { value: '17:45' } });
+    fireEvent.keyDown(screen.getByLabelText(m.end), { key: 'Escape' });
+
+    // Popover closed, cell unchanged, still not dirty.
+    expect(screen.queryByLabelText(m.end)).toBeNull();
+    expect(screen.getByText(m.matrixHours('07:30', '15:00'))).toBeInTheDocument();
+    expect(onDirtyChange).toHaveBeenLastCalledWith(0);
+  });
+
+  it('click-outside cancels without changing the cell', () => {
+    render(
+      <ProfileMatrix
+        positions={[POSITION()]}
+        profile={{ day_labels: {} }}
+        onSave={vi.fn()}
+        onDirtyChange={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: m.matrixEditHours }));
+    fireEvent.change(screen.getByLabelText(m.end), { target: { value: '17:45' } });
+    // A mousedown anywhere outside the popover root cancels it.
+    fireEvent.mouseDown(document.body);
+
+    expect(screen.queryByLabelText(m.end)).toBeNull();
+    expect(screen.getByText(m.matrixHours('07:30', '15:00'))).toBeInTheDocument();
+  });
+
+  it('accepts an overnight window (end <= start) and shows the חוצה חצות hint [EDGE D2]', () => {
+    render(
+      <ProfileMatrix
+        positions={[POSITION()]}
+        profile={{ day_labels: {} }}
+        onSave={vi.fn()}
+        onDirtyChange={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: m.matrixEditHours }));
+    fireEvent.change(screen.getByLabelText(m.start), { target: { value: '23:00' } });
+    fireEvent.change(screen.getByLabelText(m.end), { target: { value: '07:00' } });
+
+    // Hint visible and confirm NOT blocked (overnight is a valid window).
+    expect(screen.getByText(m.matrixOvernightHint)).toBeInTheDocument();
+    expect(screen.getByText(common.confirm)).not.toBeDisabled();
+
+    fireEvent.click(screen.getByText(common.confirm));
+    expect(screen.getByText(m.matrixHours('23:00', '07:00'))).toBeInTheDocument();
+  });
+
+  it('blocks confirm while a field is empty [EDGE D1]', () => {
+    render(
+      <ProfileMatrix
+        positions={[POSITION()]}
+        profile={{ day_labels: {} }}
+        onSave={vi.fn()}
+        onDirtyChange={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: m.matrixEditHours }));
+    fireEvent.change(screen.getByLabelText(m.end), { target: { value: '' } });
+
+    // Confirm disabled, cell still shows the original hours.
+    expect(screen.getByText(common.confirm)).toBeDisabled();
+    expect(screen.getByText(m.matrixHours('07:30', '15:00'))).toBeInTheDocument();
+  });
+
+  it('single click on the cell body still toggles (popover opens only via the pencil)', () => {
+    render(
+      <ProfileMatrix
+        positions={[POSITION()]}
+        profile={{ day_labels: {} }}
+        onSave={vi.fn()}
+        onDirtyChange={vi.fn()}
+      />,
+    );
+    // Single click the active Sunday cell body → it toggles off; no popover.
+    fireEvent.click(screen.getByRole('button', { name: cellName('ארנונה', 0, true) }));
+    expect(screen.getByRole('button', { name: cellName('ארנונה', 0, false) })).toBeInTheDocument();
+    expect(screen.queryByLabelText(m.end)).toBeNull();
+  });
+
+  it('double-clicking an OFF cell opens nothing — and does not park a popover for a later toggle', () => {
+    render(
+      <ProfileMatrix
+        positions={[POSITION()]}
+        profile={{ day_labels: {} }}
+        onSave={vi.fn()}
+        onDirtyChange={vi.fn()}
+      />,
+    );
+    // Monday starts OFF. A real double-click = click(detail 1) + click(detail 2)
+    // + dblclick; the two clicks toggle on→off, the dblclick must revert and
+    // NOT open (the cell is off) nor remember an openCell for later.
+    let cell = screen.getByRole('button', { name: cellName('ארנונה', 1, false) });
+    fireEvent.click(cell, { detail: 1 });
+    cell = screen.getByRole('button', { name: cellName('ארנונה', 1, true) });
+    fireEvent.click(cell, { detail: 2 });
+    cell = screen.getByRole('button', { name: cellName('ארנונה', 1, false) });
+    fireEvent.dblClick(cell);
+    expect(screen.getByRole('button', { name: cellName('ארנונה', 1, false) })).toBeInTheDocument();
+    expect(screen.queryByLabelText(m.end)).toBeNull();
+    // Toggling the cell on afterwards must not surprise-open the popover.
+    fireEvent.click(screen.getByRole('button', { name: cellName('ארנונה', 1, false) }), { detail: 1 });
+    expect(screen.getByRole('button', { name: cellName('ארנונה', 1, true) })).toBeInTheDocument();
+    expect(screen.queryByLabelText(m.end)).toBeNull();
+  });
+});

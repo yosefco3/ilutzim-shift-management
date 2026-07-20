@@ -147,6 +147,12 @@ export default {
     matrixDirtyLeaveTitle: 'שינויים שלא נשמרו',
     matrixDirtyLeave: 'יש שינויים שלא נשמרו — לצאת בכל זאת?',
     matrixDirtyLeaveConfirm: 'צא בלי לשמור',
+    // Hours popover (step 05) — per-cell start/end editor on an active cell.
+    // Pencil affordance label/title + popover dialog label + overnight hint.
+    matrixEditHours: 'עריכת שעות',
+    matrixHoursTitle: 'עריכת שעות התא',
+    // Shown inside the popover when end <= start (a valid overnight window) [EDGE D2].
+    matrixOvernightHint: 'חוצה חצות',
   },
   board: {
     // Ad-hoc position marker (actual board only — rows added mid-week).

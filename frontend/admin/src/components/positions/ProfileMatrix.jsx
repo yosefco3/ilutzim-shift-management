@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import messages from '../../utils/messages';
 import { DAY_NAMES_SHORT as DAY_NAMES } from '../../utils/guardMessages.js';
+import CellHoursPopover from './CellHoursPopover';
 
 // The 7 day indices in canonical Sunday→Saturday order. The app is dir=rtl, so a
 // plain <table> renders the first column (position name) on the right and ראשון
@@ -37,10 +38,13 @@ function scheduleChanged(snapMap, workMap) {
 }
 
 /**
- * Positions × days matrix (steps 03–04). Step 03 laid out the read-only grid;
- * step 04 makes each cell toggle its day on/off, tracks dirty cells against an
- * immutable load-time snapshot, and saves only the changed rows via the step-02
- * bulk endpoint. Hours popover / multi-select / label editing land in 05–07.
+ * Positions × days matrix (steps 03–05). Step 03 laid out the read-only grid;
+ * step 04 made each cell toggle its day on/off, track dirty cells against an
+ * immutable load-time snapshot, and save only the changed rows via the step-02
+ * bulk endpoint. Step 05 adds a per-cell hours popover (start/end) on active
+ * cells — pencil or double-click opens it; confirm writes the window into the
+ * working row through the same dirty/save pipeline (no server call from the
+ * popover). Multi-select / label editing land in 06–07.
  *
  * Toggle-ON restore order: the snapshot's hours for that cell → else the
  * position's first active window in the snapshot → else 07:00–15:00. All-days-off
@@ -141,6 +145,69 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
     setWorking(clonePositions(snapshot));
   };
 
+  // ── Step 05: per-cell hours popover ───────────────────────────────────
+  // One popover at a time; opening another simply replaces `openCell`.
+  const [openCell, setOpenCell] = useState(null); // { posIdx, d } | null
+
+  // The cell's working window captured on the FIRST click of a double-click.
+  // A double-click fires two toggles first (off→on, restored from the snapshot);
+  // onDoubleClick reverts the cell to this captured value so the admin edits the
+  // window they actually saw — including any unsaved (dirty) edit, which must
+  // not be silently lost.
+  const dblCapture = useRef(null);
+
+  const openPopover = (posIdx, d) => setOpenCell({ posIdx, d });
+  const closePopover = () => setOpenCell(null);
+
+  // Popover confirm → write the window into the WORKING row only, then close.
+  // Same dirty/save path as a toggle (no server call here).
+  const setCellWindow = (posIdx, d, { start, end }) => {
+    setWorking((cur) => {
+      const next = cur.map((p, i) =>
+        i === posIdx ? { ...p, day_schedules: { ...(p.day_schedules || {}) } } : p,
+      );
+      next[posIdx].day_schedules[String(d)] = { start, end };
+      return next;
+    });
+    setOpenCell(null);
+  };
+
+  // Single click = toggle (kept synchronous — snappy, and the step-04 tests
+  // assert the change immediately after the click). On the first click of a
+  // possible double-click we also remember the pre-click window (see above).
+  const handleCellClick = (posIdx, d, e) => {
+    if (e?.detail === 1) {
+      const w = working[posIdx]?.day_schedules?.[String(d)];
+      dblCapture.current = { posIdx, d, win: w ? { ...w } : null };
+    }
+    toggle(posIdx, d);
+  };
+
+  // Double-click = open the popover. Revert the two toggles to the captured
+  // window first, then open on the (now restored) active cell.
+  const handleCellDblClick = (posIdx, d) => {
+    const cap = dblCapture.current;
+    dblCapture.current = null;
+    const captured = cap && cap.posIdx === posIdx && cap.d === d;
+    if (captured) {
+      setWorking((cur) => {
+        const next = cur.map((p, i) =>
+          i === posIdx ? { ...p, day_schedules: { ...(p.day_schedules || {}) } } : p,
+        );
+        const key = String(d);
+        if (cap.win && windowActive(cap.win)) next[posIdx].day_schedules[key] = { ...cap.win };
+        else delete next[posIdx].day_schedules[key];
+        return next;
+      });
+    }
+    // Open only when the (post-revert) cell is active. Double-clicking an OFF
+    // cell must not park a hidden openCell that would pop the popover the next
+    // time the cell is toggled on.
+    const win = captured ? cap.win : working[posIdx]?.day_schedules?.[String(d)];
+    if (windowActive(win)) setOpenCell({ posIdx, d });
+    else setOpenCell(null);
+  };
+
   return (
     <div className="profile-matrix-scroll">
       <div className="profile-matrix-toolbar">
@@ -198,6 +265,7 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
                 const dirty =
                   active !== snapActive ||
                   (active && snapActive && (win.start !== snapWin.start || win.end !== snapWin.end));
+                const cellOpen = active && openCell?.posIdx === posIdx && openCell?.d === d;
                 return (
                   <td
                     key={d}
@@ -207,7 +275,8 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
                     aria-label={`${p.name}, ${DAY_NAMES[d]}, ${active ? m.active : m.matrixOff}`}
                     className={`profile-matrix-cell${active ? '' : ' is-off'}${dirty ? ' is-dirty' : ''}`}
                     title={active ? undefined : m.matrixOff}
-                    onClick={() => toggle(posIdx, d)}
+                    onClick={(e) => handleCellClick(posIdx, d, e)}
+                    onDoubleClick={() => handleCellDblClick(posIdx, d)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
@@ -215,7 +284,37 @@ export default function ProfileMatrix({ positions, profile, onSave, onDirtyChang
                       }
                     }}
                   >
-                    {active ? m.matrixHours(win.start, win.end) : '✕'}
+                    {active ? (
+                      <>
+                        <span className="profile-matrix-cell-label">
+                          {m.matrixHours(win.start, win.end)}
+                        </span>
+                        <button
+                          type="button"
+                          className="profile-matrix-cell-edit"
+                          aria-label={m.matrixEditHours}
+                          title={m.matrixEditHours}
+                          onClick={(e) => {
+                            // Never toggle — the pencil only opens the popover.
+                            e.stopPropagation();
+                            openPopover(posIdx, d);
+                          }}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        >
+                          ✎
+                        </button>
+                        {cellOpen && (
+                          <CellHoursPopover
+                            start={win.start}
+                            end={win.end}
+                            onConfirm={(w) => setCellWindow(posIdx, d, w)}
+                            onCancel={closePopover}
+                          />
+                        )}
+                      </>
+                    ) : (
+                      <span className="profile-matrix-cell-label">✕</span>
+                    )}
                   </td>
                 );
               })}

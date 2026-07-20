@@ -1191,6 +1191,76 @@ body {
   background: var(--surface-2);
 }
 
+/* ── Step 05 — per-cell hours popover ─────────────────────────────────── */
+/* Active cells host the absolute-positioned popover, so they become the
+   containing block for it. */
+.profile-matrix-cell { position: relative; }
+/* The hours/✕ label is wrapped so it stays a clean text match alongside the
+   pencil affordance on active cells. */
+.profile-matrix-cell-label { display: inline-block; }
+/* Pencil affordance (active cells only): hidden until the cell is hovered or
+   focused (keyboard), always shown on touch pointers (no hover available).
+   Rendered always; CSS reveals it — the simplest reliable approach. */
+.profile-matrix-cell-edit {
+  position: absolute;
+  top: 0.1rem;
+  inset-inline-end: 0.2rem;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 0.72rem;
+  line-height: 1;
+  padding: 0.1rem 0.25rem;
+  border-radius: var(--radius);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s;
+}
+.profile-matrix-cell:hover .profile-matrix-cell-edit,
+.profile-matrix-cell:focus-within .profile-matrix-cell-edit {
+  opacity: 1;
+  pointer-events: auto;
+}
+@media (pointer: coarse) {
+  .profile-matrix-cell-edit { opacity: 1; pointer-events: auto; }
+}
+/* The popover card anchored under the cell (inside the matrix scroll area). */
+.cell-hours-popover {
+  position: absolute;
+  top: 100%;
+  inset-inline-start: 0;
+  margin-top: 0.2rem;
+  z-index: 20;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  padding: 0.6rem;
+  display: grid;
+  gap: 0.4rem;
+  min-width: 11rem;
+}
+.cell-hours-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+.cell-hours-field input { width: 6rem; }
+/* Overnight hint [EDGE D2] — end <= start is valid, just flagged. */
+.cell-hours-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--warning);
+}
+.cell-hours-actions {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+
 .day-row select:disabled { opacity: 0.4; }
 .day-duration {
   font-size: 0.85rem;
