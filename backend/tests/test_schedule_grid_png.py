@@ -108,3 +108,22 @@ def test_empty_grid_still_renders():
     grid = ScheduleGrid(title="ריק", header=["עמדה"] + ["yom"] * 7, blocks=[])
     data = render_schedule_grid_png(grid)
     assert data[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_day_labels_render_and_grow_the_header():
+    from PIL import Image
+    base = _sample_grid()  # no labels
+    labelled = _sample_grid()
+    labelled.day_labels = ["", "חג שני", "", "", "", "", ""]
+    h_base = Image.open(io.BytesIO(render_schedule_grid_png(base))).height
+    h_labelled = Image.open(io.BytesIO(render_schedule_grid_png(labelled))).height
+    # The labelled grid renders and its header is taller (extra label line).
+    assert h_labelled > h_base
+
+
+def test_grid_without_day_labels_attr_still_renders():
+    # Older ScheduleGrid instances (no day_labels) must still render (getattr guard).
+    grid = _sample_grid()
+    assert grid.day_labels == [""] * 7  # default from the dataclass
+    data = render_schedule_grid_png(grid)
+    assert data[:8] == b"\x89PNG\r\n\x1a\n"

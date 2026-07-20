@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Fragment, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import messages from '../../utils/messages';
 import { DAY_NAMES_SHORT as DAY_NAMES } from '../../utils/guardMessages.js';
 import CellHoursPopover from './CellHoursPopover';
@@ -21,6 +21,43 @@ const clonePositions = (ps) => JSON.parse(JSON.stringify(ps ?? []));
 // A day is "active" when it carries a usable {start, end} window — same test the
 // read-only render in step 03 used.
 const windowActive = (w) => !!w && !!w.start && !!w.end;
+
+// ── Display bands (mirror of backend board_service) ────────────────────────
+// A position's band derives from its canonical (most-common) daily start time,
+// exactly like the board groups its rows. Cutoffs locked with the user 2026-06-28.
+//   🌅 morning  07:00–15:00 · 🌆 evening  15:00–23:00 · 🌙 night  23:00–07:00
+const BAND_ORDER = ['morning', 'evening', 'night'];
+const _toMin = (hhmm) => {
+  const [h, m] = String(hhmm).split(':');
+  return Number(h) * 60 + Number(m);
+};
+const bandForStart = (min) => {
+  if (min >= 7 * 60 && min < 15 * 60) return 'morning';
+  if (min >= 15 * 60 && min < 23 * 60) return 'evening';
+  return 'night';
+};
+// The most-common {start,end} across active days (ties → earliest day, matching
+// the backend's Counter.most_common on day-ordered windows). Empty → 'night'
+// (backend maps a windowless row to the night start).
+const bandForRow = (daySchedules) => {
+  const entries = Object.entries(daySchedules || {})
+    .filter(([, w]) => windowActive(w))
+    .sort((a, b) => Number(a[0]) - Number(b[0]));
+  if (!entries.length) return 'night';
+  const counts = new Map();
+  let bestStart = entries[0][1].start;
+  let bestCount = 0;
+  for (const [, w] of entries) {
+    const key = `${w.start}|${w.end}`;
+    const c = (counts.get(key) || 0) + 1;
+    counts.set(key, c);
+    if (c > bestCount) {
+      bestCount = c;
+      bestStart = w.start;
+    }
+  }
+  return bandForStart(_toMin(bestStart));
+};
 
 // Two windows are equal only if both are active with identical hours, or both
 // inactive (absent/empty). Drives per-cell dirty highlight and per-row diffing.
@@ -177,6 +214,18 @@ export default function ProfileMatrix({
     [working, snapshot],
   );
   const changedCount = changedPositions.length;
+
+  // Per-row display band + per-band totals, for the band group headers that
+  // separate morning/evening/night — mirroring the board (תצוגה כמו בלוח).
+  const rowBands = useMemo(
+    () => working.map((p) => bandForRow(p.day_schedules)),
+    [working],
+  );
+  const bandCounts = useMemo(() => {
+    const c = {};
+    for (const b of rowBands) c[b] = (c[b] || 0) + 1;
+    return c;
+  }, [rowBands]);
 
   // Report dirtiness up so the page can guard tab/profile/route changes. Fires
   // only when the count actually changes (memoized dep).
@@ -703,8 +752,25 @@ export default function ProfileMatrix({
           </tr>
         </thead>
         <tbody>
-          {working.map((p, posIdx) => (
-            <tr key={p.id}>
+          {working.map((p, posIdx) => {
+            // A band group header prints once, above the first row of each band —
+            // a small morning/evening/night separation, like the board.
+            const band = rowBands[posIdx];
+            const bandChanged = posIdx === 0 || rowBands[posIdx - 1] !== band;
+            return (
+            <Fragment key={p.id}>
+              {bandChanged && (
+                <tr className="profile-matrix-band-head">
+                  <td colSpan={1 + DAY_INDICES.length}>
+                    {messages.board.bands[band]}
+                    <span className="profile-matrix-band-count">
+                      {' · '}
+                      {bandCounts[band]} {messages.board.positionsCount}
+                    </span>
+                  </td>
+                </tr>
+              )}
+            <tr>
               <th scope="row" className="profile-matrix-row-name">
                 <span className="profile-matrix-name-text">{p.name}</span>
                 {p.is_event && (
@@ -799,7 +865,9 @@ export default function ProfileMatrix({
                 );
               })}
             </tr>
-          ))}
+            </Fragment>
+            );
+          })}
         </tbody>
       </table>
     </div>

@@ -117,6 +117,10 @@ class WeekSchedule:
     days: list[dict]  # [{"index": int, "date": str}]
     by_position: list[PositionRow]
     by_guard: list[GuardSchedule]
+    # Per-day header labels from the week's effective profile (e.g. {"1": "חג"}),
+    # string day-index keyed. Carried so the schedule grid (Excel + PNG) can print
+    # them under each day name. Empty on the actual-schedule cut (no profile meta).
+    day_labels: dict = field(default_factory=dict)
 
 
 # ── Pure helpers ─────────────────────────────────────────────────────────────
@@ -254,8 +258,15 @@ def _join_positions(acc: dict, cur: dict) -> dict:
 # - ``guards``      — active users, already name-sorted by the repo.
 
 
-def build_week_schedule(week, days, rows, assignments, guards) -> WeekSchedule:
-    """Assemble both cuts (``by_position`` + ``by_guard``) from loaded inputs."""
+def build_week_schedule(
+    week, days, rows, assignments, guards, day_labels=None
+) -> WeekSchedule:
+    """Assemble both cuts (``by_position`` + ``by_guard``) from loaded inputs.
+
+    ``day_labels`` (optional) is the effective profile's per-day header-label map;
+    the planned cut passes it through so the grid can annotate day columns, the
+    actual cut omits it (it has no profile meta).
+    """
     date_by_day = {d["index"]: d["date"] for d in days}
 
     # Index assignments by cell; each carries .user eager-loaded.
@@ -268,6 +279,7 @@ def build_week_schedule(week, days, rows, assignments, guards) -> WeekSchedule:
         days=[{"index": d["index"], "date": d["date"]} for d in days],
         by_position=_build_by_position(rows, by_cell),
         by_guard=_build_by_guard(rows, assignments, guards, date_by_day),
+        day_labels=dict(day_labels or {}),
     )
 
 
@@ -434,7 +446,8 @@ class ScheduleExportService:
         assignments = await self._assignments.list_for_week(week_id)
         guards = await self._user_repo.get_active_users()
         return build_week_schedule(
-            board["week"], board["days"], board["rows"], assignments, guards
+            board["week"], board["days"], board["rows"], assignments, guards,
+            day_labels=getattr(board["profile"], "day_labels", None),
         )
 
     async def send_personal_schedules(

@@ -635,6 +635,45 @@ describe('ProfileMatrix day-label editing (step 07)', () => {
   });
 });
 
+// ── Band group headers (morning / evening / night) ─────────────────────────
+describe('ProfileMatrix band separation', () => {
+  const bands = messages.board.bands;
+
+  it('prints a band header above each shift band, in the row flow', () => {
+    render(
+      <ProfileMatrix
+        positions={[
+          POSITION({ id: 'm', name: 'בוקר-עמדה', day_schedules: { 0: { start: '07:00', end: '15:00' } } }),
+          POSITION({ id: 'e', name: 'ערב-עמדה', day_schedules: { 0: { start: '15:00', end: '23:00' } } }),
+          POSITION({ id: 'n', name: 'לילה-עמדה', day_schedules: { 0: { start: '23:00', end: '07:00' } } }),
+        ]}
+        profile={{ day_labels: {} }}
+      />,
+    );
+    expect(screen.getByText(bands.morning)).toBeInTheDocument();
+    expect(screen.getByText(bands.evening)).toBeInTheDocument();
+    expect(screen.getByText(bands.night)).toBeInTheDocument();
+  });
+
+  it('shows one header for a single-band profile with the band count', () => {
+    render(
+      <ProfileMatrix
+        positions={[
+          POSITION({ id: 'a', name: 'א', day_schedules: { 0: { start: '07:30', end: '15:00' } } }),
+          POSITION({ id: 'b', name: 'ב', day_schedules: { 0: { start: '08:00', end: '16:00' } } }),
+        ]}
+        profile={{ day_labels: {} }}
+      />,
+    );
+    // Both are morning → exactly one band header (evening/night absent).
+    expect(screen.getByText(bands.morning)).toBeInTheDocument();
+    expect(screen.queryByText(bands.evening)).toBeNull();
+    expect(screen.queryByText(bands.night)).toBeNull();
+    // Count reflects the two morning positions.
+    expect(screen.getByText(`· 2 ${messages.board.positionsCount}`)).toBeInTheDocument();
+  });
+});
+
 // ── Event participant-count quick editor (matrix row header) ────────────────
 describe('ProfileMatrix event participant count', () => {
   const M = messages.positions;

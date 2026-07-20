@@ -68,6 +68,24 @@ def test_title_and_header():
     assert grid.title == "סידור עבודה — 2025-01-05 עד 2025-01-11"
     assert grid.header == ["עמדה", "ראשון", "שני", "שלישי", "רביעי",
                            "חמישי", "שישי", "שבת"]
+    # No profile labels → all 7 day-label slots blank.
+    assert grid.day_labels == [""] * 7
+
+
+def test_day_labels_projected_onto_canonical_day_slots():
+    week = _week()
+    rows = [_pos_row("עמדה א", "morning", {0: [("דוד", "08:00", "16:00")]},
+                     canonical=("08:00", "16:00"))]
+    schedule = WeekSchedule(
+        week=week, days=[{"index": i, "date": ""} for i in range(7)],
+        by_position=rows, by_guard=[],
+        # String day-index keyed, sparse (Monday=1, Wednesday=3).
+        day_labels={"1": "חג", "3": "ט׳ באב"},
+    )
+    grid = build_schedule_grid(schedule, week)
+    # Header names are untouched; labels land in the parallel day_labels list.
+    assert grid.header[2] == "שני" and grid.header[4] == "רביעי"
+    assert grid.day_labels == ["", "חג", "", "ט׳ באב", "", "", ""]
 
 
 def test_regular_shift_shows_name_only_and_band_fill():

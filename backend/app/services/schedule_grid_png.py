@@ -114,17 +114,30 @@ def render_schedule_grid_png(grid: Any) -> bytes:
     n_days = 7
     total_w = _NAME_W + n_days * _DAY_W
     body_h = sum(b.span for b in grid.blocks) * _ROW_H
-    total_h = _PAD + _TITLE_H + _HEADER_H + body_h + _PAD
-    width = total_w + 2 * _PAD
 
-    img = Image.new("RGB", (width, total_h), _WHITE)
-    draw = ImageDraw.Draw(img)
-
+    # A scratch canvas just to measure wrapped label lines before sizing the real
+    # image (Pillow needs a draw context for ``textlength``).
+    _measure = ImageDraw.Draw(Image.new("RGB", (1, 1)))
     f_title, f_header, f_cell = (
         _font(_FS_TITLE, bold=True),
         _font(_FS_HEADER, bold=True),
         _font(_FS_CELL),
     )
+    day_labels = list(getattr(grid, "day_labels", None) or [])
+    # Header height grows to fit the day name (1 line) plus any wrapped label lines.
+    label_lines_by_day = [
+        _wrap(_measure, day_labels[d], f_header, _DAY_W - 8) if d < len(day_labels)
+        and day_labels[d] else []
+        for d in range(n_days)
+    ]
+    max_label_lines = max((len(ls) for ls in label_lines_by_day), default=0)
+    header_h = _HEADER_H + max_label_lines * _LINE_H
+
+    total_h = _PAD + _TITLE_H + header_h + body_h + _PAD
+    width = total_w + 2 * _PAD
+
+    img = Image.new("RGB", (width, total_h), _WHITE)
+    draw = ImageDraw.Draw(img)
 
     left = _PAD
     right = left + total_w
@@ -156,13 +169,17 @@ def render_schedule_grid_png(grid: Any) -> bytes:
                        (x1 - x0) - 8)
 
     nx0, nx1 = name_x()
-    cell_rect(nx0, y, nx1, y + _HEADER_H, _rgb(PALETTE["header"]),
+    cell_rect(nx0, y, nx1, y + header_h, _rgb(PALETTE["header"]),
               grid.header[0], f_header, _WHITE)
     for d in range(n_days):
         dx0, dx1 = day_x(d)
-        cell_rect(dx0, y, dx1, y + _HEADER_H, _rgb(PALETTE["header"]),
-                  grid.header[d + 1], f_header, _WHITE)
-    y += _HEADER_H
+        # A day column shows its name and, when the profile set one, its label on a
+        # second line (e.g. "שני\nחג") so guards see the annotation on the image.
+        label = day_labels[d] if d < len(day_labels) else ""
+        text = f"{grid.header[d + 1]}\n{label}" if label else grid.header[d + 1]
+        cell_rect(dx0, y, dx1, y + header_h, _rgb(PALETTE["header"]),
+                  text, f_header, _WHITE)
+    y += header_h
 
     # Position blocks.
     for block in grid.blocks:

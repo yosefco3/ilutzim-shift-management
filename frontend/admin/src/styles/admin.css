@@ -1189,6 +1189,21 @@ body {
 }
 .profile-matrix-row-name { background: var(--surface); position: relative; }
 .profile-matrix-name-text { color: var(--text); }
+/* Band group header (🌅 בוקר / 🌆 ערב / 🌙 לילה) — a small separator between the
+   shift bands, echoing the board's `.board-band-head`. */
+.profile-matrix-band-head td {
+  background: var(--surface-3);
+  text-align: start;
+  font-weight: 650;
+  color: var(--text);
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border);
+}
+.profile-matrix-band-count {
+  color: var(--text-dim);
+  font-weight: 400;
+  font-size: 0.8rem;
+}
 /* Stack the header: day name on its own line, with the label chip/affordance and
    the menu chevron flowing below it. This makes each day column as wide as its
    WIDEST line (≈ the hours cell) instead of the SUM of name + chip + chevron —

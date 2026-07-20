@@ -234,8 +234,20 @@ def _write_grid_xlsx(grid: Any) -> bytes:
     title_cell.font = _TITLE_FONT
     title_cell.alignment = _CENTER
 
+    day_labels = list(getattr(grid, "day_labels", None) or [])
+    has_labels = False
     for col, header in enumerate(grid.header, 1):
-        _apply_header_style(ws.cell(row=3, column=col, value=header))
+        # Day columns (col ≥ 2) carry an optional profile label on a second line.
+        label = day_labels[col - 2] if col >= 2 and col - 2 < len(day_labels) else ""
+        value = f"{header}\n{label}" if label else header
+        cell = ws.cell(row=3, column=col, value=_sanitize_cell(value))
+        _apply_header_style(cell)
+        if label:
+            cell.alignment = _CENTER_WRAP
+            has_labels = True
+    if has_labels:
+        # Give the header row room for the wrapped second line.
+        ws.row_dimensions[3].height = 30
 
     row_num = 4
     for block in grid.blocks:

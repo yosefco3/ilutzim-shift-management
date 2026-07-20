@@ -1,15 +1,5 @@
 [
   {
-    "timestamp": "2026-07-05T21:00:55",
-    "backend_coverage%": 24,
-    "backend_tests": 100,
-    "backend_passed": 100,
-    "backend_failed": 0,
-    "frontend_tests": 51,
-    "frontend_passed": 51,
-    "frontend_failed": 0
-  },
-  {
     "timestamp": "2026-07-05T21:41:47",
     "backend_coverage%": 24,
     "backend_tests": 100,
@@ -491,6 +481,16 @@
   },
   {
     "timestamp": "2026-07-20T10:49:13",
+    "backend_coverage%": 81,
+    "backend_tests": 120,
+    "backend_passed": 120,
+    "backend_failed": 0,
+    "frontend_tests": 64,
+    "frontend_passed": 64,
+    "frontend_failed": 0
+  },
+  {
+    "timestamp": "2026-07-20T11:10:57",
     "backend_coverage%": 81,
     "backend_tests": 120,
     "backend_passed": 120,

@@ -75,6 +75,10 @@ class ScheduleGrid:
     title: str
     header: list[str]
     blocks: list[Block]
+    # Optional per-day header labels (7 entries, "" when none) — printed under the
+    # day name by both renderers. Defaults to blank so callers/tests that build a
+    # grid directly need not supply them.
+    day_labels: list[str] = field(default_factory=lambda: [""] * 7)
 
 
 def build_schedule_grid(schedule: Any, week: Any) -> ScheduleGrid:
@@ -88,6 +92,13 @@ def build_schedule_grid(schedule: Any, week: Any) -> ScheduleGrid:
     """
     title = f"סידור עבודה — {week.start_date} עד {week.end_date}"
     header = ["עמדה"] + DAY_NAMES_HE
+    # Per-day labels from the week's effective profile (string day-index keyed),
+    # projected onto the 7 canonical day slots ("" when a day has no label). Guard
+    # the type so a non-dict (e.g. a mock in a broadcast test) never gets .get'd.
+    profile_labels = getattr(schedule, "day_labels", None)
+    if not isinstance(profile_labels, dict):
+        profile_labels = {}
+    day_labels = [str(profile_labels.get(str(d), "") or "") for d in range(7)]
 
     blocks: list[Block] = []
     for row in schedule.by_position:
@@ -237,4 +248,6 @@ def build_schedule_grid(schedule: Any, week: Any) -> ScheduleGrid:
 
         blocks.append(Block(name=name_cell, span=span, days=day_cols))
 
-    return ScheduleGrid(title=title, header=header, blocks=blocks)
+    return ScheduleGrid(
+        title=title, header=header, blocks=blocks, day_labels=day_labels
+    )
