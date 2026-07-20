@@ -216,7 +216,10 @@ class ProfileService:
 
         Each position is recreated under ``dst`` with copies of its JSON fields
         (so the source and copy never share a reference). ``display_order`` is
-        preserved. The public ``duplicate_profile`` signature stays unchanged.
+        preserved, and the event shape (``is_event`` + ``event_required_count``)
+        is carried over — omitting it silently turned every "לא מפוצל" (event)
+        position of a copy into an ordinary splitting one. The public
+        ``duplicate_profile`` signature stays unchanged.
         """
         sources = await self._position_repo.get_by_profile(src.id)
         for pos in sources:
@@ -227,6 +230,8 @@ class ProfileService:
                     day_schedules=dict(pos.day_schedules or {}),
                     required_attributes=list(pos.required_attributes or []),
                     display_order=pos.display_order,
+                    is_event=bool(pos.is_event),
+                    event_required_count=pos.event_required_count,
                 )
             )
         await self._position_repo.session.flush()

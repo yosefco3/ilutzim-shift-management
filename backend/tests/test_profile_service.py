@@ -112,6 +112,68 @@ class TestDuplicate:
         arnona_src = next(p for p in original if p.name == "ארנונה")
         assert arnona_src.day_schedules["0"]["start"] == "07:30"
 
+    async def test_duplicate_preserves_event_shape(self, service, db_session):
+        # Regression: duplicating a profile used to strip is_event /
+        # event_required_count, turning every "לא מפוצל" (event) position of the
+        # copy into an ordinary splitting one.
+        from app.schedule_builder.repositories.position_repository import (
+            PositionRepository,
+        )
+        from app.schedule_builder.services.position_service import PositionService
+
+        positions = PositionService(PositionRepository(db_session))
+        src = await service.create_profile("שגרה")
+        await positions.create_position(
+            src.id, "רענון", day_schedules={"0": {"start": "07:00", "end": "15:00"}},
+            is_event=True, event_required_count=None,  # unlimited event
+        )
+        await positions.create_position(
+            src.id, "טווסים יום ו", day_schedules={"5": {"start": "07:00", "end": "12:00"}},
+            is_event=True, event_required_count=3,  # fixed-count event
+        )
+        await positions.create_position(src.id, "קומה 6")  # normal
+
+        dup = await service.duplicate_profile(src.id)
+        by_name = {p.name: p for p in await positions.list_positions(dup.id)}
+
+        assert by_name["רענון"].is_event is True
+        assert by_name["רענון"].event_required_count is None
+        assert by_name["טווסים יום ו"].is_event is True
+        assert by_name["טווסים יום ו"].event_required_count == 3
+        assert by_name["קומה 6"].is_event is False
+
+    async def test_duplicate_copies_every_position_field(self, service, db_session):
+        # Future-proofing: if a new copyable column is added to Position but not
+        # to ProfileService._copy_positions, this fails by construction. Compares
+        # source vs copy over ALL Position columns except identity/ownership/audit.
+        from app.schedule_builder.models.position import Position
+        from app.schedule_builder.repositories.position_repository import (
+            PositionRepository,
+        )
+        from app.schedule_builder.services.position_service import PositionService
+
+        # Columns intentionally NOT carried across a copy (new id, new owner,
+        # fresh timestamps). Everything else MUST be copied by value.
+        EXCLUDED = {"id", "profile_id", "created_at", "updated_at"}
+        compared = [c.name for c in Position.__table__.columns if c.name not in EXCLUDED]
+
+        positions = PositionService(PositionRepository(db_session))
+        src = await service.create_profile("שגרה")
+        await positions.create_position(
+            src.id, "ישיבת מועצה",
+            day_schedules={"2": {"start": "18:00", "end": "22:00"}},
+            required_attributes=["armed", "roni"],
+            is_event=True, event_required_count=4,
+        )
+        dup = await service.duplicate_profile(src.id)
+        src_pos = (await positions.list_positions(src.id))[0]
+        dup_pos = (await positions.list_positions(dup.id))[0]
+
+        for col in compared:
+            assert getattr(dup_pos, col) == getattr(src_pos, col), (
+                f"_copy_positions did not carry Position.{col} across a duplicate"
+            )
+
 
 class TestRename:
     async def test_rename_updates_fields_only(self, service):
