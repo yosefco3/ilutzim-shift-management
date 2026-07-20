@@ -1181,21 +1181,27 @@ body {
   width: 100%;
   /* Fixed layout = the 7 day columns divide the container evenly and can NEVER
      push past 100% (auto layout let the "15:00–07:00" cells dictate widths, so on
-     a ~1040px container the last day (שבת) tipped over and clipped). Below
-     min-width the scroll container scrolls instead of clipping. */
+     a ~1040px container the last day (שבת) tipped over and clipped). With no
+     oversized floor the grid simply fills the full container width — same as the
+     board — so שבת is never clipped on desktop.
+     The floor below is in PX on purpose: a rem-based min-width grows with the
+     user's base font size and, once 54rem exceeded the fixed-px .main-content
+     width (max-width: 1100px), the table overflowed and clipped שבת again. A
+     modest px floor only engages on genuinely narrow (mobile) widths, where the
+     scroll container scrolls instead of clipping. */
   table-layout: fixed;
-  min-width: 54rem;
+  min-width: 680px;
   /* separate (not collapse) is REQUIRED for the sticky name column to keep its
      borders while scrolling; borders are drawn per-side below. */
   border-collapse: separate;
   border-spacing: 0;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 .profile-matrix th,
 .profile-matrix td {
   border-inline-start: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
-  padding: 0.6rem 0.5rem;
+  padding: 0.6rem 0.4rem;
   text-align: center;
   vertical-align: middle;
   white-space: nowrap;
@@ -1223,7 +1229,7 @@ body {
 .profile-matrix-row-name {
   text-align: start;
   /* Fixed width (table-layout: fixed) — the day columns share what's left. */
-  width: 13rem;
+  width: 11rem;
   position: sticky;
   inset-inline-start: 0;
   background: var(--surface-2);
