@@ -135,6 +135,18 @@ export default {
     matrixPositionCol: 'עמדה',
     matrixHours: (start, end) => `${start}–${end}`,
     matrixOff: 'לא פעיל',
+    // Matrix editor (step 04) — explicit save/discard toolbar + dirty guards.
+    // N = number of CHANGED POSITIONS (rows), not cells.
+    matrixSave: (n) => `שמירה (${n})`,
+    matrixDiscard: 'בטל שינויים',
+    matrixSaved: 'השינויים נשמרו',
+    // 409 from the bulk endpoint (a position left this profile between load and
+    // save) → reload, dirty state discarded [EDGE C2].
+    matrixConflict: 'העמדות השתנו — הרשימה נטענה מחדש',
+    // Unsaved-changes guard [EDGE N2] when leaving the matrix dirty.
+    matrixDirtyLeaveTitle: 'שינויים שלא נשמרו',
+    matrixDirtyLeave: 'יש שינויים שלא נשמרו — לצאת בכל זאת?',
+    matrixDirtyLeaveConfirm: 'צא בלי לשמור',
   },
   board: {
     // Ad-hoc position marker (actual board only — rows added mid-week).

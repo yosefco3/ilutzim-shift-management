@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import messages from '../src/utils/messages';
+import { DAY_NAMES_SHORT as DAY_NAMES } from '../src/utils/guardMessages.js';
 
 vi.mock('../src/api/builderApiClient', () => ({
   listProfiles: vi.fn(),
@@ -9,6 +11,7 @@ vi.mock('../src/api/builderApiClient', () => ({
   updatePosition: vi.fn(),
   deletePosition: vi.fn(),
   copyPosition: vi.fn(),
+  bulkUpdateDaySchedules: vi.fn(),
   listAttributes: vi.fn(),
   createAttribute: vi.fn(),
   deleteAttribute: vi.fn(),
@@ -22,6 +25,7 @@ import {
   createPosition,
   deletePosition,
   copyPosition,
+  bulkUpdateDaySchedules,
   listAttributes,
 } from '../src/api/builderApiClient';
 import PositionsPage from '../src/pages/builder/PositionsPage';
@@ -46,11 +50,17 @@ function renderPage(initialEntries = ['/builder/positions']) {
   );
 }
 
+// Accessible name of a matrix cell (matches ProfileMatrix's aria-label).
+const cellName = (posName, dayIdx, active) =>
+  `${posName}, ${DAY_NAMES[dayIdx]}, ${active ? messages.positions.active : messages.positions.matrixOff}`;
+
 beforeEach(() => {
   vi.clearAllMocks();
   listProfiles.mockResolvedValue([PROFILE]);
   listAttributes.mockResolvedValue([ATTR]);
-  listPositions.mockResolvedValue([POSITION]);
+  // Fresh clone per call so a post-save/post-409 reload returns a NEW positions
+  // identity — ProfileMatrix resets its snapshot only when `positions` changes.
+  listPositions.mockImplementation(async () => [JSON.parse(JSON.stringify(POSITION))]);
 });
 
 describe('PositionsPage', () => {
@@ -231,5 +241,97 @@ describe('PositionsPage', () => {
     // ?edit lands on the cards tab (the editor flow lives there), not the matrix.
     expect(document.querySelector('.position-cards')).not.toBeNull();
     expect(document.querySelector('.profile-matrix')).toBeNull();
+  });
+
+  // ── Matrix editor (step 04): save / 409 / 500 / unsaved guard ──────────────
+  // Make the matrix dirty by toggling position ארנונה's active Sunday off.
+  const dirtyTheMatrix = async () => {
+    fireEvent.click(screen.getByRole('button', { name: cellName('ארנונה', 0, true) }));
+  };
+
+  it('matrix save: success sends only changed rows, reloads, and toasts', async () => {
+    bulkUpdateDaySchedules.mockResolvedValue({});
+    renderPage();
+    await screen.findByText('ארנונה');
+    await dirtyTheMatrix();
+
+    fireEvent.click(screen.getByText(messages.positions.matrixSave(1)));
+
+    // Payload = only the changed position, with its now-empty day map [EDGE C1/D3].
+    await waitFor(() =>
+      expect(bulkUpdateDaySchedules).toHaveBeenCalledWith('p1', [
+        { position_id: 'pos1', day_schedules: {} },
+      ]),
+    );
+    expect(toast.success).toHaveBeenCalledWith(messages.positions.matrixSaved);
+    // Reload: listPositions called a 2nd time for p1.
+    await waitFor(() => expect(listPositions).toHaveBeenCalledTimes(2));
+    // Dirty cleared after reload.
+    expect(await screen.findByText(messages.positions.matrixSave(0))).toBeInTheDocument();
+  });
+
+  it('matrix save: 409 reloads, shows the conflict toast, and discards dirty [EDGE C2]', async () => {
+    bulkUpdateDaySchedules.mockRejectedValueOnce(Object.assign(new Error('changed'), { status: 409 }));
+    renderPage();
+    await screen.findByText('ארנונה');
+    await dirtyTheMatrix();
+
+    fireEvent.click(screen.getByText(messages.positions.matrixSave(1)));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(messages.positions.matrixConflict));
+    // Reload happened.
+    await waitFor(() => expect(listPositions).toHaveBeenCalledTimes(2));
+    // Dirty discarded.
+    expect(await screen.findByText(messages.positions.matrixSave(0))).toBeInTheDocument();
+  });
+
+  it('matrix save: 5xx keeps the dirty state for a retry (no reload) [EDGE N1]', async () => {
+    bulkUpdateDaySchedules.mockRejectedValueOnce(Object.assign(new Error('boom'), { status: 500 }));
+    renderPage();
+    await screen.findByText('ארנונה');
+    await dirtyTheMatrix();
+
+    fireEvent.click(screen.getByText(messages.positions.matrixSave(1)));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('boom'));
+    expect(toast.error).not.toHaveBeenCalledWith(messages.positions.matrixConflict);
+    // No reload.
+    expect(listPositions).toHaveBeenCalledTimes(1);
+    // Dirty kept — save button still shows the changed-rows count.
+    expect(screen.getByText(messages.positions.matrixSave(1))).toBeInTheDocument();
+  });
+
+  it('switching profile with a dirty matrix opens the guard; confirm proceeds [EDGE N2]', async () => {
+    listProfiles.mockResolvedValue([PROFILE, PROFILE2]);
+    renderPage();
+    await screen.findByText('ארנונה');
+    await dirtyTheMatrix();
+
+    // Switching profile is intercepted (the <select> is controlled, so it
+    // reverts until confirmed).
+    fireEvent.change(screen.getByLabelText(messages.positions.profile), { target: { value: 'p2' } });
+    expect(await screen.findByText(messages.positions.matrixDirtyLeave)).toBeInTheDocument();
+
+    // Confirm → the pending switch runs (loads p2's positions).
+    fireEvent.click(screen.getByText(messages.positions.matrixDirtyLeaveConfirm));
+    await waitFor(() => expect(listPositions).toHaveBeenCalledWith('p2'));
+  });
+
+  it('canceling the unsaved-changes guard keeps the current profile [EDGE N2]', async () => {
+    listProfiles.mockResolvedValue([PROFILE, PROFILE2]);
+    renderPage();
+    await screen.findByText('ארנונה');
+    await dirtyTheMatrix();
+
+    fireEvent.change(screen.getByLabelText(messages.positions.profile), { target: { value: 'p2' } });
+    expect(await screen.findByText(messages.positions.matrixDirtyLeave)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText(messages.common.cancel));
+
+    // Did NOT switch to p2; guard closed.
+    expect(listPositions).not.toHaveBeenCalledWith('p2');
+    expect(screen.queryByText(messages.positions.matrixDirtyLeave)).toBeNull();
+    // Still on p1; the dirty change is still there.
+    expect(screen.getByText(messages.positions.matrixSave(1))).toBeInTheDocument();
   });
 });

@@ -7,6 +7,7 @@ import {
   updatePosition,
   deletePosition,
   copyPosition,
+  bulkUpdateDaySchedules,
   listAttributes,
   createAttribute,
   deleteAttribute,
@@ -54,6 +55,16 @@ export default function PositionsPage() {
   // Drag-and-drop: copy a position into another profile.
   const [draggingId, setDraggingId] = useState(null); // position being dragged
   const [dragOverProfile, setDragOverProfile] = useState(null); // target highlight
+
+  // Matrix editor (step 04) dirty tracking + unsaved-changes guard [EDGE N2].
+  // matrixDirty = count of changed positions reported by ProfileMatrix. When >0,
+  // switching tab/profile is intercepted by a ConfirmDialog and a beforeunload
+  // listener guards a real page unload (the app uses <BrowserRouter>, so
+  // react-router's useBlocker is unavailable — see report).
+  const [matrixDirty, setMatrixDirty] = useState(0);
+  // null, or { run } — the navigation to perform if the admin confirms leaving.
+  const [pendingLeave, setPendingLeave] = useState(null);
+  const matrixDirtyActive = matrixDirty > 0;
 
   const attrLabel = useCallback(
     (key) => attributes.find((a) => a.key === key)?.label || key,
@@ -148,6 +159,55 @@ export default function PositionsPage() {
     }
   };
 
+  // Save the matrix's changed rows via the atomic bulk endpoint [EDGE C1]. The
+  // status tells ProfileMatrix what to expect: 'ok'/'conflict' reload positions
+  // (so its snapshot resets and dirty state clears); 'error' does NOT reload, so
+  // the admin's dirty state survives for a retry [EDGE N1]. 409 = a position left
+  // this profile between load and save → reload, discard dirty [EDGE C2].
+  const handleMatrixSave = useCallback(
+    async (items) => {
+      try {
+        await bulkUpdateDaySchedules(profileId, items);
+        toast.success(m.matrixSaved);
+        await loadPositions();
+        return 'ok';
+      } catch (err) {
+        if (err.status === 409) {
+          toast.error(m.matrixConflict);
+          await loadPositions();
+          return 'conflict';
+        }
+        toast.error(err.message || messages.common.error);
+        return 'error';
+      }
+    },
+    [profileId, toast, m, loadPositions],
+  );
+
+  // Run a navigation now, or — if the matrix has unsaved changes — defer it
+  // behind the unsaved-changes ConfirmDialog. Used by the tab buttons and the
+  // profile <select> [EDGE N2].
+  const guarded = useCallback(
+    (action) => {
+      if (matrixDirtyActive) setPendingLeave({ run: action });
+      else action();
+    },
+    [matrixDirtyActive],
+  );
+
+  // Guard a real page unload (close tab / refresh / external nav) while the
+  // matrix is dirty. In-app SPA route changes aren't covered by beforeunload; the
+  // `guarded` wrapper covers the tab/profile switches this page owns.
+  useEffect(() => {
+    if (!matrixDirtyActive) return undefined;
+    const handler = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [matrixDirtyActive]);
+
   // Drop a dragged position onto a target profile → deep-copy it there.
   const handleCopyToProfile = async (positionId, targetProfile) => {
     setDraggingId(null);
@@ -201,7 +261,10 @@ export default function PositionsPage() {
           id="profile-select"
           aria-label={m.profile}
           value={profileId}
-          onChange={(e) => setProfileId(e.target.value)}
+          onChange={(e) => {
+            const next = e.target.value;
+            guarded(() => setProfileId(next));
+          }}
         >
           {profiles.map((p) => (
             <option key={p.id} value={p.id}>
@@ -229,21 +292,26 @@ export default function PositionsPage() {
             <button
               className={`btn btn-sm ${tab === 'matrix' ? 'btn-primary' : 'btn-outline'}`}
               aria-pressed={tab === 'matrix'}
-              onClick={() => setTab('matrix')}
+              onClick={() => guarded(() => setTab('matrix'))}
             >
               {m.matrix}
             </button>
             <button
               className={`btn btn-sm ${tab === 'cards' ? 'btn-primary' : 'btn-outline'}`}
               aria-pressed={tab === 'cards'}
-              onClick={() => setTab('cards')}
+              onClick={() => guarded(() => setTab('cards'))}
             >
               {m.cards}
             </button>
           </div>
 
           {tab === 'matrix' ? (
-            <ProfileMatrix positions={positions} profile={profile} />
+            <ProfileMatrix
+              positions={positions}
+              profile={profile}
+              onSave={handleMatrixSave}
+              onDirtyChange={setMatrixDirty}
+            />
           ) : (
             <>
               <div className="copy-targets">
@@ -417,6 +485,19 @@ export default function PositionsPage() {
         confirmLabel={m.delete}
         onConfirm={handleDeleteAttr}
         onCancel={() => setConfirmDeleteAttr(null)}
+      />
+      {/* Unsaved-changes guard for tab/profile switches out of a dirty matrix. */}
+      <ConfirmDialog
+        open={pendingLeave !== null}
+        title={m.matrixDirtyLeaveTitle}
+        message={m.matrixDirtyLeave}
+        confirmLabel={m.matrixDirtyLeaveConfirm}
+        onConfirm={() => {
+          const action = pendingLeave?.run;
+          setPendingLeave(null);
+          if (action) action();
+        }}
+        onCancel={() => setPendingLeave(null)}
       />
     </div>
   );
