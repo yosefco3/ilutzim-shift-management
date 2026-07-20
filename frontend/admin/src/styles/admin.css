@@ -1381,6 +1381,49 @@ body {
   text-align: start;
 }
 
+/* ── Matrix full-screen ("מסך מלא") ──────────────────────────────────────
+   Mirrors the board's focus mode: the grid takes over the viewport and the app
+   chrome is hidden. The matrix's own toolbar + selection bar live inside
+   .profile-matrix-scroll, so they ride along and stay usable. */
+.matrix-focus-enter { margin-inline-start: auto; }
+body.positions-focus .navbar { display: none; }
+.page.is-matrix-focus .page-header,
+.page.is-matrix-focus .positions-toolbar,
+.page.is-matrix-focus .positions-tab-row {
+  display: none;
+}
+.page.is-matrix-focus .profile-matrix-scroll {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  overflow: auto;
+  background: var(--bg, #0b1020);
+}
+/* Floating bar over the top-left (RTL end) corner: profile name + exit, always
+   reachable after scrolling. Sits above the grid's fixed layer. */
+.matrix-focus-bar {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 901;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.matrix-focus-title {
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.25rem 0.6rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+.matrix-focus-exit { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
+
 .day-row select:disabled { opacity: 0.4; }
 .day-duration {
   font-size: 0.85rem;

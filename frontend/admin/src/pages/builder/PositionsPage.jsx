@@ -67,6 +67,26 @@ export default function PositionsPage() {
   const [pendingLeave, setPendingLeave] = useState(null);
   const matrixDirtyActive = matrixDirty > 0;
 
+  // Matrix full-screen ("מסך מלא") — the grid takes over the viewport and the
+  // app chrome (navbar, page header, controls, tabs) is hidden, mirroring the
+  // board's focus mode. Pure presentation; editing state is untouched.
+  const [matrixFocus, setMatrixFocus] = useState(false);
+  useEffect(() => {
+    document.body.classList.toggle('positions-focus', matrixFocus);
+    return () => document.body.classList.remove('positions-focus');
+  }, [matrixFocus]);
+  // Esc leaves full-screen. Open popovers/inputs inside the matrix stopPropagation
+  // their own Escape (native), so they close first and this fires only once the
+  // grid itself has focus — a clean layered exit.
+  useEffect(() => {
+    if (!matrixFocus) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setMatrixFocus(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [matrixFocus]);
+
   const attrLabel = useCallback(
     (key) => attributes.find((a) => a.key === key)?.label || key,
     [attributes],
@@ -277,7 +297,7 @@ export default function PositionsPage() {
   if (loading) return <div className="loading">{messages.common.loading}</div>;
 
   return (
-    <div className="page">
+    <div className={`page${matrixFocus ? ' is-matrix-focus' : ''}`}>
       <div className="page-header">
         <h2>{m.title}</h2>
         <p className="page-subtitle">{m.subtitle}</p>
@@ -331,6 +351,15 @@ export default function PositionsPage() {
             >
               {m.cards}
             </button>
+            {tab === 'matrix' && (
+              <button
+                className="btn btn-sm btn-secondary matrix-focus-enter"
+                onClick={() => setMatrixFocus(true)}
+                title={m.matrixFocusHint}
+              >
+                {m.matrixFocusEnter}
+              </button>
+            )}
           </div>
 
           {tab === 'matrix' ? (
@@ -528,6 +557,20 @@ export default function PositionsPage() {
         }}
         onCancel={() => setPendingLeave(null)}
       />
+      {/* Full-screen matrix: a floating bar with the profile name + exit, always
+          reachable even after scrolling the grid (Esc also exits). */}
+      {matrixFocus && (
+        <div className="matrix-focus-bar">
+          {profile && <span className="matrix-focus-title">{profile.name}</span>}
+          <button
+            className="btn btn-secondary btn-sm matrix-focus-exit"
+            onClick={() => setMatrixFocus(false)}
+            title={m.matrixFocusHint}
+          >
+            {m.matrixFocusExit}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

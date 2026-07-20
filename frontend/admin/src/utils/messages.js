@@ -175,6 +175,10 @@ export default {
     matrixAddDayLabel: '+ תווית',
     matrixEditDayLabel: 'ערוך תווית',
     dayLabelSaved: 'תווית היום נשמרה',
+    // Full-screen ("מסך מלא") toggle for the matrix view.
+    matrixFocusEnter: '⛶ מסך מלא',
+    matrixFocusExit: '✕ צא ממסך מלא',
+    matrixFocusHint: 'תצוגת לוח במסך מלא (Esc ליציאה)',
   },
   board: {
     // Ad-hoc position marker (actual board only — rows added mid-week).

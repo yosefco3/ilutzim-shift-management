@@ -99,6 +99,33 @@ describe('PositionsPage', () => {
     expect(screen.getByText('כרטיסיות').className).toContain('btn-primary');
   });
 
+  it('matrix full-screen: enter adds the focus chrome, exit (button + Esc) removes it', async () => {
+    const mp = messages.positions;
+    renderPage();
+    await screen.findByText('ארנונה');
+    // Enter full-screen from the tab row.
+    fireEvent.click(screen.getByText(mp.matrixFocusEnter));
+    expect(document.body.classList.contains('positions-focus')).toBe(true);
+    expect(document.querySelector('.page').className).toContain('is-matrix-focus');
+    // Exit via the floating button.
+    fireEvent.click(screen.getByText(mp.matrixFocusExit));
+    expect(document.body.classList.contains('positions-focus')).toBe(false);
+    // Re-enter, then Esc exits.
+    fireEvent.click(screen.getByText(mp.matrixFocusEnter));
+    expect(document.body.classList.contains('positions-focus')).toBe(true);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(document.body.classList.contains('positions-focus')).toBe(false);
+  });
+
+  it('matrix full-screen: the enter button is hidden on the cards tab', async () => {
+    const mp = messages.positions;
+    renderPage();
+    await screen.findByText('ארנונה');
+    expect(screen.queryByText(mp.matrixFocusEnter)).not.toBeNull();
+    fireEvent.click(screen.getByText('כרטיסיות'));
+    expect(screen.queryByText(mp.matrixFocusEnter)).toBeNull();
+  });
+
   it('creates a position with day schedule and requirement', async () => {
     createPosition.mockResolvedValue({ ...POSITION, id: 'pos2' });
     renderPage();
