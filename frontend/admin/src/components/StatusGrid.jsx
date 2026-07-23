@@ -18,9 +18,10 @@ export default function StatusGrid({
   const [violationDialog, setViolationDialog] = useState(null);
   const navigate = useNavigate();
 
-  // Detail row spans all columns. There's always a trailing violation-marker
-  // column; the actions column only exists when the week is editable.
-  const colCount = canFillConstraints ? 6 : 5;
+  // Detail row spans all columns: name, status, submitted-at, view-details,
+  // actions, and the trailing violation marker. The actions column is always
+  // present — its button is simply disabled when the week is locked (final).
+  const colCount = 6;
 
   if (!submissions.length) {
     return <p className="empty-state">{messages.submissions.empty}</p>;
@@ -44,7 +45,7 @@ export default function StatusGrid({
           <th>{messages.submissions.status}</th>
           <th>{messages.submissions.submittedAt}</th>
           <th>{messages.submissions.viewDetails}</th>
-          {canFillConstraints && <th>{messages.common.actions}</th>}
+          <th>{messages.common.actions}</th>
           <th className="violation-col" aria-label="חריגות"></th>
         </tr>
       </thead>
@@ -85,16 +86,21 @@ export default function StatusGrid({
                     <span className="text-muted">—</span>
                   )}
                 </td>
-                {canFillConstraints && (
-                  <td className="actions-cell">
-                    <button
-                      className="btn btn-sm btn-secondary"
-                      onClick={() => navigate(`/guards/${s.user_id}/constraints`)}
-                    >
-                      {messages.guards.fillConstraints}
-                    </button>
-                  </td>
-                )}
+                <td className="actions-cell">
+                  {/* A locked (final) week can no longer be edited by anyone,
+                      including the admin — the button stays visible but disabled
+                      so the row layout is stable and the state is obvious. */}
+                  <button
+                    className="btn btn-sm btn-secondary"
+                    disabled={!canFillConstraints}
+                    onClick={() =>
+                      canFillConstraints &&
+                      navigate(`/guards/${s.user_id}/constraints`)
+                    }
+                  >
+                    {messages.guards.fillConstraints}
+                  </button>
+                </td>
                 <td className="violation-col">
                   {warnings.length > 0 && !detail.violation_acknowledged && (
                     <button

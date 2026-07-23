@@ -208,8 +208,9 @@ async def test_skipped_week_does_not_brick_the_next_cycle(service, repo):
     """A week nobody ever opened must not shadow the next week's auto-open.
 
     W1 is created but never opened (automation off / admin away). At the Sunday
-    rollover W1 is deliberately NOT locked (never ran its window). The next
-    cycle's auto-open must still be able to open W2 — the real upcoming target.
+    rollover W1 has started, so it is now finalized to LOCKED (a never-opened
+    ghost is no longer left editable forever). The next cycle's auto-open must
+    still be able to open W2 — the real upcoming target.
     """
     with at(WED):
         await service.auto_advance_weeks()
@@ -219,7 +220,7 @@ async def test_skipped_week_does_not_brick_the_next_cycle(service, repo):
     with at(SUN_1):
         await service.auto_advance_weeks()
         weeks = {w.start_date: w for w in await repo.get_all()}
-        assert weeks[SUN_1].status == WeekStatus.CLOSED  # not locked — by design
+        assert weeks[SUN_1].status == WeekStatus.LOCKED  # started ghost → locked
         assert weeks[SUN_2].status == WeekStatus.CLOSED
 
     # Monday: the auto-open cron fires for the new cycle. It must open W2,

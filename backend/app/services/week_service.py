@@ -610,10 +610,11 @@ class WeekService:
         The moment a week's ``start_date`` arrives it is no longer a relevant
         submission target, so the rollover finalizes it OPEN/CLOSED → LOCKED
         **silently** (no Telegram broadcast at midnight). LOCKED is the final,
-        non-reopenable state. Only a week that already had its submission window
-        is finalized (OPEN, or CLOSED with ``opened_at`` set); a never-opened
-        CLOSED week — the upcoming/current week waiting to be opened — and
-        already-LOCKED weeks are never touched.
+        non-reopenable state. **Every** started, not-yet-locked week is
+        finalized regardless of state — OPEN, CLOSED-that-ran, or a CLOSED week
+        that was never opened — so a stale ghost week left behind by a skipped
+        cycle can no longer stay editable forever. Only future weeks
+        (``start_date > today``) and already-LOCKED weeks are left untouched.
         """
         today = today_il()
         try:

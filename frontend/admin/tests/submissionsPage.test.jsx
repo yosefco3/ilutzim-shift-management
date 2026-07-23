@@ -71,12 +71,12 @@ describe('SubmissionsPage — admin fill-constraints gating by week status', () 
     ).toBeInTheDocument();
   });
 
-  it('hides the fill-constraints button once the week is locked (final)', () => {
+  it('disables (but still shows) the fill-constraints button once the week is locked (final)', () => {
     setup('locked');
     selectWeek();
-    expect(
-      screen.queryByRole('button', { name: messages.guards.fillConstraints }),
-    ).not.toBeInTheDocument();
+    const buttons = screen.getAllByRole('button', { name: messages.guards.fillConstraints });
+    expect(buttons.length).toBeGreaterThan(0);
+    for (const btn of buttons) expect(btn).toBeDisabled();
   });
 
   // The default now tracks the schedule board's week (upcoming Sun→Sat), so a

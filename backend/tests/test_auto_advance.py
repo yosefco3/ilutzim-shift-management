@@ -92,8 +92,8 @@ async def test_auto_advance_locks_and_creates_next():
 
 @pytest.mark.asyncio
 async def test_repo_returns_started_weeks_to_finalize(db_session):
-    """Finalize-query returns started OPEN weeks and started CLOSED weeks that
-    were already opened — but NOT future weeks nor never-opened CLOSED weeks."""
+    """Finalize-query returns EVERY started, not-yet-locked week — OPEN, CLOSED
+    that already ran, and CLOSED that was never opened — but NOT future weeks."""
     from datetime import datetime
 
     from app.models.schedule_week import ScheduleWeek
@@ -119,11 +119,13 @@ async def test_repo_returns_started_weeks_to_finalize(db_session):
         status=WeekStatus.CLOSED,
         opened_at=datetime(2026, 1, 1, 12, 0, 0),  # had its submission window
     )
+    # A never-opened CLOSED week that already started is a stale ghost — it must
+    # now be finalized too, so its editing UI can't stay live forever.
     closed_started_never_opened = ScheduleWeek(
         start_date=today,  # distinct range (unique date-range constraint, B-4)
         end_date=today + timedelta(days=6),
         status=WeekStatus.CLOSED,
-        opened_at=None,  # the current week still waiting to be opened — keep!
+        opened_at=None,
     )
     db_session.add_all(
         [open_started, future_week, closed_started_opened, closed_started_never_opened]
@@ -136,14 +138,15 @@ async def test_repo_returns_started_weeks_to_finalize(db_session):
     ids = {w.id for w in result}
     assert open_started.id in ids
     assert closed_started_opened.id in ids  # already opened → finalize
-    assert future_week.id not in ids  # not started yet
-    assert closed_started_never_opened.id not in ids  # never opened → leave it
+    assert closed_started_never_opened.id in ids  # started ghost → finalize too
+    assert future_week.id not in ids  # not started yet → keep
 
 
 @pytest.mark.asyncio
-async def test_rollover_finalizes_closed_opened_keeps_current(db_session):
-    """End-to-end rollover: a CLOSED week that already ran its window is finalized
-    to LOCKED, while the never-opened current week stays CLOSED (not finalized)."""
+async def test_rollover_finalizes_started_weeks_keeps_future(db_session):
+    """End-to-end rollover: every started week is finalized to LOCKED — including
+    a never-opened one that already started — while a FUTURE never-opened week
+    stays CLOSED (the only week the rollover must not disturb)."""
     from datetime import datetime
 
     from app.models.schedule_week import ScheduleWeek
@@ -155,22 +158,30 @@ async def test_rollover_finalizes_closed_opened_keeps_current(db_session):
         status=WeekStatus.CLOSED,
         opened_at=datetime(2026, 1, 1, 12, 0, 0),  # had its submission window
     )
-    current = ScheduleWeek(
+    started_never_opened = ScheduleWeek(
         start_date=today,
         end_date=today + timedelta(days=6),
         status=WeekStatus.CLOSED,
-        opened_at=None,  # waiting to be opened
+        opened_at=None,  # never opened but already started → stale ghost
     )
-    db_session.add_all([prev_cycle, current])
+    future = ScheduleWeek(
+        start_date=today + timedelta(days=7),
+        end_date=today + timedelta(days=13),
+        status=WeekStatus.CLOSED,
+        opened_at=None,  # the real upcoming target — must be left alone
+    )
+    db_session.add_all([prev_cycle, started_never_opened, future])
     await db_session.commit()
 
     svc = WeekService(ScheduleWeekRepository(db_session))
     await svc.lock_expired_open_weeks()
 
     await db_session.refresh(prev_cycle)
-    await db_session.refresh(current)
+    await db_session.refresh(started_never_opened)
+    await db_session.refresh(future)
     assert prev_cycle.status == WeekStatus.LOCKED  # finalized
-    assert current.status == WeekStatus.CLOSED  # current week untouched
+    assert started_never_opened.status == WeekStatus.LOCKED  # ghost finalized too
+    assert future.status == WeekStatus.CLOSED  # future target untouched
 
 
 # ── Full flow (service + real DB) ────────────────────────────────────────────

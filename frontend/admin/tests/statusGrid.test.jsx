@@ -22,22 +22,23 @@ describe('StatusGrid — fill-constraints button gating', () => {
     renderGrid({ canFillConstraints: true });
     const buttons = screen.getAllByRole('button', { name: messages.guards.fillConstraints });
     expect(buttons).toHaveLength(2); // one per guard, incl. the one who has not submitted
+    for (const btn of buttons) expect(btn).toBeEnabled();
   });
 
-  it('hides the button (and its column) when the week is not editable', () => {
+  it('disables the button (but keeps it and its column) when the week is locked', () => {
     renderGrid({ canFillConstraints: false });
-    expect(
-      screen.queryByRole('button', { name: messages.guards.fillConstraints }),
-    ).not.toBeInTheDocument();
-    // The actions column header is absent too.
-    expect(screen.queryByText(messages.common.actions)).not.toBeInTheDocument();
+    const buttons = screen.getAllByRole('button', { name: messages.guards.fillConstraints });
+    expect(buttons).toHaveLength(2); // one per guard, all present
+    for (const btn of buttons) expect(btn).toBeDisabled();
+    // The actions column header is still shown.
+    expect(screen.getByText(messages.common.actions)).toBeInTheDocument();
   });
 
-  it('defaults to not editable (no button) when the prop is omitted', () => {
+  it('defaults to a disabled button when the prop is omitted', () => {
     renderGrid({});
-    expect(
-      screen.queryByRole('button', { name: messages.guards.fillConstraints }),
-    ).not.toBeInTheDocument();
+    const buttons = screen.getAllByRole('button', { name: messages.guards.fillConstraints });
+    expect(buttons.length).toBeGreaterThan(0);
+    for (const btn of buttons) expect(btn).toBeDisabled();
   });
 
   it('points the button at the guard constraints route', () => {
