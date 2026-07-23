@@ -99,9 +99,17 @@ export function useAdminConstraints(guardId) {
         setWeeks(weeksData || []);
         setShiftDefaults(defaults);
 
-        // Default to the open week, else the most recent one.
-        const open = (weeksData || []).find((w) => w.status === 'open');
-        const initial = open || (weeksData || [])[0];
+        // Default to a week the admin can actually edit. The list has no
+        // guaranteed order, so sort by start_date (newest first) and prefer the
+        // OPEN week, then the most recent editable (CLOSED) week. Only fall back
+        // to the newest week overall — which may be LOCKED and read-only — when
+        // nothing editable exists, so we never open on a locked week by default.
+        const byStartDesc = [...(weeksData || [])].sort(
+          (a, b) => new Date(b.start_date) - new Date(a.start_date),
+        );
+        const open = byStartDesc.find((w) => w.status === 'open');
+        const editable = byStartDesc.find((w) => w.status === 'closed');
+        const initial = open || editable || byStartDesc[0];
         setSelectedWeekId(initial ? initial.id : '');
       } catch (err) {
         if (!cancelled) setError(err.message);

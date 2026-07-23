@@ -89,22 +89,20 @@ async def cmd_start(message: Message, state: FSMContext):
     user = await user_svc.get_by_telegram_id(telegram_id)
 
     if user is not None:
-        # Already registered — update profile info from Telegram
+        # Already registered — show the menu.
+        #
+        # We intentionally do NOT sync the name from the Telegram profile here.
+        # The authoritative name is the one the admin entered when creating the
+        # user (often Hebrew); the guard's Telegram profile name (often English)
+        # must never overwrite it. Syncing on every /start used to clobber the
+        # admin-entered Hebrew name with the English Telegram name.
+        # Greet with the stored (admin-entered) name, not the Telegram profile name.
+        greeting_name = user.first_name or first_name
         try:
-            await user_svc.update_user_profile(
-                user.id,
-                first_name=first_name,
-                last_name=last_name,
-                username=message.from_user.username or "",
-            )
-            await session.commit()
-        except Exception:
-            pass  # Non-critical — profile update failure shouldn't block
-        try:
-            await _show_main_menu(message, first_name)
+            await _show_main_menu(message, greeting_name)
         except Exception as exc:
             logger.error("Failed to show main menu: %s", exc, exc_info=True)
-            await message.answer(f"שלום {first_name}! 👋\nברוך הבא למערכת ניהול האילוצים.\nשלח /start לתפריט.")
+            await message.answer(f"שלום {greeting_name}! 👋\nברוך הבא למערכת ניהול האילוצים.\nשלח /start לתפריט.")
     else:
         # Not yet linked — ask for phone number to verify identity
         await state.set_state(PhoneVerification.waiting_for_phone)

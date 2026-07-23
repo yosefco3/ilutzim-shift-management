@@ -197,17 +197,6 @@ class UserService:
         logger.info(f"Telegram linked by user_id: user_id={user_id}, telegram_id={telegram_id}")
         return UserResponse.model_validate(user)
 
-    async def update_user_profile(
-        self, user_id: uuid.UUID, *, first_name: str, last_name: str, username: str,
-    ) -> UserResponse:
-        """Update profile fields from Telegram profile info."""
-        user = await self._get_user_or_raise(user_id)
-        user.first_name = first_name
-        user.last_name = last_name
-        user.telegram_username = username
-        updated = await self._user_repo.save(user)
-        return UserResponse.model_validate(updated)
-
     async def get_user_by_phone(self, phone_number: str) -> UserResponse | None:
         """Find user by phone number. Returns None if not found."""
         phone_number = _normalize_phone(phone_number)

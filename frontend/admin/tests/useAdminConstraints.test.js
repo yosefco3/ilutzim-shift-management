@@ -111,6 +111,23 @@ describe('useAdminConstraints', () => {
     expect(createGuardSubmission).not.toHaveBeenCalled();
   });
 
+  it('defaults to the editable (closed) week, never a locked week', async () => {
+    // Regression: with no OPEN week, the default used to land on whatever week
+    // came first in the unordered list — often the LOCKED current week, which
+    // is read-only. It must prefer the editable CLOSED week instead. Order the
+    // list locked-first to prove the fix does not rely on list position.
+    fetchWeeks.mockResolvedValue([
+      { id: 'wlock', status: 'locked', week_label: 'שבוע נעול', start_date: '2025-06-15' },
+      { id: 'wclosed', status: 'closed', week_label: 'שבוע סגור', start_date: '2025-06-22' },
+    ]);
+
+    const { result } = renderHook(() => useAdminConstraints('g1'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.selectedWeekId).toBe('wclosed');
+    expect(result.current.isPublished).toBe(false);
+  });
+
   it('builds the payload with user_id + week_id and only active shifts', async () => {
     const { result } = renderHook(() => useAdminConstraints('g1'));
     await waitFor(() => expect(result.current.days).toHaveLength(7));
