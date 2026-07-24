@@ -334,6 +334,14 @@ body {
   color: var(--text);
 }
 .data-table tr:hover td { background: var(--surface-2); }
+/* Suspended (inactive) guards: tint the whole row so they read as "off". */
+.data-table tr.row-inactive td {
+  background: color-mix(in srgb, var(--warning, #f59e0b) 8%, transparent);
+  color: var(--text-dim);
+}
+.data-table tr.row-inactive:hover td {
+  background: color-mix(in srgb, var(--warning, #f59e0b) 14%, transparent);
+}
 /* Ordinal column (e.g. guards list): narrow and dim — an index, not data. */
 .data-table .row-number-col {
   width: 2.5rem;

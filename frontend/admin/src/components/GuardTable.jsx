@@ -40,7 +40,7 @@ export default function GuardTable({ guards, onEdit, onToggle, onDelete }) {
       </thead>
       <tbody>
         {sortedGuards.map((g, i) => (
-          <tr key={g.id}>
+          <tr key={g.id} className={g.is_active ? undefined : 'row-inactive'}>
             <td className="row-number-col">{i + 1}</td>
             <td>{g.first_name} {g.last_name}{gpsConsentBadge(g)}</td>
             <td>{g.phone_number || '—'}</td>
